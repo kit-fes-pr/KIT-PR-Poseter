@@ -14,13 +14,28 @@
 - ポスター配布状況のリアルタイム管理
 - 工大祭実行委員会メンバー間での情報共有の効率化
 - 配布作業の重複防止
+- 年度を跨いだデータ管理と履歴参照
+- 統計情報による来年度の改善案策立
 
 ### 対象ユーザー・配布範囲
 - **ユーザー**: 工大祭実行委員会所属メンバー
 - **配布対象**: 大学周辺の店舗（Google My Mapsで指定された範囲）
 - **配布方法**: 各班に分かれて徒歩で回る
+- **数年にわたる運用**: 年度別データ管理と履歴参照機能を備えている
 
 ## 機能要件
+
+### 0. 年度管理機能
+#### イベント管理
+- 年度別の配布イベント作成・管理
+- アクティブイベントの切り替え
+- 過去イベントのアーカイブ管理
+
+#### 履歴・統計機能
+- 年度別配布実績の記録・参照
+- チームパフォーマンスの分析・比較
+- 年次トレンドグラフと統計レポート
+- 最高パフォーマンスチームの記録
 
 ### 1. 店舗情報管理
 #### 店舗登録方式
@@ -33,7 +48,7 @@
 - 配布不可理由（不在/断られた/閉店/その他）
 - 住所（事前登録 or 手動入力）
 - 配布区域管理番号（ログイン認証から自動設定）
-- 備考
+- 備考（自由記述欄）
 
 ### 2. 認証・ユーザー管理
 #### 班認証システム
@@ -76,6 +91,9 @@
 - 参加者名簿管理
 - 配布状況統計・レポート
 - 周辺区域設定
+- **年度別イベント管理**: 年ごとのデータ管理とアーカイブ
+- **履歴管理**: 過去の配布実績と統計情報の参照
+- **年次レポート**: チームパフォーマンスやトレンド分析
 
 ---
 
@@ -96,7 +114,7 @@
 | **Next.js** | Reactフレームワーク |
 | **Tailwind CSS** | UIスタイリング |
 | **React Hook Form** | フォーム管理 |
-| **SWR/React Query** | データフェッチング |
+| **SWR** | データフェッチング |
 
 #### バックエンド・データベース
 | 技術 | 用途 |
@@ -124,6 +142,10 @@
 ### ページ構成・ルーティング
 | パス | 画面名 | 認証要件 |
 |-----|--------|---------|
+| `/admin/event` | イベント管理 | 管理者認証 |
+| `/admin/event/[year]` | 年度別イベント管理 | 管理者認証 |
+| `/admin/event/[year]/[teamId]` | チーム詳細管理 | 管理者認証 |
+| `/dashboard/all` | 全体ダッシュボード | 班認証 |
 | `/` | ログインコード入力 | なし |
 | `/form/{id}` | アンケート回答フォーム | なし |
 | `/admin` | 管理者ログイン | なし |
@@ -182,7 +204,9 @@ interface Store {
   failureReason?: "absent" | "refused" | "closed" | "other";
   distributedCount: number; // 配布枚数
   distributedBy: string;    // 配布者（teamCode）
+  createdByTeamCode?: string; // 登録者（手動登録時）
   distributedAt?: Date;
+  notes?: string;           // 備考欄
   registrationMethod: "preset" | "manual";
   eventId: string;
   createdAt: Date;
@@ -330,6 +354,48 @@ interface TempAccount {
 }
 ```
 
+##### 8. 配布履歴 (`/distributionHistory/{historyId}`)
+```typescript
+interface DistributionHistory {
+  historyId: string;
+  eventId: string;
+  year: number;
+  eventName: string;
+  distributionDate: Date;
+  totalStores: number;
+  completedStores: number;
+  failedStores: number;
+  completionRate: number;
+  teams: TeamHistory[];
+  areas: AreaHistory[];
+  createdAt: Date;
+  archivedAt: Date;
+}
+```
+
+##### 9. 年次統計 (`/yearlyStats/{year}`)
+```typescript
+interface YearlyStats {
+  year: number;
+  eventName: string;
+  totalEvents: number;
+  totalStores: number;
+  totalTeams: number;
+  totalMembers: number;
+  averageCompletionRate: number;
+  bestPerformingTeam: {
+    teamCode: string;
+    teamName: string;
+    completionRate: number;
+  };
+  distributionTrends: {
+    date: Date;
+    completedStores: number;
+    totalStores: number;
+  }[];
+}
+```
+
 ---
 
 ## API設計
@@ -361,6 +427,11 @@ interface TempAccount {
 | `POST` | `/api/admin/teams` | チーム作成 |
 | `POST` | `/api/admin/members/import` | 参加者CSVインポート |
 | `GET` | `/api/admin/export` | データエクスポート |
+| `GET` | `/api/admin/history` | 配布履歴取得 |
+| `GET` | `/api/admin/yearly-stats` | 年次統計取得 |
+| `GET` | `/api/admin/current-year-total` | 当年度統計取得 |
+| `GET` | `/api/admin/events` | イベント一覧取得 |
+| `GET` | `/api/admin/teams/{teamId}/stores` | チーム別店舗情報取得 |
 
 ---
 
@@ -389,6 +460,12 @@ interface TempAccount {
    - 配布区域設定
    - メンバー管理（CSV インポート）
    - リアルタイム進捗監視（班別リスト表示）
+
+3. **イベント管理** (`/admin/event`)
+   - 年度別イベント管理
+   - 配布履歴の確認・アーカイブ
+   - 年次統計レポート
+   - チーム別詳細データ確認
 
 ---
 
@@ -439,6 +516,7 @@ interface TempAccount {
 
 ## 文書情報
 
-**最終更新**: 2025年9月17日  
+**最終更新**: 2025年9月18日  
 **作成者**: 工大祭実行委員会 PR系 平田  
-**文書バージョン**: 1.0
+**文書バージョン**: 1.1  
+**更新内容**: 年度管理機能・履歴管理機能・統計レポート機能の追加
