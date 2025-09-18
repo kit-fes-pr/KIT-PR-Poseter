@@ -1,5 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+
+// そこそこのかな生成: 半角→全角正規化し、ひらがなをカタカナに変換
+function generateKana(text: string): string {
+  const normalized = (text || '').normalize('NFKC');
+  let out = '';
+  for (const ch of normalized) {
+    const code = ch.charCodeAt(0);
+    // ひらがな -> カタカナ
+    if (code >= 0x3041 && code <= 0x3096) {
+      out += String.fromCharCode(code + 0x60);
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
 
 export async function PUT(
   request: NextRequest,
@@ -18,10 +35,13 @@ export async function PUT(
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
-    const {
+  const {
+      storeName,
+      address,
       distributionStatus,
       failureReason,
-      distributedCount
+      distributedCount,
+      notes,
     } = await request.json();
 
     const resolvedParams = await params;
@@ -36,17 +56,49 @@ export async function PUT(
     }
 
     const updateData: Record<string, unknown> = {
-      distributionStatus,
-      distributedBy: decodedToken.teamCode || '',
       updatedAt: new Date()
     };
 
-    if (distributionStatus === 'completed') {
-      updateData.distributedAt = new Date();
-      updateData.distributedCount = distributedCount || 0;
-    } else if (distributionStatus === 'failed' && failureReason) {
-      updateData.failureReason = failureReason;
+    // 基本情報の更新
+    if (typeof storeName === 'string' && storeName.trim().length > 0) {
+      const name = storeName.trim();
+      updateData.storeName = name;
+      updateData.storeNameKana = generateKana(name);
     }
+    if (typeof address === 'string' && address.trim().length > 0) {
+      const addr = address.trim();
+      updateData.address = addr;
+      updateData.addressKana = generateKana(addr);
+    }
+
+    if (typeof notes === 'string') {
+      updateData.notes = notes.trim();
+    }
+
+    // 配布状態の更新
+    if (distributionStatus) {
+      updateData.distributionStatus = distributionStatus;
+      updateData.distributedBy = decodedToken.teamCode || '';
+      if (distributionStatus === 'completed') {
+        updateData.distributedAt = new Date();
+        updateData.distributedCount = distributedCount || 0;
+      } else if (distributionStatus === 'failed') {
+        if (failureReason) {
+          updateData.failureReason = failureReason;
+        }
+        // completed 以外では配布枚数は 0 にリセット
+        updateData.distributedCount = 0;
+        // completed 以外へ戻したら distributedAt を削除
+        updateData.distributedAt = FieldValue.delete();
+      } else {
+        // pending / revisit の場合は枚数 0
+        updateData.distributedCount = 0;
+        // completed 以外へ戻したら distributedAt を削除
+        updateData.distributedAt = FieldValue.delete();
+      }
+    }
+
+    // ここまでで distributionStatus に応じた更新は完了
 
     await storeRef.update(updateData);
 

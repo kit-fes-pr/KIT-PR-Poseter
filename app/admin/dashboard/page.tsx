@@ -18,6 +18,9 @@ const fetcher = async (url: string) => {
 export default function AdminDashboard() {
   const router = useRouter();
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [ctStatus, setCtStatus] = useState<'all' | 'pending' | 'completed' | 'failed' | 'revisit'>('all');
+  const [ctQuery, setCtQuery] = useState('');
   const [teamForm, setTeamForm] = useState({
     teamCode: '',
     teamName: '',
@@ -26,7 +29,11 @@ export default function AdminDashboard() {
     adjacentAreas: '',
   });
 
-  const { data: statsData } = useSWR('/api/admin/stats', fetcher);
+  const { data: statsData } = useSWR(isAdmin ? '/api/admin/stats' : null, fetcher);
+  const { data: currentTotals } = useSWR(
+    isAdmin ? '/api/admin/current-year-total?eventId=kohdai2025&includeStores=1' : null,
+    fetcher
+  );
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -52,7 +59,15 @@ export default function AdminDashboard() {
           localStorage.removeItem('authToken');
           router.push('/admin');
         } else {
-          console.log('Token verification successful');
+          const data = await response.json();
+          if (!data?.user?.isAdmin) {
+            console.log('Not an admin user, redirecting to admin login');
+            localStorage.removeItem('authToken');
+            router.push('/admin');
+            return;
+          }
+          console.log('Token verification successful as admin');
+          setIsAdmin(true);
         }
       } catch (error) {
         console.error('Auth verification error:', error);
@@ -129,6 +144,29 @@ export default function AdminDashboard() {
     }
   };
 
+  const updateCurrentYearTotals = async () => {
+    if (!confirm('今年度総店舗履歴を更新しますか？')) return;
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch('/api/admin/current-year-total', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventId: 'kohdai2025' }),
+      });
+      if (res.ok) {
+        alert('今年度総店舗履歴を更新しました');
+      } else {
+        const err = await res.json();
+        alert(err.error || '更新に失敗しました');
+      }
+    } catch (e) {
+      alert('更新に失敗しました');
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -164,13 +202,23 @@ export default function AdminDashboard() {
                 データアーカイブ
               </button>
               <button
+                onClick={updateCurrentYearTotals}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm"
+              >
+                今年度総店舗履歴を更新
+              </button>
+              <button
                 onClick={() => {
                   localStorage.removeItem('authToken');
                   router.push('/admin');
                 }}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm"
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
+                title="ログアウト"
               >
-                ログアウト
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                  <path d="M13 3a1 1 0 011 1v4a1 1 0 11-2 0V5H7a1 1 0 00-1 1v12a1 1 0 001 1h5v-3a1 1 0 112 0v4a1 1 0 01-1 1H7a3 3 0 01-3-3V6a3 3 0 013-3h6z" />
+                  <path d="M16.293 8.293a1 1 0 011.414 0L21 11.586a2 2 0 010 2.828l-3.293 3.293a1 1 0 11-1.414-1.414L17.586 14H11a1 1 0 110-2h6.586l-1.293-1.293a1 1 0 010-1.414z" />
+                </svg>
               </button>
             </div>
           </div>
@@ -179,7 +227,7 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {/* 全体統計 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-lg font-medium">総店舗数</h3>
             <p className="text-3xl font-bold text-gray-900">
@@ -198,12 +246,7 @@ export default function AdminDashboard() {
               {statsData?.overall?.failedStores || 0}
             </p>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-medium">完了率</h3>
-            <p className="text-3xl font-bold text-indigo-600">
-              {statsData?.overall?.completionRate?.toFixed(1) || 0}%
-            </p>
-          </div>
+          {null}
         </div>
 
         {/* チーム別統計 */}
@@ -224,18 +267,18 @@ export default function AdminDashboard() {
                     担当区域
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    総店舗数
+                    配布店舗数
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布済み</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布不可</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布枚数</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    配布済み
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    完了率
+                    詳細
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {statsData?.teamStats?.map((team: { teamId: string; teamName: string; teamCode: string; assignedArea: string; totalStores: number; completedStores: number; completionRate: number }) => (
+                {statsData?.teamStats?.map((team: { teamId: string; teamName: string; teamCode: string; assignedArea: string; totalStores: number; completedStores: number; failedStores: number; distributedCount: number; completionRate: number }) => (
                   <tr key={team.teamId}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -251,23 +294,18 @@ export default function AdminDashboard() {
                       {team.assignedArea}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {team.totalStores}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {team.completedStores}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                          <div
-                            className="bg-indigo-600 h-2 rounded-full"
-                            style={{ width: `${team.completionRate}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-900">
-                          {team.completionRate.toFixed(1)}%
-                        </span>
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.completedStores}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.failedStores}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.distributedCount}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600">
+                      <button
+                        onClick={() => router.push(`/admin/teams/${team.teamId}`)}
+                        className="px-3 py-1 border border-indigo-200 rounded hover:bg-indigo-50"
+                      >
+                        詳細
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -276,34 +314,112 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* 区域別統計 */}
+        {/* 今年度総店舗履歴（一覧表） */}
         <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              区域別進捗
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-            {statsData?.areaStats?.map((area: { areaCode: string; totalStores: number; completedStores: number; completionRate: number }) => (
-              <div key={area.areaCode} className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900">{area.areaCode}</h4>
-                <div className="mt-2">
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>進捗</span>
-                    <span>{area.completedStores} / {area.totalStores}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                    <div
-                      className="bg-indigo-600 h-2 rounded-full"
-                      style={{ width: `${area.completionRate}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-right text-sm text-gray-600 mt-1">
-                    {area.completionRate.toFixed(1)}%
-                  </p>
-                </div>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">今年度総店舗履歴</h3>
+                <span className="text-sm text-gray-500">
+                  最終更新: {currentTotals?.data?.updatedAt ? new Date(currentTotals.data.updatedAt).toLocaleString('ja-JP') : '-'}
+                </span>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <select
+                  value={ctStatus}
+                  onChange={(e) => setCtStatus(e.target.value as any)}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">すべて</option>
+                  <option value="pending">未配布</option>
+                  <option value="completed">配布済み</option>
+                  <option value="failed">配布不可</option>
+                  <option value="revisit">要再訪問</option>
+                </select>
+                <input
+                  type="text"
+                  value={ctQuery}
+                  onChange={(e) => setCtQuery(e.target.value)}
+                  placeholder="店名・住所で検索"
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            {(() => {
+              const stores = ((currentTotals?.stores || []) as any[])
+                .filter(s => ctStatus === 'all' || s.distributionStatus === ctStatus)
+                .filter(s => {
+                  const q = ctQuery.trim().toLowerCase();
+                  if (!q) return true;
+                  return (
+                    (s.storeName || '').toLowerCase().includes(q) ||
+                    (s.address || '').toLowerCase().includes(q)
+                  );
+                })
+                .sort((a, b) => {
+                  const aKana = (a.storeNameKana || a.storeName || '').toString();
+                  const bKana = (b.storeNameKana || b.storeName || '').toString();
+                  return aKana.localeCompare(bKana, 'ja');
+                });
+
+              const teamsByCode = (currentTotals?.teamsByCode || {}) as Record<string, string>;
+              const teamLabel = (code?: string) => {
+                if (!code) return '-';
+                const name = teamsByCode[code];
+                return name ? `${name}（${code}）` : code;
+              };
+
+              const statusText = (st: string) => st === 'completed' ? '配布済み' : st === 'failed' ? '配布不可' : st === 'revisit' ? '要再訪問' : '未配布';
+              const statusClass = (st: string) => st === 'completed' ? 'bg-green-100 text-green-800' : st === 'failed' ? 'bg-red-100 text-red-800' : st === 'revisit' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800';
+
+              return (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">店舗名</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住所</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布枚数</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布チーム名</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">備考</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {stores.map((s: any) => (
+                      <tr key={s.storeId}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{s.storeName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{s.address}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${statusClass(s.distributionStatus)}`}>
+                            {statusText(s.distributionStatus)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{s.distributedCount || 0}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {s.distributedByName
+                            ? `${s.distributedByName}（${s.distributedBy}）`
+                            : s.distributedBy
+                              ? (teamsByCode[s.distributedBy]
+                                  ? `${teamsByCode[s.distributedBy]}（${s.distributedBy}）`
+                                  : s.distributedBy)
+                              : (s.assignedTeams && s.assignedTeams.length > 0
+                                  ? s.assignedTeams.join(', ')
+                                  : '-')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[20rem] truncate" title={s.notes || ''}>{s.notes || ''}</td>
+                      </tr>
+                    ))}
+                    {stores.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-6 text-center text-sm text-gray-400">データがありません</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              );
+            })()}
           </div>
         </div>
       </div>

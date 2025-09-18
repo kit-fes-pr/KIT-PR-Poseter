@@ -39,23 +39,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 一時ユーザーIDを生成
-    const tempUserId = `temp_${teamCode}_${Date.now()}`;
+    // 一時メールアドレス + パスワード方式
+    const tempEmail = `${teamData.teamCode}@temp.kohdai-poster.local`;
+    const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
 
-    // カスタムトークンを生成
-    const customToken = await adminAuth.createCustomToken(tempUserId, {
-      teamCode: teamData.teamCode,
-      teamId: teamDoc.id,
-      role: 'team',
-      tempUser: true
-    });
+    // 既存ユーザー確認 or 作成
+    let uid: string | null = null;
+    try {
+      const existing = await adminAuth.getUserByEmail(tempEmail);
+      uid = existing.uid;
+      // 既存の一時ユーザーのパスワードをローテーション
+      await adminAuth.updateUser(uid, { password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
+    } catch {
+      const created = await adminAuth.createUser({ email: tempEmail, password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
+      uid = created.uid;
+    }
+
+    // カスタムクレームを設定（班情報）
+    if (uid) {
+      await adminAuth.setCustomUserClaims(uid, {
+        teamCode: teamData.teamCode,
+        teamId: teamDoc.id,
+        role: 'team',
+        tempUser: true
+      });
+    }
 
     // 一時アカウント情報を記録
     const tempAccountRef = adminDb.collection('tempAccounts').doc();
     await tempAccountRef.set({
       accountId: tempAccountRef.id,
-      tempUserId,
       teamCode: teamData.teamCode,
+      tempEmail,
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       isActive: true
@@ -63,7 +78,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      customToken,
+      tempEmail,
+      tempPassword,
       teamData: {
         teamId: teamDoc.id,
         teamCode: teamData.teamCode,
