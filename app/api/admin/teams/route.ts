@@ -111,8 +111,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const eventIdParam = searchParams.get('eventId');
+    const yearParam = searchParams.get('year');
+
+    let targetEventId = eventIdParam || 'kohdai2025';
+    if (!eventIdParam && yearParam) {
+      const y = parseInt(yearParam);
+      const evSnap = await adminDb.collection('distributionEvents').where('year', '==', y).limit(1).get();
+      if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
+    }
+
     const teamsSnapshot = await adminDb.collection('teams')
-      .where('eventId', '==', 'kohdai2025')
+      .where('eventId', '==', targetEventId)
       .where('isActive', '==', true)
       .get();
 
@@ -129,5 +140,39 @@ export async function GET(request: NextRequest) {
       { error: 'チーム情報の取得に失敗しました' },
       { status: 500 }
     );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    if (decodedToken.role !== 'admin') {
+      return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
+    }
+
+    const { teamId, validDate } = await request.json();
+    if (!teamId || !validDate) {
+      return NextResponse.json({ error: 'teamId と validDate は必須です' }, { status: 400 });
+    }
+
+    const ref = adminDb.collection('teams').doc(String(teamId));
+    const doc = await ref.get();
+    if (!doc.exists) return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
+
+    const dateObj = new Date(validDate);
+    if (isNaN(dateObj.getTime())) return NextResponse.json({ error: 'validDate の形式が不正です' }, { status: 400 });
+
+    await ref.update({ validDate: dateObj, updatedAt: new Date() });
+    const updated = await ref.get();
+    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as any) } });
+  } catch (error) {
+    console.error('Update team error:', error);
+    return NextResponse.json({ error: 'チームの更新に失敗しました' }, { status: 500 });
   }
 }

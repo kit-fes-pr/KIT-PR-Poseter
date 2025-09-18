@@ -29,14 +29,52 @@ export async function POST(request: NextRequest) {
     const teamDoc = teamQuery.docs[0];
     const teamData = teamDoc.data();
 
-    const today = new Date();
-    const validDate = new Date(teamData.validDate._seconds * 1000);
-    
-    if (today.toDateString() !== validDate.toDateString()) {
-      return NextResponse.json(
-        { error: `本日は配布日ではありません。配布日: ${validDate.toLocaleDateString('ja-JP')}` },
-        { status: 403 }
-      );
+    // 学外配布日の判定（どちらも一致で許可）
+    const fmtJst = (d: Date) => {
+      const parts = new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).formatToParts(d);
+      const y = parts.find(p => p.type === 'year')?.value || '';
+      const m = parts.find(p => p.type === 'month')?.value || '';
+      const da = parts.find(p => p.type === 'day')?.value || '';
+      return `${y}-${m}-${da}`;
+    };
+
+    const todayKey = fmtJst(new Date());
+    // team.validDate
+    let validKey: string | null = null;
+    try {
+      if (teamData.validDate) {
+        const vd = teamData.validDate._seconds ? new Date(teamData.validDate._seconds * 1000)
+          : (typeof teamData.validDate === 'string' ? new Date(teamData.validDate) : new Date(teamData.validDate));
+        if (!isNaN(vd.getTime())) validKey = fmtJst(vd);
+      }
+    } catch {}
+
+    // event.distributionDate（team.eventId から解決）
+    let distKey: string | null = null;
+    try {
+      if (teamData.eventId) {
+        const evDoc = await adminDb.collection('distributionEvents').doc(teamData.eventId).get();
+        if (evDoc.exists) {
+          const ev = evDoc.data() as any;
+          if (ev?.distributionDate) {
+            const dd = ev.distributionDate._seconds ? new Date(ev.distributionDate._seconds * 1000)
+              : (typeof ev.distributionDate === 'string' ? new Date(ev.distributionDate) : new Date(ev.distributionDate));
+            if (!isNaN(dd.getTime())) distKey = fmtJst(dd);
+          }
+        }
+      }
+    } catch {}
+
+    // どちらも存在し、かつ今日と一致している必要あり
+    if (!validKey || !distKey) {
+      return NextResponse.json({ error: '配布日が未設定です（team.validDate と event.distributionDate の両方を設定してください）' }, { status: 403 });
+    }
+    if (!(validKey === todayKey && distKey === todayKey)) {
+      const dispValid = validKey.replace(/-/g, '/');
+      const dispDist = distKey.replace(/-/g, '/');
+      return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispValid} / イベント: ${dispDist}` }, { status: 403 });
     }
 
     // 一時メールアドレス + パスワード方式

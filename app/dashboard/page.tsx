@@ -130,6 +130,20 @@ export default function Dashboard() {
     }
   };
 
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuStoreId) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (!target) return;
+      if (!target.closest('[data-menu-root]')) {
+        setMenuStoreId(null);
+      }
+    };
+    document.addEventListener('mousedown', onDown as any);
+    return () => document.removeEventListener('mousedown', onDown as any);
+  }, [menuStoreId]);
+
   const updateStoreStatus = async (storeId: string, status: Store['distributionStatus'], count?: number, reason?: string) => {
     try {
       const token = localStorage.getItem('authToken');
@@ -376,7 +390,7 @@ export default function Dashboard() {
                           </button>
                         </>
                       )}
-                      <div className="relative">
+                      <div className="relative" data-menu-root>
                         <button
                           onClick={() => setMenuStoreId(menuStoreId === store.storeId ? null : store.storeId)}
                           className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm"
