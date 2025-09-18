@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,36 +39,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tempEmail = `${teamCode}@temp.kohdai-poster.local`;
-    const tempPassword = `temp_${teamCode}_${Date.now()}`;
+    // 一時ユーザーIDを生成
+    const tempUserId = `temp_${teamCode}_${Date.now()}`;
 
-    try {
-      await createUserWithEmailAndPassword(auth, tempEmail, tempPassword);
-    } catch (error: unknown) {
-      const firebaseError = error as { code?: string };
-      if (firebaseError.code === 'auth/email-already-in-use') {
-        await signInWithEmailAndPassword(auth, tempEmail, tempPassword);
-      } else {
-        throw error;
-      }
-    }
-
-    const user = auth.currentUser;
-    if (!user) {
-      throw new Error('認証に失敗しました');
-    }
-
-    await adminAuth.setCustomUserClaims(user.uid, {
+    // カスタムトークンを生成
+    const customToken = await adminAuth.createCustomToken(tempUserId, {
       teamCode: teamData.teamCode,
       teamId: teamDoc.id,
-      role: 'team'
+      role: 'team',
+      tempUser: true
     });
 
+    // 一時アカウント情報を記録
     const tempAccountRef = adminDb.collection('tempAccounts').doc();
     await tempAccountRef.set({
       accountId: tempAccountRef.id,
+      tempUserId,
       teamCode: teamData.teamCode,
-      tempEmail,
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       isActive: true
@@ -78,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      customToken,
       teamData: {
         teamId: teamDoc.id,
         teamCode: teamData.teamCode,

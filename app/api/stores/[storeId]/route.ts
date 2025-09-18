@@ -44,7 +44,7 @@ export async function PUT(
     if (distributionStatus === 'completed') {
       updateData.distributedAt = new Date();
       updateData.distributedCount = distributedCount || 0;
-    } else if (distributionStatus === 'failed') {
+    } else if (distributionStatus === 'failed' && failureReason) {
       updateData.failureReason = failureReason;
     }
 

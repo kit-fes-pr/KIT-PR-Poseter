@@ -107,3 +107,100 @@ export interface AdminLoginFormData {
   email: string;
   password: string;
 }
+
+// 年度別データ管理
+export interface DistributionHistory {
+  historyId: string;
+  eventId: string;
+  year: number;
+  eventName: string;
+  distributionDate: Date;
+  totalStores: number;
+  completedStores: number;
+  failedStores: number;
+  completionRate: number;
+  teams: TeamHistory[];
+  areas: AreaHistory[];
+  createdAt: Date;
+  archivedAt: Date;
+}
+
+export interface TeamHistory {
+  teamId: string;
+  teamCode: string;
+  teamName: string;
+  timeSlot: "morning" | "afternoon";
+  assignedArea: string;
+  adjacentAreas: string[];
+  members: TeamMember[];
+  totalStores: number;
+  completedStores: number;
+  completionRate: number;
+  distributedStores: StoreDistributionRecord[];
+}
+
+export interface TeamMember {
+  memberId: string;
+  name: string;
+  section: string;
+  grade: number;
+  role?: "leader" | "member";
+  joinedAt: Date;
+}
+
+export interface AreaHistory {
+  areaId: string;
+  areaCode: string;
+  areaName: string;
+  timeSlot: "morning" | "afternoon";
+  totalStores: number;
+  completedStores: number;
+  completionRate: number;
+  assignedTeams: string[];
+}
+
+export interface StoreDistributionRecord {
+  storeId: string;
+  storeName: string;
+  address: string;
+  areaCode: string;
+  distributionStatus: Store["distributionStatus"];
+  failureReason?: Store["failureReason"];
+  distributedCount: number;
+  distributedBy: string;
+  distributedAt: Date;
+  teamMembers: string[];
+  notes?: string;
+}
+
+// 年度別統計データ
+export interface YearlyStats {
+  year: number;
+  eventName: string;
+  totalEvents: number;
+  totalStores: number;
+  totalTeams: number;
+  totalMembers: number;
+  averageCompletionRate: number;
+  bestPerformingTeam: {
+    teamCode: string;
+    teamName: string;
+    completionRate: number;
+  };
+  distributionTrends: {
+    date: Date;
+    completedStores: number;
+    totalStores: number;
+  }[];
+}
+
+// 配布履歴フィルター
+export interface DistributionFilter {
+  year?: number;
+  eventId?: string;
+  teamCode?: string;
+  areaCode?: string;
+  timeSlot?: "morning" | "afternoon";
+  completionRateMin?: number;
+  completionRateMax?: number;
+}
