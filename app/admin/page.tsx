@@ -47,7 +47,7 @@ export default function AdminLogin() {
             localStorage.setItem('authToken', idToken);
             console.log('ID Token stored:', idToken.substring(0, 50) + '...');
             
-            router.push('/admin/dashboard');
+            router.push('/admin/event');
           } catch (authError) {
             console.error('Custom token authentication failed:', authError);
             setError('認証に失敗しました');

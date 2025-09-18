@@ -22,12 +22,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const eventIdParam = searchParams.get('eventId');
+    const yearParam = searchParams.get('year');
+
+    let targetEventId = eventIdParam || 'kohdai2025';
+    if (!eventIdParam && yearParam) {
+      const year = parseInt(yearParam);
+      const evSnap = await adminDb.collection('distributionEvents').where('year', '==', year).limit(1).get();
+      if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
+    }
+
     const storesSnapshot = await adminDb.collection('stores')
-      .where('eventId', '==', 'kohdai2025')
+      .where('eventId', '==', targetEventId)
       .get();
 
     const teamsSnapshot = await adminDb.collection('teams')
-      .where('eventId', '==', 'kohdai2025')
+      .where('eventId', '==', targetEventId)
       .where('isActive', '==', true)
       .get();
 

@@ -14,8 +14,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { eventId } = await request.json();
-    const targetEventId = eventId || 'kohdai2025';
+    const body = await request.json();
+    const eventIdBody = body?.eventId as string | undefined;
+    const yearBody = body?.year as number | undefined;
+    let targetEventId = eventIdBody || 'kohdai2025';
+    if (!eventIdBody && yearBody) {
+      const evSnap = await adminDb.collection('distributionEvents').where('year', '==', yearBody).limit(1).get();
+      if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
+    }
 
     // イベント情報取得（あれば年度を使う）
     const eventDoc = await adminDb.collection('distributionEvents').doc(targetEventId).get();
@@ -95,7 +101,11 @@ export async function GET(request: NextRequest) {
     // ドキュメントが無い場合でも、includeStores 指定時は店舗一覧を返す
     if (!doc || !doc.exists) {
       if (includeStores) {
-        const eid = eventId;
+        let eid = eventId;
+        if (year) {
+          const evSnap = await adminDb.collection('distributionEvents').where('year', '==', year).limit(1).get();
+          if (!evSnap.empty) eid = evSnap.docs[0].id;
+        }
         const storesSnapshot = await adminDb
           .collection('stores')
           .where('eventId', '==', eid)
