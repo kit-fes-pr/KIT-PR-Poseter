@@ -32,7 +32,29 @@ export default function Home() {
       const result = await response.json();
 
       if (response.ok) {
-        router.push('/dashboard');
+        if (result.customToken) {
+          try {
+            // カスタムトークンを使ってFirebase認証
+            const { auth } = await import('@/lib/firebase');
+            const { signInWithCustomToken, getIdToken } = await import('firebase/auth');
+            
+            const userCredential = await signInWithCustomToken(auth, result.customToken);
+            console.log('Team signed in with custom token:', userCredential.user.uid);
+            
+            // IDトークンを取得してローカルストレージに保存
+            const idToken = await getIdToken(userCredential.user);
+            localStorage.setItem('authToken', idToken);
+            console.log('Team ID Token stored successfully');
+            
+            // チームダッシュボードにリダイレクト
+            router.push('/dashboard');
+          } catch (authError) {
+            console.error('Custom token authentication failed:', authError);
+            setError('認証に失敗しました');
+          }
+        } else {
+          setError('認証トークンの取得に失敗しました');
+        }
       } else {
         setError(result.error || 'ログインに失敗しました');
       }

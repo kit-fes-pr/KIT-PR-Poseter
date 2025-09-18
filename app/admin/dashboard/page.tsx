@@ -64,6 +64,35 @@ export default function AdminDashboard() {
     checkAuth();
   }, [router]);
 
+  const archiveCurrentData = async () => {
+    if (!confirm('現在のデータをアーカイブしますか？この操作は元に戻せません。')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/admin/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          eventId: 'kohdai2025'
+        }),
+      });
+
+      if (response.ok) {
+        alert('データのアーカイブが完了しました');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'アーカイブに失敗しました');
+      }
+    } catch {
+      alert('アーカイブに失敗しました');
+    }
+  };
+
   const createTeam = async () => {
     try {
       const token = localStorage.getItem('authToken');
@@ -115,6 +144,24 @@ export default function AdminDashboard() {
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
               >
                 チーム作成
+              </button>
+              <button
+                onClick={() => router.push('/admin/history')}
+                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm"
+              >
+                配布履歴
+              </button>
+              <button
+                onClick={() => router.push('/admin/reports')}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm"
+              >
+                統計・レポート
+              </button>
+              <button
+                onClick={archiveCurrentData}
+                className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm"
+              >
+                データアーカイブ
               </button>
               <button
                 onClick={() => {
