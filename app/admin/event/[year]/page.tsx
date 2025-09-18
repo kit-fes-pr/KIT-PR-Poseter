@@ -24,7 +24,7 @@ export default function AdminEventYear() {
   const [editAccessDate, setEditAccessDate] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<{ eventName: string; distributionDate: string }>({ eventName: '', distributionDate: '' });
+  const [editForm, setEditForm] = useState<{ eventName: string; distributionStartDate: string; distributionEndDate: string }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
 
   // Close popup menu on outside click
   useEffect(() => {
@@ -52,8 +52,14 @@ export default function AdminEventYear() {
         const ev = await fetcher(`/api/admin/events?year=${y}`);
         setEvent(ev.data || null);
         if (ev?.data) {
-          const d = ev.data.distributionDate ? (ev.data.distributionDate._seconds ? new Date(ev.data.distributionDate._seconds * 1000) : new Date(ev.data.distributionDate)) : null;
-          setEditForm({ eventName: ev.data.eventName || '', distributionDate: d ? d.toISOString().slice(0,10) : '' });
+          const parse = (v: any) => v?._seconds ? new Date(v._seconds * 1000) : new Date(v);
+          const s = ev.data.distributionStartDate ? parse(ev.data.distributionStartDate) : (ev.data.distributionDate ? parse(ev.data.distributionDate) : null);
+          const e = ev.data.distributionEndDate ? parse(ev.data.distributionEndDate) : (ev.data.distributionDate ? parse(ev.data.distributionDate) : null);
+          setEditForm({
+            eventName: ev.data.eventName || '',
+            distributionStartDate: s ? s.toISOString().slice(0, 10) : '',
+            distributionEndDate: e ? e.toISOString().slice(0, 10) : ''
+          });
         }
       } catch (e) {
         localStorage.removeItem('authToken');
@@ -67,7 +73,12 @@ export default function AdminEventYear() {
 
   const { data: statsData } = useSWR(isAdmin && event ? `/api/admin/stats?year=${y}` : null, fetcher);
   const { data: currentTotals } = useSWR(isAdmin && event ? `/api/admin/current-year-total?year=${y}&includeStores=1` : null, fetcher);
-  const { data: teamsData, mutate: mutateTeams } = useSWR(isAdmin && event ? `/api/admin/teams?year=${y}` : null, fetcher);
+  const { data: teamsData } = useSWR(isAdmin && event ? `/api/admin/teams?year=${y}` : null, fetcher);
+  const [teams, setTeams] = useState<any[]>(teamsData?.teams || []);
+
+  useEffect(() => {
+    setTeams(teamsData?.teams || []);
+  }, [teamsData]);
 
   const createTeam = async () => {
     if (!event) return;
@@ -113,6 +124,7 @@ export default function AdminEventYear() {
               <h1 className="text-xl font-semibold">{y} 年度 管理</h1>
             </div>
             <div className="flex items-center space-x-2">
+              <button onClick={() => router.push('/admin/event')} className="px-3 py-2 border rounded-md text-sm">年度一覧</button>
               <div className="relative" data-menu-root>
                 <button className="px-3 py-2 border rounded-md text-sm" onClick={() => setMenuOpen(!menuOpen)} title="メニュー">≡</button>
                 {menuOpen && (
@@ -137,7 +149,6 @@ export default function AdminEventYear() {
                   </div>
                 )}
               </div>
-              <button onClick={() => router.push('/admin/event')} className="px-3 py-2 border rounded-md text-sm">年度一覧</button>
               <button
                 onClick={() => {
                   localStorage.removeItem('authToken');
@@ -173,8 +184,8 @@ export default function AdminEventYear() {
         </div>
 
         <div className="bg-white shadow rounded-lg mb-6">
-          <div className="px-4 py-5 border-b border-gray-200 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">チーム別進捗（{y} 年度）</h3>
+          <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex items-center justify-between">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">チーム管理（{y} 年度）</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -186,42 +197,48 @@ export default function AdminEventYear() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布済み</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布不可</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">配布枚数</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">アクセス日</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {statsData?.teamStats?.map((team: any) => (
                   <tr key={team.teamId}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{team.teamName}</div>
-                      <div className="text-sm text-gray-500">{team.teamCode}</div>
+                      <button
+                        className="text-left"
+                        onClick={() => router.push(`/admin/event/${y}/${team.teamId}`)}
+                        title="チーム詳細へ"
+                      >
+                        <div className="text-sm font-medium text-indigo-700 hover:underline">{team.teamName}</div>
+                        <div className="text-sm text-gray-500">{team.teamCode}</div>
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.assignedArea}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.completedStores}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.completedStores}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.failedStores}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.distributedCount}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {(() => {
-                        const t = (teamsData?.teams || []).find((tt: any) => tt.teamId === team.teamId);
-                        const d = t?.validDate ? (t.validDate._seconds ? new Date(t.validDate._seconds * 1000) : new Date(t.validDate)) : null;
-                        const disp = d ? d.toISOString().slice(0,10) : '-';
-                        return (
-                          <span className="inline-flex items-center gap-2">
-                            <span>{disp}</span>
-                            <button
-                              className="px-2 py-1 border rounded text-xs"
-                              onClick={() => {
-                                setEditAccessTeam({ teamId: team.teamId, teamName: team.teamName, current: disp !== '-' ? disp : '' });
-                                setEditAccessDate(disp !== '-' ? disp : '');
-                              }}
-                            >変更</button>
-                          </span>
-                        );
-                      })()}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <button className="px-3 py-1 border rounded mr-2" onClick={() => router.push(`/admin/event/${y}/teams/${team.teamId}`)}>詳細</button>
+                      <button
+                        className="px-3 py-1 border border-red-300 text-red-700 rounded"
+                        onClick={async () => {
+                          if (!confirm('このチームを削除しますか？配布記録がある場合は削除できません。')) return;
+                          try {
+                            const token = localStorage.getItem('authToken');
+                            const res = await fetch(`/api/admin/teams/${team.teamId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || '削除に失敗しました');
+                            setTeams((prev: any) => prev.filter((x: any) => x.teamId !== team.teamId));
+                          } catch (e: any) { alert(e.message || '削除に失敗しました'); }
+                        }}
+                      >削除</button>
                     </td>
                   </tr>
                 ))}
+                {teamsData?.teams?.length === 0 && (
+                  <tr><td colSpan={7} className="px-6 py-6 text-center text-sm text-gray-400">データがありません</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -231,7 +248,6 @@ export default function AdminEventYear() {
           <div className="px-4 py-5 border-b border-gray-200 sm:px-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h3 className="text-lg leading-6 font-medium text-gray-900">{y} 年度 総店舗履歴</h3>
-              <span className="text-sm text-gray-500">最終更新: {currentTotals?.data?.updatedAt ? new Date(currentTotals.data.updatedAt).toLocaleString('ja-JP') : '-'}</span>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -276,11 +292,23 @@ export default function AdminEventYear() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">チームコード</label>
-              <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={teamForm.teamCode} onChange={(e) => setTeamForm({ ...teamForm, teamCode: e.target.value })} />
+              <input
+                type="text"
+                placeholder="例: AM1-2025"
+                value={teamForm.teamCode}
+                onChange={(e) => setTeamForm({ ...teamForm, teamCode: e.target.value })}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">チーム名</label>
-              <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={teamForm.teamName} onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })} />
+              <input
+                type="text"
+                placeholder="例: 午前1班"
+                value={teamForm.teamName}
+                onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">時間帯</label>
@@ -291,15 +319,32 @@ export default function AdminEventYear() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">担当区域</label>
-              <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={teamForm.assignedArea} onChange={(e) => setTeamForm({ ...teamForm, assignedArea: e.target.value })} />
+              <input
+                type="text"
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                value={teamForm.assignedArea}
+                placeholder="例: 午前1"
+                onChange={(e) => setTeamForm({ ...teamForm, assignedArea: e.target.value })}
+              />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700">周辺区域（カンマ区切り）</label>
-              <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={teamForm.adjacentAreas} onChange={(e) => setTeamForm({ ...teamForm, adjacentAreas: e.target.value })} />
+              <input
+                type="text"
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                value={teamForm.adjacentAreas}
+                placeholder="例: 午前2, 午後1"
+                onChange={(e) => setTeamForm({ ...teamForm, adjacentAreas: e.target.value })}
+              />
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <button onClick={createTeam} className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm">作成</button>
+            <button
+              onClick={createTeam}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
+            >
+              作成
+            </button>
           </div>
         </div>
       </div>
@@ -313,9 +358,15 @@ export default function AdminEventYear() {
                 <label className="block text-sm font-medium text-gray-700">イベント名</label>
                 <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.eventName} onChange={(e) => setEditForm({ ...editForm, eventName: e.target.value })} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">配布日</label>
-                <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionDate} onChange={(e) => setEditForm({ ...editForm, distributionDate: e.target.value })} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布開始日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionStartDate} onChange={(e) => setEditForm({ ...editForm, distributionStartDate: e.target.value, distributionEndDate: editForm.distributionEndDate || e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布終了日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionEndDate} onChange={(e) => setEditForm({ ...editForm, distributionEndDate: e.target.value })} />
+                </div>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
@@ -324,7 +375,7 @@ export default function AdminEventYear() {
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem('authToken');
-                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: event.id, eventName: editForm.eventName, distributionDate: editForm.distributionDate }) });
+                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: event.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     setEvent(data.data);
@@ -359,7 +410,7 @@ export default function AdminEventYear() {
                     const res = await fetch('/api/admin/teams', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ teamId: editAccessTeam.teamId, validDate: editAccessDate }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
-                    await mutateTeams();
+                    setTeams((prev: any) => prev.map((x: any) => x.teamId === editAccessTeam.teamId ? { ...x, validDate: editAccessDate } : x));
                     setEditAccessTeam(null);
                   } catch (e: any) {
                     alert(e.message || '更新に失敗しました');

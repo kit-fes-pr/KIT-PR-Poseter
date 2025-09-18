@@ -19,7 +19,7 @@ export default function AdminEventIndex() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [form, setForm] = useState<{ year: string; eventName: string; distributionDate: string }>({ year: '', eventName: '', distributionDate: '' });
+  const [form, setForm] = useState<{ year: string; eventName: string; distributionStartDate: string; distributionEndDate: string }>({ year: '', eventName: '', distributionStartDate: '', distributionEndDate: '' });
   const [menuEventId, setMenuEventId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
@@ -125,7 +125,19 @@ export default function AdminEventIndex() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-base font-semibold">{ev.year} 年度</p>
-                        <p className="text-sm text-gray-500">{ev.eventName || '学外配布'} / {ev.distributionDate ? new Date(ev.distributionDate._seconds ? ev.distributionDate._seconds * 1000 : ev.distributionDate).toLocaleDateString('ja-JP') : '-'}</p>
+                        <p className="text-sm text-gray-500">
+                          {ev.eventName || '学外配布'} / {
+                            (() => {
+                              const parse = (v: any) => v?._seconds ? new Date(v._seconds * 1000) : new Date(v);
+                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate) : (ev.distributionDate ? parse(ev.distributionDate) : null);
+                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate) : (ev.distributionDate ? parse(ev.distributionDate) : null);
+                              if (!s || !e) return '-';
+                              const sd = s.toLocaleDateString('ja-JP');
+                              const ed = e.toLocaleDateString('ja-JP');
+                              return sd === ed ? sd : `${sd} 〜 ${ed}`;
+                            })()
+                          }
+                        </p>
                       </div>
                       <div className="relative" data-menu-root onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                         <button
@@ -200,14 +212,15 @@ export default function AdminEventIndex() {
                   placeholder="例: 工大祭2025 学外配布"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">配布日</label>
-                <input
-                  type="date"
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                  value={form.distributionDate}
-                  onChange={(e) => setForm({ ...form, distributionDate: e.target.value })}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布開始日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={form.distributionStartDate} onChange={(e) => setForm({ ...form, distributionStartDate: e.target.value, distributionEndDate: form.distributionEndDate || e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布終了日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={form.distributionEndDate} onChange={(e) => setForm({ ...form, distributionEndDate: e.target.value })} />
+                </div>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
@@ -219,7 +232,7 @@ export default function AdminEventIndex() {
                     const res = await fetch('/api/admin/events', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                      body: JSON.stringify({ year: Number(form.year), eventName: form.eventName, distributionDate: form.distributionDate }),
+                      body: JSON.stringify({ year: Number(form.year), eventName: form.eventName, distributionStartDate: form.distributionStartDate, distributionEndDate: form.distributionEndDate || form.distributionStartDate }),
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '作成に失敗しました');
@@ -228,13 +241,13 @@ export default function AdminEventIndex() {
                     setEvents(events || []);
                     setLatest(latest || null);
                     setIsCreating(false);
-                    setForm({ year: '', eventName: '', distributionDate: '' });
+                    setForm({ year: '', eventName: '', distributionStartDate: '', distributionEndDate: '' });
                   } catch (e: any) {
                     alert(e.message || '作成に失敗しました');
                   }
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md"
-                disabled={!form.year || !form.distributionDate}
+                disabled={!form.year || !form.distributionStartDate}
               >作成</button>
             </div>
           </div>

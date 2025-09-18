@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { year, eventName, distributionDate, eventId } = await request.json();
+    const { year, eventName, distributionDate, distributionStartDate, distributionEndDate, eventId } = await request.json();
 
-    if (!year || !distributionDate) {
-      return NextResponse.json({ error: '年度と配布日を入力してください' }, { status: 400 });
+    if (!year || (!distributionDate && !distributionStartDate)) {
+      return NextResponse.json({ error: '年度と配布日（開始日）を入力してください' }, { status: 400 });
     }
 
     const y = parseInt(String(year));
@@ -79,10 +79,20 @@ export async function POST(request: NextRequest) {
     const id = eventId || `kohdai${y}`;
     const docRef = adminDb.collection('distributionEvents').doc(id);
 
+    const startDateStr = distributionStartDate || distributionDate;
+    const endDateStr = distributionEndDate || distributionDate || distributionStartDate;
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
+    }
+
     const payload = {
       eventId: id,
       eventName: eventName || `工大祭${y}`,
-      distributionDate: new Date(distributionDate),
+      distributionDate: start, // 後方互換
+      distributionStartDate: start,
+      distributionEndDate: end,
       year: y,
       isActive: true,
       createdAt: new Date(),
@@ -109,7 +119,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { id, year, eventName, distributionDate, isActive } = await request.json();
+    const { id, year, eventName, distributionDate, distributionStartDate, distributionEndDate, isActive } = await request.json();
     if (!id && !year) {
       return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
     }
@@ -127,7 +137,14 @@ export async function PATCH(request: NextRequest) {
     const update: Record<string, any> = { updatedAt: new Date() };
     if (typeof eventName === 'string') update.eventName = eventName;
     if (typeof isActive === 'boolean') update.isActive = isActive;
-    if (distributionDate) update.distributionDate = new Date(distributionDate);
+    // 単日（distributionDate）と期間（distributionStartDate, distributionEndDate）の両対応
+    if (distributionStartDate || distributionEndDate || distributionDate) {
+      const startDateStr = distributionStartDate || distributionDate;
+      const endDateStr = distributionEndDate || distributionDate || distributionStartDate;
+      if (startDateStr) update.distributionStartDate = new Date(startDateStr);
+      if (endDateStr) update.distributionEndDate = new Date(endDateStr);
+      if (startDateStr) update.distributionDate = new Date(startDateStr); // 後方互換
+    }
 
     await docRef.update(update);
     const doc = await docRef.get();

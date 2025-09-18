@@ -51,29 +51,41 @@ export async function POST(request: NextRequest) {
       }
     } catch {}
 
-    // event.distributionDate（team.eventId から解決）
+    // event.distributionDate / distributionStartDate - distributionEndDate（team.eventId から解決）
     let distKey: string | null = null;
+    let distStartKey: string | null = null;
+    let distEndKey: string | null = null;
     try {
       if (teamData.eventId) {
         const evDoc = await adminDb.collection('distributionEvents').doc(teamData.eventId).get();
         if (evDoc.exists) {
           const ev = evDoc.data() as any;
+          const parseDate = (v: any) => v?._seconds ? new Date(v._seconds * 1000)
+            : (typeof v === 'string' ? new Date(v) : new Date(v));
+          if (ev?.distributionStartDate || ev?.distributionEndDate) {
+            const ds = ev.distributionStartDate ? parseDate(ev.distributionStartDate) : null;
+            const de = ev.distributionEndDate ? parseDate(ev.distributionEndDate) : null;
+            if (ds && !isNaN(ds.getTime())) distStartKey = fmtJst(ds);
+            if (de && !isNaN(de.getTime())) distEndKey = fmtJst(de);
+          }
           if (ev?.distributionDate) {
-            const dd = ev.distributionDate._seconds ? new Date(ev.distributionDate._seconds * 1000)
-              : (typeof ev.distributionDate === 'string' ? new Date(ev.distributionDate) : new Date(ev.distributionDate));
+            const dd = parseDate(ev.distributionDate);
             if (!isNaN(dd.getTime())) distKey = fmtJst(dd);
           }
         }
       }
     } catch {}
 
-    // どちらも存在し、かつ今日と一致している必要あり
-    if (!validKey || !distKey) {
-      return NextResponse.json({ error: '配布日が未設定です（team.validDate と event.distributionDate の両方を設定してください）' }, { status: 403 });
+    // どちらも存在し、かつ当日一致（イベントは単日一致 or 期間内一致）
+    if (!validKey || (!distKey && !(distStartKey && distEndKey))) {
+      return NextResponse.json({ error: '配布日が未設定です（team.validDate と event.distribution(単日 or 期間) の両方を設定してください）' }, { status: 403 });
     }
-    if (!(validKey === todayKey && distKey === todayKey)) {
+    const inRange = distStartKey && distEndKey ? (distStartKey <= todayKey && todayKey <= distEndKey) : (distKey === todayKey);
+    if (!(validKey === todayKey && inRange)) {
       const dispValid = validKey.replace(/-/g, '/');
-      const dispDist = distKey.replace(/-/g, '/');
+      const dispDist = distStartKey && distEndKey
+        ? `${distStartKey.replace(/-/g,'/')}〜${distEndKey.replace(/-/g,'/')}`
+        : (distKey ? distKey.replace(/-/g,'/') : '-');
       return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispValid} / イベント: ${dispDist}` }, { status: 403 });
     }
 
