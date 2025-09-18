@@ -121,3 +121,40 @@ export async function PUT(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ storeId: string }> }
+) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const { storeId } = await params;
+
+    const storeRef = adminDb.collection('stores').doc(storeId);
+    const storeDoc = await storeRef.get();
+    if (!storeDoc.exists) {
+      return NextResponse.json({ error: '店舗が見つかりません' }, { status: 404 });
+    }
+
+    const store = storeDoc.data() as any;
+
+    // 管理者は削除可能。それ以外は作成チームのみ削除可能。
+    const isAdmin = decodedToken.role === 'admin';
+    const isCreator = !!decodedToken.teamCode && store.createdByTeamCode === decodedToken.teamCode;
+    if (!isAdmin && !isCreator) {
+      return NextResponse.json({ error: '削除権限がありません' }, { status: 403 });
+    }
+
+    await storeRef.delete();
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete store error:', error);
+    return NextResponse.json({ error: '店舗の削除に失敗しました' }, { status: 500 });
+  }
+}

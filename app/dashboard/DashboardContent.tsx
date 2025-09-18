@@ -25,6 +25,7 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddingStore, setIsAddingStore] = useState(false);
   const [detailsStoreId, setDetailsStoreId] = useState<string | null>(null);
+  const [menuStoreId, setMenuStoreId] = useState<string | null>(null);
 
   const {
     register,
@@ -169,6 +170,26 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
     }
   };
 
+  const deleteStore = async (storeId: string) => {
+    if (!confirm('この店舗を削除しますか？この操作は元に戻せません。')) return;
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`/api/stores/${storeId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setMenuStoreId(null);
+        mutate();
+      } else {
+        const err = await res.json();
+        alert(err.error || '削除に失敗しました');
+      }
+    } catch {
+      alert('削除に失敗しました');
+    }
+  };
+
   const getStatusColor = (status: Store['distributionStatus']) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -292,7 +313,32 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                         </>
                       )}
                       {!readOnly && (
-                        <button onClick={() => setDetailsStoreId(store.storeId)} className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm" aria-label="詳細メニュー" title="詳細">≡</button>
+                        <div className="relative">
+                          <button
+                            onClick={() => setMenuStoreId(menuStoreId === store.storeId ? null : store.storeId)}
+                            className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm"
+                            aria-label="メニュー"
+                            title="メニュー"
+                          >
+                            ≡
+                          </button>
+                          {menuStoreId === store.storeId && (
+                            <div className="absolute right-0 mt-2 w-28 bg-white border border-gray-200 rounded shadow-md z-10">
+                              <button
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                onClick={() => { setDetailsStoreId(store.storeId); setMenuStoreId(null); }}
+                              >
+                                編集
+                              </button>
+                              <button
+                                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                onClick={() => deleteStore(store.storeId)}
+                              >
+                                削除
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

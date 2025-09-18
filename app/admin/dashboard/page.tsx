@@ -39,7 +39,7 @@ export default function AdminDashboard() {
     const checkAuth = async () => {
       const token = localStorage.getItem('authToken');
       console.log('Checking auth token:', token ? token.substring(0, 50) + '...' : 'No token');
-      
+
       if (!token) {
         console.log('No token found, redirecting to admin login');
         router.push('/admin');
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (!response.ok) {
           console.log('Token verification failed, redirecting to admin login');
           localStorage.removeItem('authToken');
@@ -78,35 +78,6 @@ export default function AdminDashboard() {
 
     checkAuth();
   }, [router]);
-
-  const archiveCurrentData = async () => {
-    if (!confirm('現在のデータをアーカイブしますか？この操作は元に戻せません。')) {
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('/api/admin/history', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          eventId: 'kohdai2025'
-        }),
-      });
-
-      if (response.ok) {
-        alert('データのアーカイブが完了しました');
-      } else {
-        const error = await response.json();
-        alert(error.error || 'アーカイブに失敗しました');
-      }
-    } catch {
-      alert('アーカイブに失敗しました');
-    }
-  };
 
   const createTeam = async () => {
     try {
@@ -184,28 +155,10 @@ export default function AdminDashboard() {
                 チーム作成
               </button>
               <button
-                onClick={() => router.push('/admin/history')}
-                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm"
-              >
-                配布履歴
-              </button>
-              <button
                 onClick={() => router.push('/admin/reports')}
                 className="px-4 py-2 bg-purple-600 text-white rounded-md text-sm"
               >
                 統計・レポート
-              </button>
-              <button
-                onClick={archiveCurrentData}
-                className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm"
-              >
-                データアーカイブ
-              </button>
-              <button
-                onClick={updateCurrentYearTotals}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm"
-              >
-                今年度総店舗履歴を更新
               </button>
               <button
                 onClick={() => {
@@ -343,6 +296,11 @@ export default function AdminDashboard() {
                   placeholder="店名・住所で検索"
                   className="border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
+                <button onClick={updateCurrentYearTotals}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                    <path d="M12 6a6 6 0 016 6h2a8 8 0 10-2.343 5.657l-1.414-1.414A6 6 0 1112 6z" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -402,11 +360,11 @@ export default function AdminDashboard() {
                             ? `${s.distributedByName}（${s.distributedBy}）`
                             : s.distributedBy
                               ? (teamsByCode[s.distributedBy]
-                                  ? `${teamsByCode[s.distributedBy]}（${s.distributedBy}）`
-                                  : s.distributedBy)
+                                ? `${teamsByCode[s.distributedBy]}（${s.distributedBy}）`
+                                : s.distributedBy)
                               : (s.assignedTeams && s.assignedTeams.length > 0
-                                  ? s.assignedTeams.join(', ')
-                                  : '-')}
+                                ? s.assignedTeams.join(', ')
+                                : '-')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[20rem] truncate" title={s.notes || ''}>{s.notes || ''}</td>
                       </tr>
@@ -436,7 +394,7 @@ export default function AdminDashboard() {
                   type="text"
                   placeholder="例: AM1-2025"
                   value={teamForm.teamCode}
-                  onChange={(e) => setTeamForm({...teamForm, teamCode: e.target.value})}
+                  onChange={(e) => setTeamForm({ ...teamForm, teamCode: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                 />
               </div>
@@ -446,7 +404,7 @@ export default function AdminDashboard() {
                   type="text"
                   placeholder="例: 午前1班"
                   value={teamForm.teamName}
-                  onChange={(e) => setTeamForm({...teamForm, teamName: e.target.value})}
+                  onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                 />
               </div>
@@ -454,7 +412,7 @@ export default function AdminDashboard() {
                 <label className="block text-sm font-medium text-gray-700">時間帯</label>
                 <select
                   value={teamForm.timeSlot}
-                  onChange={(e) => setTeamForm({...teamForm, timeSlot: e.target.value})}
+                  onChange={(e) => setTeamForm({ ...teamForm, timeSlot: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                 >
                   <option value="morning">午前</option>
@@ -467,7 +425,7 @@ export default function AdminDashboard() {
                   type="text"
                   placeholder="例: 午前1"
                   value={teamForm.assignedArea}
-                  onChange={(e) => setTeamForm({...teamForm, assignedArea: e.target.value})}
+                  onChange={(e) => setTeamForm({ ...teamForm, assignedArea: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                 />
               </div>
@@ -477,7 +435,7 @@ export default function AdminDashboard() {
                   type="text"
                   placeholder="例: 午前2, 午後1"
                   value={teamForm.adjacentAreas}
-                  onChange={(e) => setTeamForm({...teamForm, adjacentAreas: e.target.value})}
+                  onChange={(e) => setTeamForm({ ...teamForm, adjacentAreas: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                 />
               </div>

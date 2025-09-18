@@ -92,7 +92,50 @@ export async function GET(request: NextRequest) {
       doc = snap.docs[0];
     }
 
+    // ドキュメントが無い場合でも、includeStores 指定時は店舗一覧を返す
     if (!doc || !doc.exists) {
+      if (includeStores) {
+        const eid = eventId;
+        const storesSnapshot = await adminDb
+          .collection('stores')
+          .where('eventId', '==', eid)
+          .get();
+        const stores = storesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const teamsSnapshot = await adminDb
+          .collection('teams')
+          .where('eventId', '==', eid)
+          .get();
+        const teamsByCode: Record<string, string> = {};
+        const teamsByArea: Record<string, Array<{ code: string; name: string }>> = {};
+        teamsSnapshot.docs.forEach(doc => {
+          const t = doc.data() as any;
+          if (t.teamCode) teamsByCode[t.teamCode] = t.teamName || t.teamCode;
+          if (t.assignedArea) {
+            if (!teamsByArea[t.assignedArea]) teamsByArea[t.assignedArea] = [];
+            teamsByArea[t.assignedArea].push({ code: t.teamCode, name: t.teamName || t.teamCode });
+          }
+          if (Array.isArray(t.adjacentAreas)) {
+            t.adjacentAreas.forEach((area: string) => {
+              if (!teamsByArea[area]) teamsByArea[area] = [];
+              teamsByArea[area].push({ code: t.teamCode, name: t.teamName || t.teamCode });
+            });
+          }
+        });
+
+        const storesWithNames = stores.map((s: any) => {
+          const distributedByName = s.distributedBy ? (teamsByCode[s.distributedBy] || null) : null;
+          const assignedTeams = s.areaCode && teamsByArea[s.areaCode]
+            ? teamsByArea[s.areaCode].map(t => `${t.name}（${t.code}）`)
+            : [];
+          return {
+            ...s,
+            distributedByName,
+            assignedTeams,
+          };
+        });
+        return NextResponse.json({ data: null, stores: storesWithNames, teamsByCode });
+      }
       return NextResponse.json({ data: null });
     }
 
