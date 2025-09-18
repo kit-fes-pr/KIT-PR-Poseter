@@ -244,10 +244,55 @@ interface Member {
 - 自動セッション管理
 - 実装の簡素化
 
-#### 2. 管理者認証
-- **事前登録制**: `/admins`コレクションで管理者メールを管理
+#### 2. 管理者認証（Firebase Authentication）
+- **Firebase Auth**: createUserWithEmailAndPassword + sendEmailVerification を使用
 - **ドメイン制限**: st.kanazawa-it.ac.jp ドメインのみ許可
-- **二重チェック**: ドメイン確認 + 事前登録確認
+- **認証フロー**:
+  1. 管理者がメールアドレス・パスワードを入力
+  2. Firebase Authentication でアカウント作成
+  3. 自動でメール認証リンクを送信
+  4. メール内のリンクから認証確認
+  5. Custom Claims で管理者権限を付与
+- **セキュリティ**: Firebase標準のセキュリティ機能を活用
+
+#### Firebase Authentication実装方法
+
+**必要な依存関係**
+```bash
+npm install firebase firebase-admin
+```
+
+**環境変数設定**
+`.env.local` ファイルに以下を追加:
+```
+# Firebase設定
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef
+
+# Firebase Admin SDK（サーバーサイド）
+FIREBASE_ADMIN_PRIVATE_KEY=your-private-key
+FIREBASE_ADMIN_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
+FIREBASE_ADMIN_PROJECT_ID=your-project-id
+```
+
+**実装するファイル構成**
+
+Firebase設定:
+- `lib/firebase.ts` - Firebase クライアント設定
+- `lib/firebase-admin.ts` - Firebase Admin SDK設定
+
+API Routes:
+- `app/api/admin/register/route.ts` - 管理者登録（Firebase Auth使用）
+- `app/api/admin/set-claims/route.ts` - Custom Claims設定
+
+Pages/Components:
+- `app/admin/register/page.tsx` - 管理者登録フォーム
+- `app/admin/login/page.tsx` - ログインフォーム
+- `app/admin/verify-email/page.tsx` - メール認証完了ページ
 
 ### セキュリティ仕様
 - **セッション制限**: 24時間で自動ログアウト
