@@ -17,8 +17,8 @@ export default function TeamDetailPage() {
   const teamId = params?.teamId;
 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [team, setTeam] = useState<any | null>(null);
-  const [stores, setStores] = useState<any[]>([]);
+  const [team, setTeam] = useState<Team | null>(null);
+  const [stores, setStores] = useState<Store[]>([]);
   const completed = useMemo(() => stores.filter((s: any) => s.distributionStatus === 'completed'), [stores]);
   const failed = useMemo(() => stores.filter((s: any) => s.distributionStatus === 'failed'), [stores]);
   const revisit = useMemo(() => stores.filter((s: any) => s.distributionStatus === 'revisit'), [stores]);
