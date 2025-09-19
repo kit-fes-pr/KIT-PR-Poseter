@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { Team, Store } from '@/types';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -19,9 +20,9 @@ export default function TeamDetailPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
-  const completed = useMemo(() => stores.filter((s: any) => s.distributionStatus === 'completed'), [stores]);
-  const failed = useMemo(() => stores.filter((s: any) => s.distributionStatus === 'failed'), [stores]);
-  const revisit = useMemo(() => stores.filter((s: any) => s.distributionStatus === 'revisit'), [stores]);
+  const completed = useMemo(() => stores.filter((s: Store) => s.distributionStatus === 'completed'), [stores]);
+  const failed = useMemo(() => stores.filter((s: Store) => s.distributionStatus === 'failed'), [stores]);
+  const revisit = useMemo(() => stores.filter((s: Store) => s.distributionStatus === 'revisit'), [stores]);
   const [loading, setLoading] = useState(true);
   const [isBasicEditOpen, setIsBasicEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<{ teamName: string; timeSlot: string; assignedArea: string; adjacentAreas: string; validDate: string }>({ teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '', validDate: '' });
@@ -139,7 +140,7 @@ export default function TeamDetailPage() {
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-1">
           <h2 className="text-lg font-medium mb-3">配布済み</h2>
           <div className="space-y-3 max-h-[60vh] overflow-auto pr-2">
-            {completed.map((s: any) => (
+            {completed.map((s: Store) => (
               <div key={s.storeId} className="border rounded p-3">
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{s.storeName}</p>
@@ -212,7 +213,7 @@ export default function TeamDetailPage() {
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-1">
           <h2 className="text-lg font-medium mb-3">配布不可</h2>
           <div className="space-y-3 max-h-[60vh] overflow-auto pr-2">
-            {failed.map((s: any) => (
+            {failed.map((s: Store) => (
               <div key={s.storeId} className="border rounded p-3">
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{s.storeName}</p>
@@ -230,7 +231,7 @@ export default function TeamDetailPage() {
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-1">
           <h2 className="text-lg font-medium mb-3">要再訪問</h2>
           <div className="space-y-3 max-h-[60vh] overflow-auto pr-2">
-            {revisit.map((s: any) => (
+            {revisit.map((s: Store) => (
               <div key={s.storeId} className="border rounded p-3">
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{s.storeName}</p>
@@ -252,7 +253,7 @@ export default function TeamDetailPage() {
               <p><span className="text-gray-600">時間帯:</span> <span className="ml-2">{team?.timeSlot === 'morning' ? '午前' : '午後'}</span></p>
               <p><span className="text-gray-600">担当区域:</span> <span className="ml-2">{team?.assignedArea || '-'}</span></p>
               <p><span className="text-gray-600">周辺区域:</span> <span className="ml-2">{Array.isArray(team?.adjacentAreas) ? team?.adjacentAreas.join(', ') : '-'}</span></p>
-              <p><span className="text-gray-600">アクセス可能日:</span> <span className="ml-2">{team?.validDate ? (team.validDate._seconds ? new Date(team.validDate._seconds * 1000) : new Date(team.validDate)).toLocaleDateString('ja-JP') : '-'}</span></p>
+              <p><span className="text-gray-600">アクセス可能日:</span> <span className="ml-2">{team?.validDate ? team.validDate.toLocaleDateString('ja-JP') : '-'}</span></p>
               <div className="pt-2">
                 <button onClick={() => setIsBasicEditOpen(true)} className="px-3 py-1 border rounded-md">編集</button>
               </div>

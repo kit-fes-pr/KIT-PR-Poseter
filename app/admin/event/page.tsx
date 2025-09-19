@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Cardo } from 'next/font/google';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
