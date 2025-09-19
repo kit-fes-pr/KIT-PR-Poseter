@@ -103,7 +103,7 @@ export default function TeamDetailPage() {
                     const res = await fetch(`/api/admin/teams/${teamId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '削除に失敗しました');
-                    router.push(`/admin/event/${y}/teams`);
+                    router.push(`/admin/event/${y}`);
                   } catch (e: any) { alert(e.message || '削除に失敗しました'); }
                 }}
               >削除</button>
