@@ -25,7 +25,7 @@ export async function GET(
     const teamData = teamDoc.data() as any;
 
     const storesSnapshot = await adminDb.collection('stores')
-      .where('eventId', '==', 'kohdai2025')
+      .where('eventId', '==', teamData.eventId)
       .where('distributedBy', '==', teamData.teamCode)
       .get();
 
