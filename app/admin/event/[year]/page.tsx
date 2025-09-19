@@ -219,7 +219,7 @@ export default function AdminEventYear() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.failedStores}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.distributedCount}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      <button className="px-3 py-1 border rounded mr-2" onClick={() => router.push(`/admin/event/${y}/teams/${team.teamId}`)}>詳細</button>
+                      <button className="px-3 py-1 border rounded mr-2" onClick={() => router.push(`/admin/event/${y}/${team.teamId}`)}>詳細</button>
                       <button
                         className="px-3 py-1 border border-red-300 text-red-700 rounded"
                         onClick={async () => {
