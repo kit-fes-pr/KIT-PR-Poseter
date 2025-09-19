@@ -22,12 +22,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const eventIdParam = searchParams.get('eventId');
+    const yearParam = searchParams.get('year');
+
+    let targetEventId = eventIdParam || 'kohdai2025';
+    if (!eventIdParam && yearParam) {
+      const year = parseInt(yearParam);
+      const evSnap = await adminDb.collection('distributionEvents').where('year', '==', year).limit(1).get();
+      if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
+    }
+
     const storesSnapshot = await adminDb.collection('stores')
-      .where('eventId', '==', 'kohdai2025')
+      .where('eventId', '==', targetEventId)
       .get();
 
     const teamsSnapshot = await adminDb.collection('teams')
-      .where('eventId', '==', 'kohdai2025')
+      .where('eventId', '==', targetEventId)
       .where('isActive', '==', true)
       .get();
 
@@ -55,7 +66,9 @@ export async function GET(request: NextRequest) {
     const teamStats = teams.map(team => {
       const teamStores = stores.filter(store => store.distributedBy === team.teamCode);
       const teamCompleted = teamStores.filter(store => store.distributionStatus === 'completed').length;
+      const teamFailed = teamStores.filter(store => store.distributionStatus === 'failed').length;
       const teamTotal = teamStores.length;
+      const teamDistributedCount = teamStores.reduce((sum, s: any) => sum + (s.distributedCount || 0), 0);
       const teamRate = teamTotal > 0 ? (teamCompleted / teamTotal) * 100 : 0;
 
       return {
@@ -65,6 +78,8 @@ export async function GET(request: NextRequest) {
         assignedArea: team.assignedArea,
         totalStores: teamTotal,
         completedStores: teamCompleted,
+        failedStores: teamFailed,
+        distributedCount: teamDistributedCount,
         completionRate: teamRate
       };
     });

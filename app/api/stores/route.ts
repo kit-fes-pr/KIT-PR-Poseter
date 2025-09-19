@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { generateKana } from '@/lib/kanaUtils';
 import { Store } from '@/types';
-
-function generateKana(text: string): string {
-  return text;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,15 +25,21 @@ export async function GET(request: NextRequest) {
     let query = adminDb.collection('stores')
       .where('eventId', '==', 'kohdai2025');
 
-    if (area && decodedToken.role === 'team') {
+    const scope = (searchParams.get('scope') || '').toLowerCase();
+    if (decodedToken.role === 'team' && scope !== 'all') {
+      // チームログイン時は既定で自班の担当区域＋周辺区域に限定
       const teamDoc = await adminDb.collection('teams').doc(decodedToken.teamId).get();
-      const teamData = teamDoc.data();
-      
-      if (teamData) {
-        const allowedAreas = [teamData.assignedArea, ...teamData.adjacentAreas];
-        query = query.where('areaCode', 'in', allowedAreas);
+      const teamData = teamDoc.data() as any | undefined;
+      if (teamData?.assignedArea) {
+        const adjacent = Array.isArray(teamData.adjacentAreas) ? teamData.adjacentAreas : [];
+        const allowedAreas = [teamData.assignedArea, ...adjacent].filter(Boolean);
+        // Firestore 'in' フィルタは最大10要素。超える場合は全件取得して後段で絞り込み。
+        if (allowedAreas.length > 0 && allowedAreas.length <= 10) {
+          query = query.where('areaCode', 'in', allowedAreas);
+        }
       }
     } else if (area) {
+      // 明示的なエリア指定があれば適用（管理者など）
       query = query.where('areaCode', '==', area);
     }
 
@@ -56,6 +59,24 @@ export async function GET(request: NextRequest) {
         store.storeName.toLowerCase().includes(searchTerm) ||
         store.address.toLowerCase().includes(searchTerm)
       );
+    }
+
+    // もし 'in' 条件を使えず全件読み出した場合、自班スコープであればここで絞り込み
+    if (decodedToken.role === 'team' && scope !== 'all') {
+      try {
+        const teamDoc = await adminDb.collection('teams').doc(decodedToken.teamId).get();
+        const teamData = teamDoc.data() as any | undefined;
+        if (teamData?.assignedArea) {
+          const adjacent = Array.isArray(teamData.adjacentAreas) ? teamData.adjacentAreas : [];
+          const allowedAreas = [teamData.assignedArea, ...adjacent].filter(Boolean);
+          if (allowedAreas.length > 10) {
+            stores = stores.filter((s: any) => allowedAreas.includes(s.areaCode));
+          }
+        }
+      } catch {}
+      // ログインコード（班）単位で管理: 自分が作成 or 自分が配布した店舗のみ表示
+      const selfCode = decodedToken.teamCode;
+      stores = stores.filter((s: any) => s.createdByTeamCode === selfCode || s.distributedBy === selfCode);
     }
 
     stores.sort((a, b) => {
@@ -95,7 +116,8 @@ export async function POST(request: NextRequest) {
       distributionStatus,
       failureReason,
       distributedCount,
-      areaCode
+      areaCode,
+      notes,
     } = await request.json();
 
     if (!storeName || !address) {
@@ -105,18 +127,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // チームの担当区域を解決（areaCode が指定されない場合の既定値に使用）
+    let teamAssignedArea: string | undefined;
+    if (decodedToken.role === 'team' && decodedToken.teamId) {
+      try {
+        const teamDoc = await adminDb.collection('teams').doc(decodedToken.teamId).get();
+        const teamData = teamDoc.data() as any | undefined;
+        teamAssignedArea = teamData?.assignedArea;
+      } catch {}
+    }
+
     const storeRef = adminDb.collection('stores').doc();
     const storeData: Omit<Store, 'storeId'> = {
       storeName,
       storeNameKana: generateKana(storeName),
       address,
       addressKana: generateKana(address),
-      areaCode: areaCode || decodedToken.teamCode?.split('-')[0] || 'unknown',
+      // areaCode が未指定ならチームの担当区域を使用（なければ teamCode 先頭要素→最後に unknown）
+      areaCode: areaCode || teamAssignedArea || decodedToken.teamCode?.split('-')[0] || 'unknown',
       distributionStatus: distributionStatus || 'pending',
       ...(failureReason && { failureReason }),
       distributedCount: distributedCount || 0,
       distributedBy: decodedToken.teamCode || '',
+      createdByTeamCode: decodedToken.teamCode || '',
       ...(distributionStatus === 'completed' && { distributedAt: new Date() }),
+      ...(notes && { notes }),
       registrationMethod: 'manual',
       eventId: 'kohdai2025',
       createdAt: new Date(),

@@ -29,33 +29,98 @@ export async function POST(request: NextRequest) {
     const teamDoc = teamQuery.docs[0];
     const teamData = teamDoc.data();
 
-    const today = new Date();
-    const validDate = new Date(teamData.validDate._seconds * 1000);
-    
-    if (today.toDateString() !== validDate.toDateString()) {
-      return NextResponse.json(
-        { error: `本日は配布日ではありません。配布日: ${validDate.toLocaleDateString('ja-JP')}` },
-        { status: 403 }
-      );
+    // 学外配布日の判定（どちらも一致で許可）
+    const fmtJst = (d: Date) => {
+      const parts = new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).formatToParts(d);
+      const y = parts.find(p => p.type === 'year')?.value || '';
+      const m = parts.find(p => p.type === 'month')?.value || '';
+      const da = parts.find(p => p.type === 'day')?.value || '';
+      return `${y}-${m}-${da}`;
+    };
+
+    const todayKey = fmtJst(new Date());
+    // team.validDate
+    let validKey: string | null = null;
+    try {
+      if (teamData.validDate) {
+        const vd = teamData.validDate._seconds ? new Date(teamData.validDate._seconds * 1000)
+          : (typeof teamData.validDate === 'string' ? new Date(teamData.validDate) : new Date(teamData.validDate));
+        if (!isNaN(vd.getTime())) validKey = fmtJst(vd);
+      }
+    } catch {}
+
+    // event.distributionDate / distributionStartDate - distributionEndDate（team.eventId から解決）
+    let distKey: string | null = null;
+    let distStartKey: string | null = null;
+    let distEndKey: string | null = null;
+    try {
+      if (teamData.eventId) {
+        const evDoc = await adminDb.collection('distributionEvents').doc(teamData.eventId).get();
+        if (evDoc.exists) {
+          const ev = evDoc.data() as any;
+          const parseDate = (v: any) => v?._seconds ? new Date(v._seconds * 1000)
+            : (typeof v === 'string' ? new Date(v) : new Date(v));
+          if (ev?.distributionStartDate || ev?.distributionEndDate) {
+            const ds = ev.distributionStartDate ? parseDate(ev.distributionStartDate) : null;
+            const de = ev.distributionEndDate ? parseDate(ev.distributionEndDate) : null;
+            if (ds && !isNaN(ds.getTime())) distStartKey = fmtJst(ds);
+            if (de && !isNaN(de.getTime())) distEndKey = fmtJst(de);
+          }
+          if (ev?.distributionDate) {
+            const dd = parseDate(ev.distributionDate);
+            if (!isNaN(dd.getTime())) distKey = fmtJst(dd);
+          }
+        }
+      }
+    } catch {}
+
+    // どちらも存在し、かつ当日一致（イベントは単日一致 or 期間内一致）
+    if (!validKey || (!distKey && !(distStartKey && distEndKey))) {
+      return NextResponse.json({ error: '配布日が未設定です（team.validDate と event.distribution(単日 or 期間) の両方を設定してください）' }, { status: 403 });
+    }
+    const inRange = distStartKey && distEndKey ? (distStartKey <= todayKey && todayKey <= distEndKey) : (distKey === todayKey);
+    if (!(validKey === todayKey && inRange)) {
+      const dispValid = validKey.replace(/-/g, '/');
+      const dispDist = distStartKey && distEndKey
+        ? `${distStartKey.replace(/-/g,'/')}〜${distEndKey.replace(/-/g,'/')}`
+        : (distKey ? distKey.replace(/-/g,'/') : '-');
+      return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispValid} / イベント: ${dispDist}` }, { status: 403 });
     }
 
-    // 一時ユーザーIDを生成
-    const tempUserId = `temp_${teamCode}_${Date.now()}`;
+    // 一時メールアドレス + パスワード方式
+    const tempEmail = `${teamData.teamCode}@temp.kohdai-poster.local`;
+    const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
 
-    // カスタムトークンを生成
-    const customToken = await adminAuth.createCustomToken(tempUserId, {
-      teamCode: teamData.teamCode,
-      teamId: teamDoc.id,
-      role: 'team',
-      tempUser: true
-    });
+    // 既存ユーザー確認 or 作成
+    let uid: string | null = null;
+    try {
+      const existing = await adminAuth.getUserByEmail(tempEmail);
+      uid = existing.uid;
+      // 既存の一時ユーザーのパスワードをローテーション
+      await adminAuth.updateUser(uid, { password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
+    } catch {
+      const created = await adminAuth.createUser({ email: tempEmail, password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
+      uid = created.uid;
+    }
+
+    // カスタムクレームを設定（班情報）
+    if (uid) {
+      await adminAuth.setCustomUserClaims(uid, {
+        teamCode: teamData.teamCode,
+        teamId: teamDoc.id,
+        role: 'team',
+        tempUser: true
+      });
+    }
 
     // 一時アカウント情報を記録
     const tempAccountRef = adminDb.collection('tempAccounts').doc();
     await tempAccountRef.set({
       accountId: tempAccountRef.id,
-      tempUserId,
       teamCode: teamData.teamCode,
+      tempEmail,
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       isActive: true
@@ -63,7 +128,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      customToken,
+      tempEmail,
+      tempPassword,
       teamData: {
         teamId: teamDoc.id,
         teamCode: teamData.teamCode,

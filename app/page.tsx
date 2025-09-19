@@ -32,28 +32,32 @@ export default function Home() {
       const result = await response.json();
 
       if (response.ok) {
-        if (result.customToken) {
-          try {
-            // カスタムトークンを使ってFirebase認証
-            const { auth } = await import('@/lib/firebase');
-            const { signInWithCustomToken, getIdToken } = await import('firebase/auth');
-            
-            const userCredential = await signInWithCustomToken(auth, result.customToken);
-            console.log('Team signed in with custom token:', userCredential.user.uid);
-            
-            // IDトークンを取得してローカルストレージに保存
-            const idToken = await getIdToken(userCredential.user);
+        try {
+          const { auth } = await import('@/lib/firebase');
+          const { signInWithEmailAndPassword, getIdToken } = await import('firebase/auth');
+
+          if (result.tempEmail && result.tempPassword) {
+            const cred = await signInWithEmailAndPassword(auth, result.tempEmail, result.tempPassword);
+            const idToken = await getIdToken(cred.user);
             localStorage.setItem('authToken', idToken);
-            console.log('Team ID Token stored successfully');
-            
-            // チームダッシュボードにリダイレクト
             router.push('/dashboard');
-          } catch (authError) {
-            console.error('Custom token authentication failed:', authError);
-            setError('認証に失敗しました');
+            return;
           }
-        } else {
-          setError('認証トークンの取得に失敗しました');
+
+          // フォールバック: 旧仕様（カスタムトークン）
+          if (result.customToken) {
+            const { signInWithCustomToken } = await import('firebase/auth');
+            const cred = await signInWithCustomToken(auth, result.customToken);
+            const idToken = await getIdToken(cred.user);
+            localStorage.setItem('authToken', idToken);
+            router.push('/dashboard');
+            return;
+          }
+
+          setError('認証情報の取得に失敗しました');
+        } catch (authError) {
+          console.error('Authentication failed:', authError);
+          setError('認証に失敗しました');
         }
       } else {
         setError(result.error || 'ログインに失敗しました');

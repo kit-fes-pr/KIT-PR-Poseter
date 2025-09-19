@@ -32,7 +32,9 @@ export interface Store {
   failureReason?: "absent" | "refused" | "closed" | "other";
   distributedCount: number;
   distributedBy: string;
+  createdByTeamCode?: string;
   distributedAt?: Date;
+  notes?: string;
   registrationMethod: "preset" | "manual";
   eventId: string;
   createdAt: Date;
