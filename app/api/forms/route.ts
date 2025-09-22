@@ -67,6 +67,8 @@ export async function GET(request: NextRequest) {
         formId: doc.id,
         responseCount,
         lastResponseAt,
+        createdAt: (formData.createdAt as any)?.toDate ? (formData.createdAt as any).toDate() : formData.createdAt,
+        updatedAt: (formData.updatedAt as any)?.toDate ? (formData.updatedAt as any).toDate() : formData.updatedAt,
       });
     }
 

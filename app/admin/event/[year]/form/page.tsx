@@ -216,7 +216,7 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
                         <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
                           <span>回答数: {form.responseCount}</span>
                           {form.lastResponseAt && (
-                            <span>最終回答: {new Date(form.lastResponseAt).toLocaleDateString('ja-JP')}</span>
+                            <span>最終回答: {formatDate(form.lastResponseAt)}</span>
                           )}
                         </div>
                       </div>
@@ -284,4 +284,46 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
       </div>
     </div>
   );
+
+  function formatDate(dateValue: any) {
+    if (!dateValue) return '-';
+    
+    try {
+      let date: Date;
+      
+      // Firestore Timestamp の場合
+      if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
+        date = dateValue.toDate();
+      }
+      // 文字列の場合
+      else if (typeof dateValue === 'string') {
+        date = new Date(dateValue);
+      }
+      // 既に Date オブジェクトの場合
+      else if (dateValue instanceof Date) {
+        date = dateValue;
+      }
+      // 数値（Unix timestamp）の場合
+      else if (typeof dateValue === 'number') {
+        date = new Date(dateValue);
+      }
+      else {
+        return 'Invalid Date';
+      }
+      
+      // 有効な日付かチェック
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      
+      return date.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid Date';
+    }
+  }
 }

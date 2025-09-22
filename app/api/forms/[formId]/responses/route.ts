@@ -47,10 +47,15 @@ export async function GET(
       .orderBy('submittedAt', 'desc')
       .get();
 
-    const responses = responsesSnapshot.docs.map(doc => ({
-      ...doc.data(),
-      responseId: doc.id,
-    })) as FormResponse[];
+    const responses = responsesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        responseId: doc.id,
+        submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : data.submittedAt,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
+      };
+    }) as any[];
 
     return NextResponse.json({ responses });
   } catch (error) {

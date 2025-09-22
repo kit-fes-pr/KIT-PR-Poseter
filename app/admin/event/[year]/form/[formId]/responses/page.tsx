@@ -124,7 +124,7 @@ export default function FormResponsesPage({
       const participantResponse = response as ParticipantSurveyResponse;
       const row = [
         response.responseId,
-        new Date(response.submittedAt).toLocaleString('ja-JP'),
+        formatDate(response.submittedAt),
         participantResponse.participantData?.name || '',
         participantResponse.participantData?.grade || '',
         participantResponse.participantData?.section || '',
@@ -168,6 +168,51 @@ export default function FormResponsesPage({
       return value.join(', ');
     }
     return value || '-';
+  };
+
+  const formatDate = (dateValue: any) => {
+    if (!dateValue) return '-';
+    
+    try {
+      let date: Date;
+      
+      // Firestore Timestamp の場合
+      if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
+        date = dateValue.toDate();
+      }
+      // 文字列の場合
+      else if (typeof dateValue === 'string') {
+        date = new Date(dateValue);
+      }
+      // 既に Date オブジェクトの場合
+      else if (dateValue instanceof Date) {
+        date = dateValue;
+      }
+      // 数値（Unix timestamp）の場合
+      else if (typeof dateValue === 'number') {
+        date = new Date(dateValue);
+      }
+      else {
+        return 'Invalid Date';
+      }
+      
+      // 有効な日付かチェック
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      
+      return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid Date';
+    }
   };
 
   // フィールドごとの統計を生成する関数
@@ -267,7 +312,7 @@ export default function FormResponsesPage({
       // 参加可能時間帯フィールドの値を取得してAPI形式に変換
       const availabilityValue = editFormData.availability;
       let availableTime: 'morning' | 'afternoon' | 'both' = 'both';
-      if (availabilityValue) {
+      if (availabilityValue && typeof availabilityValue === 'string') {
         if (availabilityValue.includes('午前のみ')) {
           availableTime = 'morning';
         } else if (availabilityValue.includes('午後のみ')) {
@@ -280,9 +325,9 @@ export default function FormResponsesPage({
       const updateData = {
         answers,
         participantData: {
-          name: editFormData.participantName,
-          section: editFormData.participantSection,
-          grade: parseInt(editFormData.participantGrade),
+          name: editFormData.participantName as string,
+          section: editFormData.participantSection as string,
+          grade: parseInt(editFormData.participantGrade as string),
           availableTime: availableTime,
         },
       };
@@ -489,7 +534,7 @@ export default function FormResponsesPage({
                     return (
                       <tr key={response.responseId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(response.submittedAt).toLocaleString('ja-JP')}
+                          {formatDate(response.submittedAt)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
@@ -730,9 +775,9 @@ export default function FormResponsesPage({
                               <input
                                 type="checkbox"
                                 value={option}
-                                checked={Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId].includes(option) : false}
+                                checked={Array.isArray(editFormData[field.fieldId]) ? (editFormData[field.fieldId] as string[]).includes(option) : false}
                                 onChange={(e) => {
-                                  const currentValues = Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId] : [];
+                                  const currentValues = Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId] as string[] : [];
                                   if (e.target.checked) {
                                     setEditFormData({...editFormData, [field.fieldId]: [...currentValues, option]});
                                   } else {

@@ -46,6 +46,8 @@ export async function GET(
     return NextResponse.json({
       ...formData,
       formId: formDoc.id,
+      createdAt: (formData.createdAt as any)?.toDate ? (formData.createdAt as any).toDate() : formData.createdAt,
+      updatedAt: (formData.updatedAt as any)?.toDate ? (formData.updatedAt as any).toDate() : formData.updatedAt,
     });
   } catch (error) {
     console.error('フォーム取得エラー:', error);
