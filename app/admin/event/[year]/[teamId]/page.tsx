@@ -51,7 +51,7 @@ export default function TeamDetailPage() {
 
         const st = await fetcherAuth(`/api/admin/teams/${teamId}/stores`);
         setStores(st.stores || []);
-      } catch (e) {
+      } catch {
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {
@@ -105,7 +105,10 @@ export default function TeamDetailPage() {
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '削除に失敗しました');
                     router.push(`/admin/event/${y}`);
-                  } catch (e: any) { alert(e.message || '削除に失敗しました'); }
+                  } catch (error: unknown) { 
+                    const message = error instanceof Error ? error.message : '削除に失敗しました';
+                    alert(message);
+                  }
                 }}
               >削除</button>
             </div>
@@ -200,7 +203,10 @@ export default function TeamDetailPage() {
                         if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                         setTeam(data.team);
                         setIsBasicEditOpen(false);
-                      } catch (e: any) { alert(e.message || '更新に失敗しました'); }
+                      } catch (error: unknown) { 
+                        const message = error instanceof Error ? error.message : '更新に失敗しました';
+                        alert(message);
+                      }
                     }}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-md"
                   >保存</button>

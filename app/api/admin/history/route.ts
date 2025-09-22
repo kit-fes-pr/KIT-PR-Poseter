@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { DistributionHistory, DistributionFilter } from '@/types';
+import { DistributionHistory } from '@/types';
+import { Query, DocumentData } from 'firebase-admin/firestore';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     const areaCode = searchParams.get('areaCode');
     const timeSlot = searchParams.get('timeSlot');
 
-    let query = adminDb.collection('distributionHistory');
+    let query: Query<DocumentData> = adminDb.collection('distributionHistory');
 
     // フィルター適用
     if (year) {
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
     const eventData = eventDoc.data();
 
     // 現在のデータを集計してアーカイブ
-    const historyData = await generateDistributionHistory(eventId, eventData);
+    const historyData = await generateDistributionHistory(eventId, eventData as Record<string, unknown>);
 
     const historyRef = adminDb.collection('distributionHistory').doc();
     await historyRef.set({
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function generateDistributionHistory(eventId: string, eventData: any) {
+async function generateDistributionHistory(eventId: string, eventData: Record<string, unknown>) {
   // チーム情報を取得
   const teamsSnapshot = await adminDb.collection('teams')
     .where('eventId', '==', eventId)
@@ -182,7 +183,7 @@ async function generateDistributionHistory(eventId: string, eventData: any) {
       timeSlot: team.timeSlot,
       assignedArea: team.assignedArea,
       adjacentAreas: team.adjacentAreas,
-      members: teamMembers.map((member: any) => ({
+      members: teamMembers.map((member: Record<string, unknown>) => ({
         memberId: member.memberId,
         name: member.name,
         section: member.section,
@@ -192,7 +193,7 @@ async function generateDistributionHistory(eventId: string, eventData: any) {
       totalStores: teamTotal,
       completedStores: teamCompleted,
       completionRate: teamRate,
-      distributedStores: teamStores.map((store: any) => ({
+      distributedStores: teamStores.map((store: Record<string, unknown>) => ({
         storeId: store.storeId,
         storeName: store.storeName,
         address: store.address,
@@ -202,27 +203,27 @@ async function generateDistributionHistory(eventId: string, eventData: any) {
         distributedCount: store.distributedCount,
         distributedBy: store.distributedBy,
         distributedAt: store.distributedAt,
-        teamMembers: teamMembers.map((m: any) => m.name)
+        teamMembers: teamMembers.map((m: Record<string, unknown>) => m.name)
       }))
     };
   });
 
   // 区域履歴を生成
-  const areaHistories = [...new Set(stores.map((store: any) => store.areaCode))].map(areaCode => {
-    const areaStores = stores.filter((store: any) => store.areaCode === areaCode);
-    const areaCompleted = areaStores.filter((store: any) => store.distributionStatus === 'completed').length;
+  const areaHistories = [...new Set(stores.map((store: Record<string, unknown>) => store.areaCode))].map(areaCode => {
+    const areaStores = stores.filter((store: Record<string, unknown>) => store.areaCode === areaCode);
+    const areaCompleted = areaStores.filter((store: Record<string, unknown>) => store.distributionStatus === 'completed').length;
     const areaTotal = areaStores.length;
     const areaRate = areaTotal > 0 ? (areaCompleted / areaTotal) * 100 : 0;
 
     const assignedTeams = teams
-      .filter((team: any) => team.assignedArea === areaCode || team.adjacentAreas.includes(areaCode))
-      .map((team: any) => team.teamCode);
+      .filter((team: Record<string, unknown>) => team.assignedArea === areaCode || (team.adjacentAreas as unknown[]).includes(areaCode))
+      .map((team: Record<string, unknown>) => team.teamCode);
 
     return {
       areaId: `area-${areaCode}`,
       areaCode,
       areaName: `${areaCode}区域`,
-      timeSlot: areaCode.includes('午前') ? 'morning' : 'afternoon',
+      timeSlot: String(areaCode).includes('午前') ? 'morning' : 'afternoon',
       totalStores: areaTotal,
       completedStores: areaCompleted,
       completionRate: areaRate,

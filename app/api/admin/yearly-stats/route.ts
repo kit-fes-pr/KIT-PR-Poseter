@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { YearlyStats } from '@/types';
+import { Query, DocumentData } from 'firebase-admin/firestore';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     const startYear = searchParams.get('startYear');
     const endYear = searchParams.get('endYear');
 
-    let query = adminDb.collection('distributionHistory');
+    let query: Query<DocumentData> = adminDb.collection('distributionHistory');
 
     if (year) {
       query = query.where('year', '==', parseInt(year));
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     if (year) {
       // 特定年度の詳細統計
-      const yearData = histories.find((h: any) => h.year === parseInt(year));
+      const yearData = histories.find((h: Record<string, unknown>) => h.year === parseInt(year));
       if (!yearData) {
         return NextResponse.json({ stats: null });
       }
@@ -65,45 +66,45 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function generateDetailedYearlyStats(yearData: any): YearlyStats {
-  const bestTeam = yearData.teams.reduce((best: any, team: any) => {
-    return team.completionRate > (best?.completionRate || 0) ? team : best;
+function generateDetailedYearlyStats(yearData: Record<string, unknown>): YearlyStats {
+  const bestTeam = (yearData.teams as Record<string, unknown>[]).reduce((best: Record<string, unknown> | null, team: Record<string, unknown>) => {
+    return (team.completionRate as number) > ((best?.completionRate as number) || 0) ? team : best;
   }, null);
 
   return {
-    year: yearData.year,
-    eventName: yearData.eventName,
+    year: yearData.year as number,
+    eventName: yearData.eventName as string,
     totalEvents: 1,
-    totalStores: yearData.totalStores,
-    totalTeams: yearData.teams.length,
-    totalMembers: yearData.teams.reduce((total: number, team: any) => total + team.members.length, 0),
-    averageCompletionRate: yearData.completionRate,
+    totalStores: yearData.totalStores as number,
+    totalTeams: (yearData.teams as unknown[]).length,
+    totalMembers: (yearData.teams as Record<string, unknown>[]).reduce((total: number, team: Record<string, unknown>) => total + ((team.members as unknown[])?.length || 0), 0),
+    averageCompletionRate: yearData.completionRate as number,
     bestPerformingTeam: bestTeam ? {
-      teamCode: bestTeam.teamCode,
-      teamName: bestTeam.teamName,
-      completionRate: bestTeam.completionRate
+      teamCode: bestTeam.teamCode as string,
+      teamName: bestTeam.teamName as string,
+      completionRate: bestTeam.completionRate as number
     } : {
       teamCode: '',
       teamName: '',
       completionRate: 0
     },
     distributionTrends: [{
-      date: yearData.distributionDate,
-      completedStores: yearData.completedStores,
-      totalStores: yearData.totalStores
+      date: new Date(yearData.distributionDate as string),
+      completedStores: yearData.completedStores as number,
+      totalStores: yearData.totalStores as number
     }]
   };
 }
 
-function generateComparativeStats(histories: any[]) {
-  return histories.map((history: any) => ({
-    year: history.year,
-    eventName: history.eventName,
-    totalStores: history.totalStores,
-    completedStores: history.completedStores,
-    completionRate: history.completionRate,
-    totalTeams: history.teams.length,
-    totalMembers: history.teams.reduce((total: number, team: any) => total + team.members.length, 0),
-    distributionDate: history.distributionDate
+function generateComparativeStats(histories: Record<string, unknown>[]) {
+  return histories.map((history: Record<string, unknown>) => ({
+    year: history.year as number,
+    eventName: history.eventName as string,
+    totalStores: history.totalStores as number,
+    completedStores: history.completedStores as number,
+    completionRate: history.completionRate as number,
+    totalTeams: (history.teams as unknown[])?.length || 0,
+    totalMembers: (history.teams as Record<string, unknown>[])?.reduce((total: number, team: Record<string, unknown>) => total + ((team.members as unknown[])?.length || 0), 0) || 0,
+    distributionDate: new Date(history.distributionDate as string)
   }));
 }

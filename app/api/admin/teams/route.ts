@@ -170,7 +170,7 @@ export async function PATCH(request: NextRequest) {
 
     await ref.update({ validDate: dateObj, updatedAt: new Date() });
     const updated = await ref.get();
-    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as any) } });
+    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as Record<string, unknown>) } });
   } catch (error) {
     console.error('Update team error:', error);
     return NextResponse.json({ error: 'チームの更新に失敗しました' }, { status: 500 });

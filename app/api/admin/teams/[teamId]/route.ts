@@ -19,7 +19,7 @@ export async function GET(
     const { teamId } = await params;
     const doc = await adminDb.collection('teams').doc(teamId).get();
     if (!doc.exists) return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
-    return NextResponse.json({ team: { id: doc.id, ...(doc.data() as any) } });
+    return NextResponse.json({ team: { id: doc.id, ...(doc.data() as Record<string, unknown>) } });
   } catch (error) {
     console.error('Get team error:', error);
     return NextResponse.json({ error: 'チーム情報の取得に失敗しました' }, { status: 500 });
@@ -47,7 +47,7 @@ export async function PATCH(
     const doc = await ref.get();
     if (!doc.exists) return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
 
-    const update: Record<string, any> = { updatedAt: new Date() };
+    const update: Record<string, unknown> = { updatedAt: new Date() };
     if (typeof body.teamName === 'string') update.teamName = body.teamName;
     if (typeof body.timeSlot === 'string') update.timeSlot = body.timeSlot;
     if (typeof body.assignedArea === 'string') update.assignedArea = body.assignedArea;
@@ -62,7 +62,7 @@ export async function PATCH(
 
     await ref.update(update);
     const updated = await ref.get();
-    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as any) } });
+    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as Record<string, unknown>) } });
   } catch (error) {
     console.error('Update team error:', error);
     return NextResponse.json({ error: 'チーム情報の更新に失敗しました' }, { status: 500 });
@@ -88,7 +88,7 @@ export async function DELETE(
     const ref = adminDb.collection('teams').doc(teamId);
     const doc = await ref.get();
     if (!doc.exists) return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
-    const team = doc.data() as any;
+    const team = doc.data() as Record<string, unknown>;
 
     // 依存チェック: stores.distributedBy == team.teamCode
     const depStores = await adminDb.collection('stores').where('distributedBy', '==', team.teamCode).limit(1).get();

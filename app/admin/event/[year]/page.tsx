@@ -17,7 +17,7 @@ export default function AdminEventYear() {
   const yearParam = params?.year;
   const y = yearParam ? parseInt(yearParam) : NaN;
   const [isAdmin, setIsAdmin] = useState(false);
-  const [event, setEvent] = useState<any | null>(null);
+  const [event, setEvent] = useState<Record<string, unknown> | null>(null);
   const [eventLoading, setEventLoading] = useState(true);
   const [teamForm, setTeamForm] = useState({ teamCode: '', teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '' });
   const [editAccessTeam, setEditAccessTeam] = useState<{ teamId: string; teamName: string; current?: string } | null>(null);
@@ -34,8 +34,8 @@ export default function AdminEventYear() {
       if (!target) return;
       if (!target.closest('[data-menu-root]')) setMenuOpen(false);
     };
-    document.addEventListener('mousedown', onDown as any);
-    return () => document.removeEventListener('mousedown', onDown as any);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, [menuOpen]);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function AdminEventYear() {
         const ev = await fetcher(`/api/admin/events?year=${y}`);
         setEvent(ev.data || null);
         if (ev?.data) {
-          const parse = (v: any) => v?._seconds ? new Date(v._seconds * 1000) : new Date(v);
+          const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
           const s = ev.data.distributionStartDate ? parse(ev.data.distributionStartDate) : (ev.data.distributionDate ? parse(ev.data.distributionDate) : null);
           const e = ev.data.distributionEndDate ? parse(ev.data.distributionEndDate) : (ev.data.distributionDate ? parse(ev.data.distributionDate) : null);
           setEditForm({
@@ -61,7 +61,7 @@ export default function AdminEventYear() {
             distributionEndDate: e ? e.toISOString().slice(0, 10) : ''
           });
         }
-      } catch (e) {
+      } catch {
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {
@@ -74,11 +74,7 @@ export default function AdminEventYear() {
   const { data: statsData } = useSWR(isAdmin && event ? `/api/admin/stats?year=${y}` : null, fetcher);
   const { data: currentTotals } = useSWR(isAdmin && event ? `/api/admin/current-year-total?year=${y}&includeStores=1` : null, fetcher);
   const { data: teamsData } = useSWR(isAdmin && event ? `/api/admin/teams?year=${y}` : null, fetcher);
-  const [teams, setTeams] = useState<any[]>(teamsData?.teams || []);
-
-  useEffect(() => {
-    setTeams(teamsData?.teams || []);
-  }, [teamsData]);
+  // Teams data is available via teamsData?.teams
 
   const createTeam = async () => {
     if (!event) return;
@@ -141,8 +137,8 @@ export default function AdminEventYear() {
                           const data = await res.json();
                           if (!res.ok) throw new Error(data.error || '削除に失敗しました');
                           router.replace('/admin/event');
-                        } catch (e: any) {
-                          alert(e.message || '削除に失敗しました');
+                        } catch (e: unknown) {
+                          alert((e as Error).message || '削除に失敗しました');
                         }
                       }}
                     >削除</button>
@@ -201,23 +197,23 @@ export default function AdminEventYear() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {statsData?.teamStats?.map((team: any) => (
-                  <tr key={team.teamId}>
+                {statsData?.teamStats?.map((team: Record<string, unknown>) => (
+                  <tr key={team.teamId as string}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
                         className="text-left"
                         onClick={() => router.push(`/admin/event/${y}/${team.teamId}`)}
                         title="チーム詳細へ"
                       >
-                        <div className="text-sm font-medium text-indigo-700 hover:underline">{team.teamName}</div>
-                        <div className="text-sm text-gray-500">{team.teamCode}</div>
+                        <div className="text-sm font-medium text-indigo-700 hover:underline">{String(team.teamName)}</div>
+                        <div className="text-sm text-gray-500">{String(team.teamCode)}</div>
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.assignedArea}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.completedStores}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.completedStores}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.failedStores}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{team.distributedCount}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(team.assignedArea)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(team.completedStores)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(team.totalStores)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(team.failedStores)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(team.distributedCount)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       <button className="px-3 py-1 border rounded mr-2" onClick={() => router.push(`/admin/event/${y}/${team.teamId}`)}>詳細</button>
                       <button
@@ -229,8 +225,12 @@ export default function AdminEventYear() {
                             const res = await fetch(`/api/admin/teams/${team.teamId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
                             const data = await res.json();
                             if (!res.ok) throw new Error(data.error || '削除に失敗しました');
-                            setTeams((prev: any) => prev.filter((x: any) => x.teamId !== team.teamId));
-                          } catch (e: any) { alert(e.message || '削除に失敗しました'); }
+                            // Refresh stats data after deletion
+                            window.location.reload();
+                          } catch (error: unknown) { 
+                          const message = error instanceof Error ? error.message : '削除に失敗しました';
+                          alert(message);
+                        }
                         }}
                       >削除</button>
                     </td>
@@ -263,20 +263,20 @@ export default function AdminEventYear() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(currentTotals?.stores || []).map((s: any) => (
-                  <tr key={s.storeId}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{s.storeName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{s.address}</td>
+                {(currentTotals?.stores || []).map((s: Record<string, unknown>) => (
+                  <tr key={s.storeId as string}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(s.storeName)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{String(s.address)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`inline-block px-2 py-1 text-xs rounded-full ${s.distributionStatus === 'completed' ? 'bg-green-100 text-green-800' : s.distributionStatus === 'failed' ? 'bg-red-100 text-red-800' : s.distributionStatus === 'revisit' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
                         {s.distributionStatus === 'completed' ? '配布済み' : s.distributionStatus === 'failed' ? '配布不可' : s.distributionStatus === 'revisit' ? '要再訪問' : '未配布'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{s.distributedCount || 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(s.distributedCount || 0)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {s.distributedByName ? `${s.distributedByName}（${s.distributedBy}）` : s.distributedBy ? s.distributedBy : (s.assignedTeams && s.assignedTeams.length > 0 ? s.assignedTeams.join(', ') : '-')}
+                      {s.distributedByName ? `${String(s.distributedByName)}（${String(s.distributedBy)}）` : s.distributedBy ? String(s.distributedBy) : (s.assignedTeams && (s.assignedTeams as string[]).length > 0 ? (s.assignedTeams as string[]).join(', ') : '-')}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[20rem] truncate" title={s.notes || ''}>{s.notes || ''}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[20rem] truncate" title={String(s.notes || '')}>{String(s.notes || '')}</td>
                   </tr>
                 ))}
                 {(currentTotals?.stores || []).length === 0 && (
@@ -352,7 +352,7 @@ export default function AdminEventYear() {
       {isEditing && event && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">イベントを編集（{event.year}年度）</h2>
+            <h2 className="text-lg font-semibold mb-4">イベントを編集（{String(event.year)}年度）</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">イベント名</label>
@@ -380,8 +380,9 @@ export default function AdminEventYear() {
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     setEvent(data.data);
                     setIsEditing(false);
-                  } catch (e: any) {
-                    alert(e.message || '更新に失敗しました');
+                  } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : '更新に失敗しました';
+                    alert(message);
                   }
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md"
@@ -410,10 +411,12 @@ export default function AdminEventYear() {
                     const res = await fetch('/api/admin/teams', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ teamId: editAccessTeam.teamId, validDate: editAccessDate }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
-                    setTeams((prev: any) => prev.map((x: any) => x.teamId === editAccessTeam.teamId ? { ...x, validDate: editAccessDate } : x));
+                    // Refresh page to show updated data
+                    window.location.reload();
                     setEditAccessTeam(null);
-                  } catch (e: any) {
-                    alert(e.message || '更新に失敗しました');
+                  } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : '更新に失敗しました';
+                    alert(message);
                   }
                 }}
               >保存</button>

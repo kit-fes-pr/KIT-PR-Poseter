@@ -151,8 +151,10 @@
 | `/admin` | 管理者ログイン | なし |
 | `/dashboard` | 配布管理画面 | 班認証 |
 | `/admin/dashboard` | 管理者ダッシュボード | 管理者認証 |
-| `/admin/form`| アンケートフォーム一覧 | 管理者認証 |
-| `/admin/form/{id}` | アンケートフォーム作成 | 管理者認証 |
+| `/admin/form` | アンケートフォーム一覧 | 管理者認証 |
+| `/admin/form/create` | アンケートフォーム作成 | 管理者認証 |
+| `/admin/form/{id}` | アンケートフォーム編集 | 管理者認証 |
+| `/admin/form/{id}/responses` | アンケート回答一覧 | 管理者認証 |
 
 ---
 
@@ -315,7 +317,7 @@ API Routes:
 
 Pages/Components:
 - `app/admin/register/page.tsx` - 管理者登録フォーム
-- `app/admin/login/page.tsx` - ログインフォーム
+- `app/admin/page.tsx` - ログインフォーム
 - `app/admin/verify-email/page.tsx` - メール認証完了ページ
 
 ### セキュリティ仕様
@@ -432,6 +434,17 @@ interface YearlyStats {
 | `GET` | `/api/admin/current-year-total` | 当年度統計取得 |
 | `GET` | `/api/admin/events` | イベント一覧取得 |
 | `GET` | `/api/admin/teams/{teamId}/stores` | チーム別店舗情報取得 |
+
+#### アンケートフォーム関連
+| メソッド | エンドポイント | 説明 |
+|---------|---------------|------|
+| `GET` | `/api/forms` | フォーム一覧取得（管理者用） |
+| `POST` | `/api/forms` | フォーム作成 |
+| `GET` | `/api/forms/{formId}` | フォーム詳細取得 |
+| `PUT` | `/api/forms/{formId}` | フォーム更新 |
+| `DELETE` | `/api/forms/{formId}` | フォーム削除 |
+| `GET` | `/api/forms/{formId}/responses` | 回答一覧取得（管理者用） |
+| `POST` | `/api/forms/{formId}/responses` | 回答送信 |
 
 ---
 

@@ -59,17 +59,17 @@ export async function POST(request: NextRequest) {
       if (teamData.eventId) {
         const evDoc = await adminDb.collection('distributionEvents').doc(teamData.eventId).get();
         if (evDoc.exists) {
-          const ev = evDoc.data() as any;
-          const parseDate = (v: any) => v?._seconds ? new Date(v._seconds * 1000)
-            : (typeof v === 'string' ? new Date(v) : new Date(v));
+          const ev = evDoc.data() as Record<string, unknown>;
+          const parseDate = (v: Record<string, unknown> | string | Date) => (v as Record<string, unknown>)?._seconds ? new Date((v as Record<string, unknown>)._seconds as number * 1000)
+            : (typeof v === 'string' ? new Date(v) : new Date(v as unknown as Date));
           if (ev?.distributionStartDate || ev?.distributionEndDate) {
-            const ds = ev.distributionStartDate ? parseDate(ev.distributionStartDate) : null;
-            const de = ev.distributionEndDate ? parseDate(ev.distributionEndDate) : null;
+            const ds = ev.distributionStartDate ? parseDate(ev.distributionStartDate as Record<string, unknown> | string | Date) : null;
+            const de = ev.distributionEndDate ? parseDate(ev.distributionEndDate as Record<string, unknown> | string | Date) : null;
             if (ds && !isNaN(ds.getTime())) distStartKey = fmtJst(ds);
             if (de && !isNaN(de.getTime())) distEndKey = fmtJst(de);
           }
           if (ev?.distributionDate) {
-            const dd = parseDate(ev.distributionDate);
+            const dd = parseDate(ev.distributionDate as Record<string, unknown> | string | Date);
             if (!isNaN(dd.getTime())) distKey = fmtJst(dd);
           }
         }

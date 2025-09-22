@@ -1,14 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 
 export default function AdminLogin() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 認証状態を監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setAuthLoading(false);
+      
+      // ログイン済みの場合は /admin/event にリダイレクト
+      if (user) {
+        router.push('/admin/event');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const {
     register,
@@ -64,6 +83,30 @@ export default function AdminLogin() {
       setIsLoading(false);
     }
   };
+
+  // 認証チェック中は loading を表示
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">認証状態を確認中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ログイン済みの場合は何も表示しない（リダイレクト処理中）
+  if (user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">リダイレクト中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

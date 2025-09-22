@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (decodedToken.role === 'team' && scope !== 'all') {
       // チームログイン時は既定で自班の担当区域＋周辺区域に限定
       const teamDoc = await adminDb.collection('teams').doc(decodedToken.teamId).get();
-      const teamData = teamDoc.data() as any | undefined;
+      const teamData = teamDoc.data() as Record<string, unknown> | undefined;
       if (teamData?.assignedArea) {
         const adjacent = Array.isArray(teamData.adjacentAreas) ? teamData.adjacentAreas : [];
         const allowedAreas = [teamData.assignedArea, ...adjacent].filter(Boolean);
@@ -65,18 +65,18 @@ export async function GET(request: NextRequest) {
     if (decodedToken.role === 'team' && scope !== 'all') {
       try {
         const teamDoc = await adminDb.collection('teams').doc(decodedToken.teamId).get();
-        const teamData = teamDoc.data() as any | undefined;
+        const teamData = teamDoc.data() as Record<string, unknown> | undefined;
         if (teamData?.assignedArea) {
           const adjacent = Array.isArray(teamData.adjacentAreas) ? teamData.adjacentAreas : [];
           const allowedAreas = [teamData.assignedArea, ...adjacent].filter(Boolean);
           if (allowedAreas.length > 10) {
-            stores = stores.filter((s: any) => allowedAreas.includes(s.areaCode));
+            stores = stores.filter((s: Store) => allowedAreas.includes(s.areaCode));
           }
         }
       } catch {}
       // ログインコード（班）単位で管理: 自分が作成 or 自分が配布した店舗のみ表示
       const selfCode = decodedToken.teamCode;
-      stores = stores.filter((s: any) => s.createdByTeamCode === selfCode || s.distributedBy === selfCode);
+      stores = stores.filter((s: Store) => s.createdByTeamCode === selfCode || s.distributedBy === selfCode);
     }
 
     stores.sort((a, b) => {
@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
     if (decodedToken.role === 'team' && decodedToken.teamId) {
       try {
         const teamDoc = await adminDb.collection('teams').doc(decodedToken.teamId).get();
-        const teamData = teamDoc.data() as any | undefined;
-        teamAssignedArea = teamData?.assignedArea;
+        const teamData = teamDoc.data() as Record<string, unknown> | undefined;
+        teamAssignedArea = teamData?.assignedArea as string;
       } catch {}
     }
 

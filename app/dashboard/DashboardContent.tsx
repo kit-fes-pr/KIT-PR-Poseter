@@ -131,8 +131,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
         setMenuStoreId(null);
       }
     };
-    document.addEventListener('mousedown', onDown as any);
-    return () => document.removeEventListener('mousedown', onDown as any);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, [menuStoreId]);
 
   const updateStoreStatus = async (storeId: string, status: Store['distributionStatus'], count?: number, reason?: string) => {
@@ -443,7 +443,7 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                     const val = e.target.value as Store['distributionStatus'];
                     setEditValue('distributionStatus', val);
                     if (val !== 'completed') setEditValue('distributedCount', 0);
-                    if (val !== 'failed') setEditValue('failureReason', undefined as any);
+                    if (val !== 'failed') setEditValue('failureReason', undefined);
                   }}>
                     <option value="pending">未配布</option>
                     <option value="completed">配布完了</option>

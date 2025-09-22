@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       const teamCompleted = teamStores.filter(store => store.distributionStatus === 'completed').length;
       const teamFailed = teamStores.filter(store => store.distributionStatus === 'failed').length;
       const teamTotal = teamStores.length;
-      const teamDistributedCount = teamStores.reduce((sum, s: any) => sum + (s.distributedCount || 0), 0);
+      const teamDistributedCount = teamStores.reduce((sum, s: Record<string, unknown>) => sum + ((s.distributedCount as number) || 0), 0);
       const teamRate = teamTotal > 0 ? (teamCompleted / teamTotal) * 100 : 0;
 
       return {
