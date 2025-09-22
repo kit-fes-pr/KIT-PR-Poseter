@@ -44,12 +44,12 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
 
   const loadForms = async () => {
     if (!resolvedParams || !user) return;
-    
+
     try {
       setLoading(true);
       const token = await user.getIdToken();
       const eventId = `kohdai${resolvedParams.year}`;
-      
+
       const res = await fetch(`/api/forms?eventId=${eventId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -76,7 +76,7 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
       if (!user) return;
 
       const token = await user.getIdToken();
-      
+
       const res = await fetch(`/api/forms/${formId}`, {
         method: 'PATCH',
         headers: {
@@ -107,7 +107,7 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
       if (!user) return;
 
       const token = await user.getIdToken();
-      
+
       const res = await fetch(`/api/forms/${formId}`, {
         method: 'DELETE',
         headers: {
@@ -195,17 +195,16 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
               {forms.map((form) => (
                 <li key={form.formId}>
                   <div className="px-6 py-4">
-                    <div className="flex items-center justify-between">
+                    <div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center">
                           <h3 className="text-lg font-medium text-gray-900 truncate">
                             {form.title}
                           </h3>
-                          <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            form.isActive 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
+                          <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${form.isActive
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                            }`}>
                             {form.isActive ? '公開中' : '非公開'}
                           </span>
                         </div>
@@ -216,65 +215,64 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
                         )}
                         <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
                           <span>回答数: {form.responseCount}</span>
-                          <span>フィールド数: {form.fields.length}</span>
-                          <span>作成日: {new Date(form.createdAt).toLocaleDateString('ja-JP')}</span>
                           {form.lastResponseAt && (
                             <span>最終回答: {new Date(form.lastResponseAt).toLocaleDateString('ja-JP')}</span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {/* フォームリンク */}
-                        <a
-                          href={`/form/${form.formId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                          プレビュー
-                        </a>
-                        
-                        {/* 回答一覧ボタン */}
-                        <Link
-                          href={`/admin/event/${resolvedParams?.year}/form/${form.formId}/responses`}
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          回答一覧 ({form.responseCount})
-                        </Link>
-                        
-                        {/* 編集ボタン */}
-                        <Link
-                          href={`/admin/event/${resolvedParams?.year}/form/${form.formId}`}
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                          編集
-                        </Link>
-                        
-                        {/* 公開/非公開トグル */}
-                        <button
-                          onClick={() => toggleFormStatus(form.formId, form.isActive)}
-                          className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                            form.isActive
+                      <div className="flex items-end justify-end">
+                        <div className="flex items-center space-x-2 sm:flex-row flex-col space-y-2 w-full sm:w-auto">
+                          {/* フォームリンク */}
+                          <a
+                            href={`/form/${form.formId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            プレビュー
+                          </a>
+
+                          {/* 回答一覧ボタン */}
+                          <Link
+                            href={`/admin/event/${resolvedParams?.year}/form/${form.formId}/responses`}
+                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            回答一覧 ({form.responseCount})
+                          </Link>
+
+                          {/* 編集ボタン */}
+                          <Link
+                            href={`/admin/event/${resolvedParams?.year}/form/${form.formId}`}
+                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            編集
+                          </Link>
+
+                          {/* 公開/非公開トグル */}
+                          <button
+                            onClick={() => toggleFormStatus(form.formId, form.isActive)}
+                            className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${form.isActive
                               ? 'text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:ring-yellow-500'
                               : 'text-green-700 bg-green-100 hover:bg-green-200 focus:ring-green-500'
-                          }`}
-                        >
-                          {form.isActive ? '非公開にする' : '公開する'}
-                        </button>
-                        
-                        {/* 削除ボタン */}
-                        <button
-                          onClick={() => deleteForm(form.formId)}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                          削除
-                        </button>
+                              }`}
+                          >
+                            {form.isActive ? '非公開にする' : '公開する'}
+                          </button>
+
+                          {/* 削除ボタン */}
+                          <button
+                            onClick={() => deleteForm(form.formId)}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          >
+                            削除
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

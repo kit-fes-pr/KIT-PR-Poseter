@@ -28,6 +28,8 @@ export default function FormResponsesPage({
   const [error, setError] = useState('');
   const [showStatistics, setShowStatistics] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [editingResponse, setEditingResponse] = useState<(FormResponse | ParticipantSurveyResponse) | null>(null);
+  const [editFormData, setEditFormData] = useState<{ [key: string]: string | string[] | number }>({});
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -226,6 +228,88 @@ export default function FormResponsesPage({
     };
   };
 
+  const openEditModal = (response: FormResponse | ParticipantSurveyResponse) => {
+    setEditingResponse(response);
+    
+    // 現在の回答データを編集フォームにセット
+    const participantResponse = response as ParticipantSurveyResponse;
+    const formData: { [key: string]: string | string[] | number } = {
+      participantName: participantResponse.participantData?.name || '',
+      participantGrade: participantResponse.participantData?.grade?.toString() || '',
+      participantSection: participantResponse.participantData?.section || '',
+    };
+
+    // フォームフィールドの回答をセット
+    response.answers.forEach(answer => {
+      formData[answer.fieldId] = answer.value;
+    });
+
+    setEditFormData(formData);
+  };
+
+  const closeEditModal = () => {
+    setEditingResponse(null);
+    setEditFormData({});
+  };
+
+  const updateResponse = async () => {
+    if (!editingResponse || !resolvedParams || !user) return;
+
+    try {
+      const token = await user.getIdToken();
+
+      // フォームフィールドの回答を構築
+      const answers = form?.fields.map(field => ({
+        fieldId: field.fieldId,
+        value: editFormData[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
+      })) || [];
+
+      // 参加可能時間帯フィールドの値を取得してAPI形式に変換
+      const availabilityValue = editFormData.availability;
+      let availableTime: 'morning' | 'afternoon' | 'both' = 'both';
+      if (availabilityValue) {
+        if (availabilityValue.includes('午前のみ')) {
+          availableTime = 'morning';
+        } else if (availabilityValue.includes('午後のみ')) {
+          availableTime = 'afternoon';
+        } else {
+          availableTime = 'both';
+        }
+      }
+
+      const updateData = {
+        answers,
+        participantData: {
+          name: editFormData.participantName,
+          section: editFormData.participantSection,
+          grade: parseInt(editFormData.participantGrade),
+          availableTime: availableTime,
+        },
+      };
+
+      const res = await fetch(`/api/forms/${resolvedParams.formId}/responses/${editingResponse.responseId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (res.ok) {
+        // 回答一覧を再読み込み
+        await loadFormAndResponses();
+        closeEditModal();
+      } else {
+        const errorData = await res.json();
+        setError(errorData.error || '回答の更新に失敗しました');
+      }
+    } catch (err) {
+      setError('回答の更新に失敗しました');
+      console.error(err);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -394,6 +478,9 @@ export default function FormResponsesPage({
                         {field.label}
                       </th>
                     ))}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      操作
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -423,6 +510,16 @@ export default function FormResponsesPage({
                             </td>
                           );
                         })}
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => openEditModal(response)}
+                            className="text-indigo-600 hover:text-indigo-900 mr-3"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -522,6 +619,153 @@ export default function FormResponsesPage({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* 編集モーダル */}
+        {editingResponse && form && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">回答を編集</h3>
+                  <button
+                    onClick={closeEditModal}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form className="space-y-4 max-h-96 overflow-y-auto">
+                  {/* 参加者情報 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">お名前 *</label>
+                      <input
+                        type="text"
+                        value={editFormData.participantName || ''}
+                        onChange={(e) => setEditFormData({...editFormData, participantName: e.target.value})}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">学年 *</label>
+                      <select
+                        value={editFormData.participantGrade || ''}
+                        onChange={(e) => setEditFormData({...editFormData, participantGrade: e.target.value})}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="">選択してください</option>
+                        <option value="1">1年生</option>
+                        <option value="2">2年生</option>
+                        <option value="3">3年生</option>
+                        <option value="4">4年生</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">所属セクション *</label>
+                      <input
+                        type="text"
+                        value={editFormData.participantSection || ''}
+                        onChange={(e) => setEditFormData({...editFormData, participantSection: e.target.value})}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* フォームフィールド */}
+                  {form.fields.map(field => (
+                    <div key={field.fieldId}>
+                      <label className="block text-sm font-medium text-gray-700">
+                        {field.label} {field.required && '*'}
+                      </label>
+                      {field.type === 'text' || field.type === 'number' ? (
+                        <input
+                          type={field.type}
+                          value={editFormData[field.fieldId] || ''}
+                          onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      ) : field.type === 'textarea' ? (
+                        <textarea
+                          rows={3}
+                          value={editFormData[field.fieldId] || ''}
+                          onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      ) : field.type === 'select' ? (
+                        <select
+                          value={editFormData[field.fieldId] || ''}
+                          onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="">選択してください</option>
+                          {field.options?.map((option, index) => (
+                            <option key={index} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      ) : field.type === 'radio' ? (
+                        <div className="mt-1 space-y-2">
+                          {field.options?.map((option, index) => (
+                            <label key={index} className="flex items-center">
+                              <input
+                                type="radio"
+                                name={field.fieldId}
+                                value={option}
+                                checked={editFormData[field.fieldId] === option}
+                                onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                                className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{option}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : field.type === 'checkbox' ? (
+                        <div className="mt-1 space-y-2">
+                          {field.options?.map((option, index) => (
+                            <label key={index} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                value={option}
+                                checked={Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId].includes(option) : false}
+                                onChange={(e) => {
+                                  const currentValues = Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId] : [];
+                                  if (e.target.checked) {
+                                    setEditFormData({...editFormData, [field.fieldId]: [...currentValues, option]});
+                                  } else {
+                                    setEditFormData({...editFormData, [field.fieldId]: currentValues.filter((v: string) => v !== option)});
+                                  }
+                                }}
+                                className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{option}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </form>
+
+                <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={closeEditModal}
+                    className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={updateResponse}
+                    className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    更新
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
