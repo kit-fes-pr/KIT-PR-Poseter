@@ -111,8 +111,8 @@ export async function POST(
       }
       
       const gradeNum = parseInt(participantData.grade);
-      if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 5) {
-        participantValidationErrors.push('学年は1-5の範囲で選択してください');
+      if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
+        participantValidationErrors.push('学年は1-4の範囲で選択してください');
       }
       
       if (!participantData.availableTime || !['morning', 'afternoon', 'both'].includes(participantData.availableTime)) {

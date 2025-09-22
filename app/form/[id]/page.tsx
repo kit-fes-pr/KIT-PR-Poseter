@@ -10,7 +10,6 @@ interface FormData {
   participantName: string;
   participantGrade: string;
   participantSection: string;
-  participantAvailableTime: 'morning' | 'afternoon' | 'both';
 }
 
 export default function FormResponsePage({ params }: { params: Promise<{ id: string }> }) {
@@ -65,6 +64,21 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         value: data[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
       }));
 
+      // 参加可能時間帯フィールドの値を取得
+      const availabilityValue = data.availability;
+      
+      // 選択された値を APIが期待する形式に変換
+      let availableTime: 'morning' | 'afternoon' | 'both' = 'both';
+      if (availabilityValue) {
+        if (availabilityValue.includes('午前のみ')) {
+          availableTime = 'morning';
+        } else if (availabilityValue.includes('午後のみ')) {
+          availableTime = 'afternoon';
+        } else {
+          availableTime = 'both';
+        }
+      }
+
       const res = await fetch(`/api/forms/${resolvedParams.id}/responses`, {
         method: 'POST',
         headers: {
@@ -76,7 +90,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             name: data.participantName,
             section: data.participantSection,
             grade: data.participantGrade,
-            availableTime: data.participantAvailableTime,
+            availableTime: availableTime,
           },
           submitterInfo: {
             submittedAt: new Date().toISOString(),
@@ -411,6 +425,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                     <p className="mt-1 text-sm text-red-600">{errors.participantSection.message}</p>
                   )}
                 </div>
+
               </div>
 
               {/* 既存のフォームフィールド */}

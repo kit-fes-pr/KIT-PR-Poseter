@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { SurveyForm, ParticipantSurveyResponse, FormResponse } from '@/types/forms';
+import { SurveyForm, ParticipantSurveyResponse, FormResponse, FormField } from '@/types/forms';
+
+interface StatOption {
+  option: string;
+  count: number;
+  percentage: string;
+}
 
 export default function FormResponsesPage({ 
   params 
@@ -20,6 +26,8 @@ export default function FormResponsesPage({
   const [responses, setResponses] = useState<(FormResponse | ParticipantSurveyResponse)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showStatistics, setShowStatistics] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -41,6 +49,21 @@ export default function FormResponsesPage({
     if (!resolvedParams || !user || authLoading) return;
     loadFormAndResponses();
   }, [resolvedParams, user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // モバイルメニューを外側クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showMobileMenu) {
+        const target = event.target as Element;
+        if (!target.closest('.mobile-menu-container')) {
+          setShowMobileMenu(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMobileMenu]);
 
   const loadFormAndResponses = async () => {
     if (!resolvedParams || !user) return;
@@ -145,6 +168,64 @@ export default function FormResponsesPage({
     return value || '-';
   };
 
+  // フィールドごとの統計を生成する関数
+  const generateFieldStatistics = (field: FormField) => {
+    if (!responses.length) return null;
+
+    const fieldAnswers = responses.map(response => {
+      const answer = response.answers.find(a => a.fieldId === field.fieldId);
+      return answer?.value;
+    }).filter(value => value !== undefined && value !== null && value !== '');
+
+    if (fieldAnswers.length === 0) return null;
+
+    // select, radio フィールドの場合、選択肢ごとの統計を表示
+    if ((field.type === 'select' || field.type === 'radio') && field.options) {
+      const stats = field.options.map((option: string) => {
+        const count = fieldAnswers.filter(answer => answer === option).length;
+        const percentage = fieldAnswers.length > 0 ? ((count / fieldAnswers.length) * 100).toFixed(1) : '0.0';
+        return { option, count, percentage };
+      });
+
+      return {
+        type: 'options',
+        title: field.label,
+        stats,
+        totalAnswers: fieldAnswers.length
+      };
+    }
+
+    // checkbox フィールドの場合
+    if (field.type === 'checkbox' && field.options) {
+      const allSelectedOptions: string[] = [];
+      fieldAnswers.forEach(answer => {
+        if (Array.isArray(answer)) {
+          allSelectedOptions.push(...answer);
+        }
+      });
+
+      const stats = field.options.map((option: string) => {
+        const count = allSelectedOptions.filter(selected => selected === option).length;
+        const percentage = fieldAnswers.length > 0 ? ((count / fieldAnswers.length) * 100).toFixed(1) : '0.0';
+        return { option, count, percentage };
+      });
+
+      return {
+        type: 'checkbox',
+        title: field.label,
+        stats,
+        totalAnswers: fieldAnswers.length
+      };
+    }
+
+    // text, textarea, number フィールドの場合は回答数のみ表示
+    return {
+      type: 'simple',
+      title: field.label,
+      totalAnswers: fieldAnswers.length
+    };
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -184,14 +265,15 @@ export default function FormResponsesPage({
                   </li>
                 </ol>
               </nav>
-              <h1 className="mt-2 text-2xl font-bold text-gray-900">
+              <h1 className="mt-2 text-xl font-bold text-gray-900">
                 {form?.title} - 回答一覧
               </h1>
               <p className="mt-1 text-sm text-gray-600">
-                回答数: {responses.length}件 | 最終更新: {form ? new Date(form.updatedAt).toLocaleString('ja-JP') : ''}
+                回答数: {responses.length}件
               </p>
             </div>
-            <div className="flex items-center space-x-3">
+            {/* デスクトップ用ボタン */}
+            <div className="hidden md:flex items-center space-x-3">
               <button
                 onClick={exportToCsv}
                 disabled={responses.length === 0}
@@ -213,6 +295,58 @@ export default function FormResponsesPage({
                 </svg>
                 フォームを開く
               </a>
+            </div>
+
+            {/* モバイル用ハンバーガーメニュー */}
+            <div className="md:hidden relative mobile-menu-container">
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <svg
+                  className={`h-6 w-6 transition-transform duration-200 ${showMobileMenu ? 'rotate-90' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              {/* ドロップダウンメニュー */}
+              {showMobileMenu && (
+                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                  <div className="py-1" role="menu">
+                    <button
+                      onClick={() => {
+                        exportToCsv();
+                        setShowMobileMenu(false);
+                      }}
+                      disabled={responses.length === 0}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      role="menuitem"
+                    >
+                      <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      CSVダウンロード
+                    </button>
+                    <a
+                      href={`/form/${resolvedParams?.formId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowMobileMenu(false)}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      role="menuitem"
+                    >
+                      <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      フォームを開く
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -277,11 +411,6 @@ export default function FormResponsesPage({
                               {participantResponse.participantData?.grade && `${participantResponse.participantData.grade}年 `}
                               {participantResponse.participantData?.section}
                             </div>
-                            <div className="text-gray-500 text-xs">
-                              {participantResponse.participantData?.availableTime === 'morning' && '午前のみ'}
-                              {participantResponse.participantData?.availableTime === 'afternoon' && '午後のみ'}
-                              {participantResponse.participantData?.availableTime === 'both' && '午前・午後両方'}
-                            </div>
                           </div>
                         </td>
                         {form?.fields.map(field => {
@@ -304,79 +433,95 @@ export default function FormResponsesPage({
         )}
 
         {/* 統計情報 */}
-        {responses.length > 0 && (
-          <div className="mt-8 bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">統計情報</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* 参加可能時間帯の統計 */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">参加可能時間帯</h4>
-                <div className="space-y-1">
-                  {['morning', 'afternoon', 'both'].map(timeSlot => {
-                    const count = responses.filter(r => {
-                      const pr = r as ParticipantSurveyResponse;
-                      return pr.participantData?.availableTime === timeSlot;
-                    }).length;
-                    const percentage = ((count / responses.length) * 100).toFixed(1);
-                    const label = timeSlot === 'morning' ? '午前のみ' : timeSlot === 'afternoon' ? '午後のみ' : '午前・午後両方';
-                    
-                    return (
-                      <div key={timeSlot} className="flex justify-between text-sm">
-                        <span>{label}</span>
-                        <span>{count}件 ({percentage}%)</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 学年の統計 */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">学年</h4>
-                <div className="space-y-1">
-                  {[1, 2, 3, 4, 5].map(grade => {
-                    const count = responses.filter(r => {
-                      const pr = r as ParticipantSurveyResponse;
-                      return pr.participantData?.grade === grade;
-                    }).length;
-                    const percentage = ((count / responses.length) * 100).toFixed(1);
-                    
-                    return (
-                      <div key={grade} className="flex justify-between text-sm">
-                        <span>{grade}年生</span>
-                        <span>{count}件 ({percentage}%)</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 回答状況 */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">回答状況</h4>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span>総回答数</span>
-                    <span>{responses.length}件</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>今日の回答</span>
-                    <span>
-                      {responses.filter(r => {
-                        const today = new Date().toDateString();
-                        return new Date(r.submittedAt).toDateString() === today;
-                      }).length}件
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>最新回答</span>
-                    <span>
-                      {responses.length > 0 ? new Date(Math.max(...responses.map(r => new Date(r.submittedAt).getTime()))).toLocaleDateString('ja-JP') : '-'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+        {responses.length > 0 && form && (
+          <div className="mt-8 bg-white shadow rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <button
+                onClick={() => setShowStatistics(!showStatistics)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <h3 className="text-lg font-medium text-gray-900">統計情報</h3>
+                <svg
+                  className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${
+                    showStatistics ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
+            {showStatistics && (
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* 学年の統計（参加者データより） */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">学年</h4>
+                      <div className="space-y-1">
+                        {[1, 2, 3, 4].map(grade => {
+                          const count = responses.filter(r => {
+                            const pr = r as ParticipantSurveyResponse;
+                            return pr.participantData?.grade === grade;
+                          }).length;
+                          const percentage = ((count / responses.length) * 100).toFixed(1);
+                          
+                          return (
+                            <div key={grade} className="flex justify-between text-sm">
+                              <span>{grade}年生</span>
+                              <span>{count}件 ({percentage}%)</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                  {/* フォームフィールドごとの統計 */}
+                  {form.fields
+                    .filter(field => field.type === 'select' || field.type === 'radio' || field.type === 'checkbox')
+                    .map(field => {
+                      const fieldStats = generateFieldStatistics(field);
+                      if (!fieldStats) return null;
+
+                      return (
+                        <div key={field.fieldId}>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">{fieldStats.title}</h4>
+                          <div className="space-y-1">
+                            {fieldStats.type === 'options' && fieldStats.stats?.map((stat: StatOption) => (
+                              <div key={stat.option} className="flex justify-between text-sm">
+                                <span className="truncate mr-2">{stat.option}</span>
+                                <span className="whitespace-nowrap">{stat.count}件 ({stat.percentage}%)</span>
+                              </div>
+                            ))}
+                            {fieldStats.type === 'checkbox' && fieldStats.stats?.map((stat: StatOption) => (
+                              <div key={stat.option} className="flex justify-between text-sm">
+                                <span className="truncate mr-2">{stat.option}</span>
+                                <span className="whitespace-nowrap">{stat.count}件 ({stat.percentage}%)</span>
+                              </div>
+                            ))}
+                          </div>
+                          {fieldStats.type === 'checkbox' && (
+                            <p className="mt-1 text-xs text-gray-500">※ 複数選択可能</p>
+                          )}
+                        </div>
+                      );
+                    })
+                  }
+
+                  {/* 回答状況 */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">回答状況</h4>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>総回答数</span>
+                        <span>{responses.length}件</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
