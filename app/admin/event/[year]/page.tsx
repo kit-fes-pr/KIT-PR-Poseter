@@ -180,6 +180,8 @@ export default function AdminEventYear() {
               <button onClick={() => router.push('/admin/event')} className="px-3 py-2 border rounded-md text-sm sm:block hidden">年度一覧</button>
               <button onClick={() => router.push(`/admin/event/${y}/team`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">チーム管理</button>
               <button onClick={() => router.push(`/admin/event/${y}/form`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">フォーム管理</button>
+              <button onClick={() => router.push(`/admin/event/${y}/members`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">メンバー管理</button>
+              <button onClick={() => router.push(`/admin/event/${y}/stats`)} className="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm sm:block hidden">統計レポート</button>
               <div className="relative" data-menu-root>
                 <button className="px-3 py-2 border rounded-md text-sm" onClick={() => setMenuOpen(!menuOpen)} title="メニュー">≡</button>
                 {menuOpen && (
@@ -187,6 +189,8 @@ export default function AdminEventYear() {
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push('/admin/event')}>年度一覧</button>
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/team`)}>チーム管理</button>
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/form`)}>フォーム管理</button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/members`)}>メンバー管理</button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/stats`)}>統計レポート</button>
                     <hr className="my-1 sm:hidden" />
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { setIsEditing(true); setMenuOpen(false); }}>編集</button>
                     <button
