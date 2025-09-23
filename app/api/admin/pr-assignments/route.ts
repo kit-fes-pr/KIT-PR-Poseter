@@ -57,18 +57,36 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('PR Assignment POST: Creating assignment in Firestore');
-    const ref = adminDb.collection('prAssignments').doc();
+    const y = parseInt(year);
+
+    // 既存割り当てをチェック（year + responseId で一意）
+    const existingSnap = await adminDb
+      .collection('prAssignments')
+      .where('year', '==', y)
+      .where('responseId', '==', responseId)
+      .limit(1)
+      .get();
+
+    // 決定的なドキュメントID（ユニーク制約の代替）
+    const deterministicId = `${y}_${responseId}`;
+    const targetRef = adminDb.collection('prAssignments').doc(deterministicId);
+
     const assignmentData = {
-      year: parseInt(year),
+      year: y,
       responseId,
       teamId,
       assignedAt: new Date(),
-      assignedBy: 'manual',
+      assignedBy: 'manual' as const,
     };
-    
-    console.log('PR Assignment POST: Assignment data:', assignmentData);
-    await ref.set(assignmentData);
-    console.log('PR Assignment POST: Assignment created with ID:', ref.id);
+
+    console.log('PR Assignment POST: Upserting assignment with deterministic ID', deterministicId, assignmentData, 'existing:', !existingSnap.empty);
+    // 先にターゲットIDにアップサート
+    await targetRef.set(assignmentData, { merge: true });
+    // 古いランダムIDでの既存があれば削除（移行時の二重データ防止）
+    if (!existingSnap.empty && existingSnap.docs[0].id !== deterministicId) {
+      await existingSnap.docs[0].ref.delete();
+      console.log('PR Assignment POST: Removed legacy duplicate doc:', existingSnap.docs[0].id);
+    }
 
     console.log('PR Assignment POST: Fetching updated assignments');
     const snap = await adminDb.collection('prAssignments').where('year', '==', parseInt(year)).get();
