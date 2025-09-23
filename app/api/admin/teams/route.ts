@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const teamData: Omit<Team, 'teamId'> = {
       teamCode,
       teamName,
-      timeSlot,
+      timeSlot: timeSlot || 'both', // フォームからの値を使用、未設定時は両方対応
       assignedArea,
       adjacentAreas: adjacentAreas || [],
       eventId,

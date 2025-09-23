@@ -413,14 +413,20 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                   <label htmlFor="participantSection" className="block text-sm font-medium text-gray-700">
                     所属セクション *
                   </label>
-                  <input
+                  <select
                     id="participantSection"
-                    type="text"
                     {...register('participantSection', {
                       required: '所属セクションは必須です',
                     })}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
+                  >
+                    <option value="">選択してください</option>
+                    <option value="企画系">企画系</option>
+                    <option value="技術系">技術系</option>
+                    <option value="警備系">警備系</option>
+                    <option value="Web系">Web系</option>
+                    <option value="PR系">PR系</option>
+                  </select>
                   {errors.participantSection && (
                     <p className="mt-1 text-sm text-red-600">{errors.participantSection.message}</p>
                   )}

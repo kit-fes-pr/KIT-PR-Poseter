@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -24,6 +26,20 @@ export default function AdminEventIndex() {
   const [editTarget, setEditTarget] = useState<Record<string, unknown> | null>(null);
   const [editForm, setEditForm] = useState<{ eventName: string; distributionDate: string }>({ eventName: '', distributionDate: '' });
 
+  // ログアウト処理
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('authToken');
+      router.push('/admin');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+      // Firebase サインアウトが失敗してもローカルをクリア
+      localStorage.removeItem('authToken');
+      router.push('/admin');
+    }
+  };
+
   // Close popup menu on outside click
   useEffect(() => {
     if (!menuEventId) return;
@@ -35,6 +51,19 @@ export default function AdminEventIndex() {
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuEventId]);
+
+  // Firebase認証状態を監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // ログアウト状態の場合はadminページにリダイレクト
+        localStorage.removeItem('authToken');
+        router.push('/admin');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   useEffect(() => {
     const init = async () => {
@@ -75,10 +104,7 @@ export default function AdminEventIndex() {
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
               >学外配布年度を追加</button>
               <button
-                onClick={() => {
-                  localStorage.removeItem('authToken');
-                  router.push('/admin');
-                }}
+                onClick={handleLogout}
                 className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm"
               >ログアウト</button>
             </div>

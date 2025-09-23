@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -144,10 +145,10 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ">
         {/* ヘッダー */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between sm:flex-row flex-col space-y-2">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 フォーム管理 ({resolvedParams?.year}年度)
@@ -156,6 +157,12 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
                 アンケートフォームの作成・編集・管理を行います
               </p>
             </div>
+            <Link
+              href={`/admin/event/${resolvedParams?.year}`}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              イベント管理に戻る
+            </Link>
             <Link
               href={`/admin/event/${resolvedParams?.year}/form/new`}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -287,10 +294,10 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
 
   function formatDate(dateValue: any) {
     if (!dateValue) return '-';
-    
+
     try {
       let date: Date;
-      
+
       // Firestore Timestamp の場合
       if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
         date = dateValue.toDate();
@@ -310,12 +317,12 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
       else {
         return 'Invalid Date';
       }
-      
+
       // 有効な日付かチェック
       if (isNaN(date.getTime())) {
         return 'Invalid Date';
       }
-      
+
       return date.toLocaleDateString('ja-JP', {
         year: 'numeric',
         month: '2-digit',

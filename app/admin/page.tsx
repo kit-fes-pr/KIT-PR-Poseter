@@ -16,13 +16,39 @@ export default function AdminLogin() {
 
   // 認証状態を監視
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       setAuthLoading(false);
       
-      // ログイン済みの場合は /admin/event にリダイレクト
+      // ログイン済みの場合は管理者権限をチェックしてからリダイレクト
       if (user) {
-        router.push('/admin/event');
+        try {
+          const idToken = await user.getIdToken();
+          const response = await fetch('/api/auth/verify', {
+            headers: { Authorization: `Bearer ${idToken}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.user?.isAdmin) {
+              // 管理者権限が確認できた場合のみリダイレクト
+              localStorage.setItem('authToken', idToken);
+              router.push('/admin/event');
+            } else {
+              // 管理者権限がない場合はログアウト
+              setError('管理者権限がありません');
+              setUser(null);
+            }
+          } else {
+            // 認証失敗の場合はログアウト
+            setError('認証に失敗しました');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('認証チェックエラー:', error);
+          setError('認証チェックに失敗しました');
+          setUser(null);
+        }
       }
     });
 

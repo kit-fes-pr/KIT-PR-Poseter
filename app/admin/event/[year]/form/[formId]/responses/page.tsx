@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -529,7 +530,18 @@ export default function FormResponsesPage({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {responses.map((response, index) => {
+                  {([...responses]
+                    .sort((a, b) => {
+                      const pa = (a as ParticipantSurveyResponse).participantData;
+                      const pb = (b as ParticipantSurveyResponse).participantData;
+                      const ga = pa?.grade || 0;
+                      const gb = pb?.grade || 0;
+                      if (gb !== ga) return gb - ga; // 上級学年から
+                      const na = (pa?.name || '').toString();
+                      const nb = (pb?.name || '').toString();
+                      return new Intl.Collator('ja').compare(na, nb); // 五十音順
+                    }))
+                    .map((response, index) => {
                     const participantResponse = response as ParticipantSurveyResponse;
                     return (
                       <tr key={response.responseId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>

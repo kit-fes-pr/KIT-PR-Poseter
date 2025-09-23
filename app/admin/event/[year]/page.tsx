@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -26,6 +28,20 @@ export default function AdminEventYear() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<{ eventName: string; distributionStartDate: string; distributionEndDate: string }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
 
+  // ログアウト処理
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('authToken');
+      router.push('/admin');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+      // Firebase サインアウトが失敗してもローカルをクリア
+      localStorage.removeItem('authToken');
+      router.push('/admin');
+    }
+  };
+
   // Close popup menu on outside click
   useEffect(() => {
     if (!menuOpen) return;
@@ -37,6 +53,19 @@ export default function AdminEventYear() {
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuOpen]);
+
+  // Firebase認証状態を監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // ログアウト状態の場合はadminページにリダイレクト
+        localStorage.removeItem('authToken');
+        router.push('/admin');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   useEffect(() => {
     const init = async () => {
@@ -75,6 +104,34 @@ export default function AdminEventYear() {
   const { data: currentTotals } = useSWR(isAdmin && event ? `/api/admin/current-year-total?year=${y}&includeStores=1` : null, fetcher);
   const { data: teamsData } = useSWR(isAdmin && event ? `/api/admin/teams?year=${y}` : null, fetcher);
   // Teams data is available via teamsData?.teams
+
+  // チームデータをPR・AM・PMの順番でソートする関数
+  const getSortedTeams = () => {
+    if (!statsData?.teamStats) return [];
+    
+    return [...statsData.teamStats].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const codeA = String(a.teamCode || '').toLowerCase();
+      const codeB = String(b.teamCode || '').toLowerCase();
+      
+      // PR、AM、PMの順序を定義
+      const getOrderPriority = (code: string) => {
+        if (code.includes('pr')) return 1;
+        if (code.includes('am')) return 2;
+        if (code.includes('pm')) return 3;
+        return 4; // その他
+      };
+      
+      const priorityA = getOrderPriority(codeA);
+      const priorityB = getOrderPriority(codeB);
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // 同じカテゴリ内では文字列順でソート
+      return codeA.localeCompare(codeB);
+    });
+  };
 
   const createTeam = async () => {
     if (!event) return;
@@ -120,11 +177,17 @@ export default function AdminEventYear() {
               <h1 className="text-xl font-semibold">{y} 年度 管理</h1>
             </div>
             <div className="flex items-center space-x-2">
-              <button onClick={() => router.push('/admin/event')} className="px-3 py-2 border rounded-md text-sm">年度一覧</button>
+              <button onClick={() => router.push('/admin/event')} className="px-3 py-2 border rounded-md text-sm sm:block hidden">年度一覧</button>
+              <button onClick={() => router.push(`/admin/event/${y}/team`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">チーム管理</button>
+              <button onClick={() => router.push(`/admin/event/${y}/form`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">フォーム管理</button>
               <div className="relative" data-menu-root>
                 <button className="px-3 py-2 border rounded-md text-sm" onClick={() => setMenuOpen(!menuOpen)} title="メニュー">≡</button>
                 {menuOpen && (
-                  <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-md z-10">
+                  <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded shadow-md z-10">
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push('/admin/event')}>年度一覧</button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/team`)}>チーム管理</button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/form`)}>フォーム管理</button>
+                    <hr className="my-1 sm:hidden" />
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => { setIsEditing(true); setMenuOpen(false); }}>編集</button>
                     <button
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -146,10 +209,7 @@ export default function AdminEventYear() {
                 )}
               </div>
               <button
-                onClick={() => {
-                  localStorage.removeItem('authToken');
-                  router.push('/admin');
-                }}
+                onClick={handleLogout}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
                 title="ログアウト"
               >
@@ -197,12 +257,12 @@ export default function AdminEventYear() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {statsData?.teamStats?.map((team: Record<string, unknown>) => (
+                {getSortedTeams()?.map((team: Record<string, unknown>) => (
                   <tr key={team.teamId as string}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
                         className="text-left"
-                        onClick={() => router.push(`/admin/event/${y}/${team.teamId}`)}
+                        onClick={() => router.push(`/admin/event/${y}/team/${team.teamId}`)}
                         title="チーム詳細へ"
                       >
                         <div className="text-sm font-medium text-indigo-700 hover:underline">{String(team.teamName)}</div>
@@ -215,7 +275,7 @@ export default function AdminEventYear() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(team.failedStores)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{String(team.distributedCount)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      <button className="px-3 py-1 border rounded mr-2" onClick={() => router.push(`/admin/event/${y}/${team.teamId}`)}>詳細</button>
+                      <button className="px-3 py-1 border rounded mr-2" onClick={() => router.push(`/admin/event/${y}/team/${team.teamId}`)}>詳細</button>
                       <button
                         className="px-3 py-1 border border-red-300 text-red-700 rounded"
                         onClick={async () => {
@@ -227,10 +287,10 @@ export default function AdminEventYear() {
                             if (!res.ok) throw new Error(data.error || '削除に失敗しました');
                             // Refresh stats data after deletion
                             window.location.reload();
-                          } catch (error: unknown) { 
-                          const message = error instanceof Error ? error.message : '削除に失敗しました';
-                          alert(message);
-                        }
+                          } catch (error: unknown) {
+                            const message = error instanceof Error ? error.message : '削除に失敗しました';
+                            alert(message);
+                          }
                         }}
                       >削除</button>
                     </td>
@@ -315,6 +375,9 @@ export default function AdminEventYear() {
               <select className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={teamForm.timeSlot} onChange={(e) => setTeamForm({ ...teamForm, timeSlot: e.target.value })}>
                 <option value="morning">午前</option>
                 <option value="afternoon">午後</option>
+                <option value="both">全日</option>
+                <option value="pr">PR配布日</option>
+                <option value="other">その他</option>
               </select>
             </div>
             <div>

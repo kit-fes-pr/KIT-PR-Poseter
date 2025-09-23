@@ -12,12 +12,20 @@ export interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: "morning" | "afternoon";
+  // 'both' は「全日」で、互換のため 'all' も許容
+  timeSlot: "morning" | "afternoon" | "both" | "all" | "pr" | "other";
   assignedArea: string;
   adjacentAreas: string[];
   eventId: string;
   isActive: boolean;
-  validDate: Date;
+  // Firestore Timestamp may arrive via API; accept several shapes
+  validDate?:
+    | Date
+    | string
+    | number
+    | { _seconds: number; _nanoseconds?: number }
+    | { toDate: () => Date }
+    | null;
   createdAt: Date;
 }
 
