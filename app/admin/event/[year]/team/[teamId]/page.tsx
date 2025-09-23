@@ -111,7 +111,7 @@ export default function TeamDetailPage() {
     if (teamId) init();
   }, [router, teamId]);
 
-  // 割り当てメンバー取得
+  // 割り当てメンバー取得（サーバー側で効率化されたAPIを利用）
   useEffect(() => {
     const loadMembers = async () => {
       if (!teamId || !y) return;
@@ -119,73 +119,15 @@ export default function TeamDetailPage() {
         setMemberLoading(true);
         const token = localStorage.getItem('authToken');
         if (!token) return;
-        
-        // 通常の割り当てを取得
-        const res = await fetch(`/api/admin/assignments?year=${y}`, { headers: { Authorization: `Bearer ${token}` } });
-        const data = res.ok ? await res.json() : { assignments: [] };
-        const teamAssignments = (data.assignments || []).filter((a: any) => a.teamId === teamId);
-        
-        // PR配布の割り当てを取得
-        const prRes = await fetch(`/api/admin/pr-assignments?year=${y}`, { headers: { Authorization: `Bearer ${token}` } });
-        const prData = prRes.ok ? await prRes.json() : { assignments: [] };
-        const prTeamAssignments = (prData.assignments || []).filter((a: any) => a.teamId === teamId);
-        
-        // 両方の割り当てを統合
-        const allAssignments = [...teamAssignments, ...prTeamAssignments];
-        
-        if (allAssignments.length === 0) {
-          setAssignedMembers([]);
-          return;
-        }
-        
-        // 通常の割り当てのformIdsを取得
-        const formIds: string[] = Array.from(new Set<string>(teamAssignments.map((a: any) => String(a.formId)).filter(Boolean)));
-        const responseMaps: Record<string, any> = {};
-        
-        // 通常の割り当てのフォーム情報を取得
-        await Promise.all(
-          formIds.map(async (fid: string) => {
-            const fr = await fetch(`/api/forms/${fid}/responses`, { headers: { Authorization: `Bearer ${token}` } });
-            if (!fr.ok) return;
-            const frd = await fr.json();
-            for (const r of frd.responses || []) {
-              responseMaps[r.responseId] = r;
-            }
-          })
-        );
-        
-        // PR配布メンバーの情報を取得するため、全フォームを検索
-        if (prTeamAssignments.length > 0) {
-          const formsRes = await fetch(`/api/forms?eventId=kohdai${y}`, { headers: { Authorization: `Bearer ${token}` } });
-          if (formsRes.ok) {
-            const formsData = await formsRes.json();
-            const allFormIds = (formsData.forms || []).map((f: any) => f.formId);
-            
-            await Promise.all(
-              allFormIds.map(async (fid: string) => {
-                const fr = await fetch(`/api/forms/${fid}/responses`, { headers: { Authorization: `Bearer ${token}` } });
-                if (!fr.ok) return;
-                const frd = await fr.json();
-                for (const r of frd.responses || []) {
-                  if (!responseMaps[r.responseId]) {
-                    responseMaps[r.responseId] = r;
-                  }
-                }
-              })
-            );
-          }
-        }
-        
-        const members = allAssignments.map((a: any) => {
-          const r = responseMaps[a.responseId];
-          const name = r?.participantData?.name || '-';
-          const grade = r?.participantData?.grade || 0;
-          const section = r?.participantData?.section || '-';
-          // PR配布の場合はtimeSlotがないので'pr'として扱う
-          const timeSlot = a.timeSlot || 'pr';
-          return { responseId: a.responseId, name, grade, section, timeSlot, formId: a.formId || 'pr' };
+        const res = await fetch(`/api/admin/teams/${teamId}/members?year=${y}`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        setAssignedMembers(members);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || '割り当てメンバーの取得に失敗しました');
+        }
+        const data = await res.json();
+        setAssignedMembers(data.members || []);
       } catch (e) {
         console.error('Load assigned members error:', e);
       } finally {
