@@ -7,6 +7,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
 import { SurveyForm, ParticipantSurveyResponse, FormResponse, FormField } from '@/types/forms';
+import { normalizeAvailableTime } from '@/lib/utils/availability';
 
 interface StatOption {
   option: string;
@@ -266,18 +267,10 @@ export default function FormResponsesPage({
         value: editFormData[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
       })) || [];
 
-      // 参加可能時間帯フィールドの値を取得してAPI形式に変換
-      const availabilityValue = editFormData.availability;
-      let availableTime: 'morning' | 'afternoon' | 'both' = 'both';
-      if (availabilityValue && typeof availabilityValue === 'string') {
-        if (availabilityValue.includes('午前のみ')) {
-          availableTime = 'morning';
-        } else if (availabilityValue.includes('午後のみ')) {
-          availableTime = 'afternoon';
-        } else {
-          availableTime = 'both';
-        }
-      }
+      // 参加可能時間帯フィールドの値を取得して安定キーに正規化
+      const availabilityValue = editFormData.availability as unknown;
+      const availabilityOptions = form?.fields.find((f) => f.fieldId === 'availability')?.options || [];
+      const availableTime = normalizeAvailableTime(availabilityValue, availabilityOptions);
 
       const updateData = {
         answers,

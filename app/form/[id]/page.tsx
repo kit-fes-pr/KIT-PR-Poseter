@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { SurveyForm, FormAnswer } from '@/types/forms';
+import { normalizeAvailableTime } from '@/lib/utils/availability';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -64,20 +65,10 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         value: data[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
       }));
 
-      // 参加可能時間帯フィールドの値を取得
-      const availabilityValue = data.availability;
-      
-      // 選択された値を APIが期待する形式に変換
-      let availableTime: 'morning' | 'afternoon' | 'both' = 'both';
-      if (availabilityValue) {
-        if (availabilityValue.includes('午前のみ')) {
-          availableTime = 'morning';
-        } else if (availabilityValue.includes('午後のみ')) {
-          availableTime = 'afternoon';
-        } else {
-          availableTime = 'both';
-        }
-      }
+      // 参加可能時間帯フィールドの値を取得し、安定キーに正規化
+      const availabilityValue = data.availability as unknown;
+      const availabilityOptions = form?.fields.find(f => f.fieldId === 'availability')?.options || [];
+      const availableTime = normalizeAvailableTime(availabilityValue, availabilityOptions);
 
       const res = await fetch(`/api/forms/${resolvedParams.id}/responses`, {
         method: 'POST',

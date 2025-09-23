@@ -72,7 +72,7 @@ export interface ParticipantSurveyResponse extends FormResponse {
     name: string;
     section: string;  // 所属セクション
     grade: number;    // 学年
-    availableTime: 'morning' | 'afternoon' | 'both';  // 参加可能時間帯
+    availableTime: 'morning' | 'afternoon' | 'both' | 'pr' | 'other';  // 参加可能時間帯
   };
 }
 
@@ -98,6 +98,8 @@ export interface FormStats {
       morning: number;
       afternoon: number;
       both: number;
+      pr: number;
+      other: number;
     };
   };
 }

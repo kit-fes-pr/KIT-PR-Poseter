@@ -64,7 +64,7 @@ export interface Member {
   name: string;
   section: string;
   grade: number;
-  availableTime: "morning" | "afternoon" | "both";
+  availableTime: "morning" | "afternoon" | "both" | "pr" | "other";
   teamId?: string;
   source: "csv" | "form";
   createdAt: Date;

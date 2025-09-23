@@ -85,7 +85,7 @@ export async function PATCH(
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
       }
       
-      if (!participantData.availableTime || !['morning', 'afternoon', 'both'].includes(participantData.availableTime)) {
+      if (!participantData.availableTime || !['morning', 'afternoon', 'both', 'pr', 'other'].includes(participantData.availableTime)) {
         participantValidationErrors.push('参加可能時間帯は必須です');
       }
       

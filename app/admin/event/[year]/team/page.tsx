@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
+import { normalizeAvailableTime } from '@/lib/utils/availability';
 
 interface Participant {
   responseId: string;
@@ -162,22 +163,14 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         const data = await res.json();
         const participantList = data.responses.map((response: {
           responseId: string;
-          participantData?: { name: string; grade: number; section: string; availableTime?: 'morning' | 'afternoon' | 'both' };
+          participantData?: { name: string; grade: number; section: string; availableTime?: 'morning' | 'afternoon' | 'both' | 'pr' | 'other' };
           answers?: Array<{ fieldId: string; value: string }>;
           submittedAt: string | Date;
         }) => {
           const raw = response.participantData?.availableTime
             || response.answers?.find((a) => a.fieldId === 'availability')?.value
             || '';
-
-          let availability: 'morning' | 'afternoon' | 'both' = 'both';
-          if (raw === 'morning' || raw === 'afternoon' || raw === 'both') {
-            availability = raw;
-          } else if (typeof raw === 'string') {
-            if (raw.includes('午前')) availability = 'morning';
-            else if (raw.includes('午後')) availability = 'afternoon';
-            else availability = 'both';
-          }
+          const availability = normalizeAvailableTime(raw, undefined);
 
           return {
             responseId: response.responseId,

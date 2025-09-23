@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { normalizeAvailableTime } from '@/lib/utils/availability';
 
 type MemberItem = {
   responseId: string;
@@ -146,4 +147,3 @@ export async function GET(
     return NextResponse.json({ error: 'チームメンバーの取得に失敗しました' }, { status: 500 });
   }
 }
-

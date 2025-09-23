@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { normalizeAvailableTime } from '@/lib/utils/availability';
 
 type Member = {
   memberId: string; // responseId を流用
   name: string;
   section: string;
   grade: number;
-  availableTime: 'morning' | 'afternoon' | 'both';
+  availableTime: 'morning' | 'afternoon' | 'both' | 'pr' | 'other';
   source: 'form';
   teamId?: string;
   createdAt: Date;
@@ -102,15 +103,6 @@ export async function GET(request: NextRequest) {
     // レコード生成（responseIdベースで重複排除）
     const memberMap = new Map<string, Member>();
 
-    const toAvailability = (raw: any): 'morning' | 'afternoon' | 'both' => {
-      if (raw === 'morning' || raw === 'afternoon' || raw === 'both') return raw;
-      if (typeof raw === 'string') {
-        if (raw.includes('午前')) return 'morning';
-        if (raw.includes('午後')) return 'afternoon';
-      }
-      return 'both';
-    };
-
     // 通常割り当て
     for (const a of assignments) {
       const rec = responseMap[a.responseId];
@@ -122,7 +114,7 @@ export async function GET(request: NextRequest) {
         name: pd.name || '-',
         section: pd.section || '-',
         grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
-        availableTime: toAvailability(pd.availableTime),
+        availableTime: normalizeAvailableTime(pd.availableTime, undefined),
         source: 'form',
         teamId: a.teamId,
         createdAt: submittedAt,
@@ -141,8 +133,8 @@ export async function GET(request: NextRequest) {
         name: pd.name || '-',
         section: pd.section || '-',
         grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
-        // PRは時間帯がないため便宜上 'both'
-        availableTime: toAvailability(pd.availableTime),
+        // PRは時間帯がないため 'pr' を既定に（pd.availableTime があれば正規化）
+        availableTime: normalizeAvailableTime(pd.availableTime, undefined, 'pr'),
         source: 'form',
         teamId: a.teamId,
         createdAt: submittedAt,
@@ -156,4 +148,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'メンバー一覧の取得に失敗しました' }, { status: 500 });
   }
 }
-
