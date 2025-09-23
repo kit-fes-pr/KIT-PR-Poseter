@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
@@ -18,6 +18,7 @@ export default function AdminEventYear() {
   const params = useParams<{ year: string }>();
   const yearParam = params?.year;
   const y = yearParam ? parseInt(yearParam) : NaN;
+  const { mutate } = useSWRConfig();
   const [isAdmin, setIsAdmin] = useState(false);
   const [event, setEvent] = useState<Record<string, unknown> | null>(null);
   const [eventLoading, setEventLoading] = useState(true);
@@ -294,8 +295,12 @@ export default function AdminEventYear() {
                             const res = await fetch(`/api/admin/teams/${team.teamId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
                             const data = await res.json();
                             if (!res.ok) throw new Error(data.error || '削除に失敗しました');
-                            // Refresh stats data after deletion
-                            window.location.reload();
+                            // Revalidate related SWR keys
+                            await Promise.all([
+                              mutate(`/api/admin/teams?year=${y}`),
+                              mutate(`/api/admin/stats?year=${y}`),
+                              mutate(`/api/admin/current-year-total?year=${y}&includeStores=1`),
+                            ]);
                           } catch (error: unknown) {
                             console.error('エラー内容:', error);
                             const message = error instanceof Error ? error.message : '削除に失敗しました';
@@ -485,8 +490,12 @@ export default function AdminEventYear() {
                     const res = await fetch('/api/admin/teams', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ teamId: editAccessTeam.teamId, validDate: editAccessDate }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
-                    // Refresh page to show updated data
-                    window.location.reload();
+                    // Revalidate related SWR keys instead of full reload
+                    await Promise.all([
+                      mutate(`/api/admin/teams?year=${y}`),
+                      mutate(`/api/admin/stats?year=${y}`),
+                      mutate(`/api/admin/current-year-total?year=${y}&includeStores=1`),
+                    ]);
                     setEditAccessTeam(null);
                   } catch (error: unknown) {
                     console.error('エラー内容:', error);
