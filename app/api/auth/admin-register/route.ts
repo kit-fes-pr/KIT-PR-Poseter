@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,33 +20,36 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // 新規アカウント作成
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      // 管理者（サーバー）SDKでユーザーを作成
+      const displayName = email.split('@')[0];
+      const userRecord = await adminAuth.createUser({
+        email,
+        password,
+        displayName,
+        emailVerified: true,
+        disabled: false,
+      });
 
       // Adminコレクションにユーザー情報を保存
       const adminData = {
-        adminId: user.uid,
-        email: user.email,
-        name: user.displayName || email.split('@')[0],
+        adminId: userRecord.uid,
+        email: userRecord.email,
+        name: userRecord.displayName || displayName,
         isActive: true,
-        createdAt: new Date()
+        createdAt: new Date(),
       };
-      
-      await adminDb.collection('admins').doc(user.uid).set(adminData);
+      await adminDb.collection('admins').doc(userRecord.uid).set(adminData);
 
       // Custom Claimsで管理者権限を設定
-      await adminAuth.setCustomUserClaims(user.uid, {
+      await adminAuth.setCustomUserClaims(userRecord.uid, {
         role: 'admin',
-        isAdmin: true
+        isAdmin: true,
       });
 
-      console.log('Custom claims set for user:', user.uid);
-
-      // カスタムトークンを生成
-      const customToken = await adminAuth.createCustomToken(user.uid, {
+      // 必要であればカスタムトークンを返却（クライアント側で即ログインに利用可）
+      const customToken = await adminAuth.createCustomToken(userRecord.uid, {
         role: 'admin',
-        isAdmin: true
+        isAdmin: true,
       });
 
       return NextResponse.json({
@@ -56,30 +57,23 @@ export async function POST(request: NextRequest) {
         message: '管理者アカウントが作成されました',
         customToken,
         user: {
-          uid: user.uid,
-          email: user.email,
+          uid: userRecord.uid,
+          email: userRecord.email,
           name: adminData.name,
-          isAdmin: true
-        }
+          isAdmin: true,
+        },
       });
-
     } catch (error: unknown) {
       const firebaseError = error as { code?: string; message?: string };
-      
       let errorMessage = '管理者アカウントの作成に失敗しました';
-      
-      if (firebaseError.code === 'auth/email-already-in-use') {
+      if (firebaseError.code === 'auth/email-already-exists') {
         errorMessage = 'このメールアドレスは既に使用されています';
-      } else if (firebaseError.code === 'auth/weak-password') {
-        errorMessage = 'パスワードが弱すぎます。6文字以上で設定してください';
+      } else if (firebaseError.code === 'auth/invalid-password') {
+        errorMessage = 'パスワードの形式が正しくありません（6文字以上など）';
       } else if (firebaseError.code === 'auth/invalid-email') {
         errorMessage = 'メールアドレスの形式が正しくありません';
       }
-      
-      return NextResponse.json(
-        { error: errorMessage },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
   } catch (error) {
