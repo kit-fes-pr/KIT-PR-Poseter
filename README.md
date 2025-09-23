@@ -29,13 +29,12 @@
 #### イベント管理
 - 年度別の配布イベント作成・管理
 - アクティブイベントの切り替え
-- 過去イベントのアーカイブ管理
+- 年度別データ管理と過去データ参照
 
-#### 履歴・統計機能
+#### 統計機能
 - 年度別配布実績の記録・参照
 - チームパフォーマンスの分析・比較
-- 年次トレンドグラフと統計レポート
-- 最高パフォーマンスチームの記録
+- 年次統計レポートと最高パフォーマンスチームの記録
 
 ### 1. 店舗情報管理
 #### 店舗登録方式
@@ -97,7 +96,7 @@
 #### イベント管理
 - 年度別イベント作成・編集・削除
 - 配布日設定とアクティブイベント切り替え
-- 過去イベントのアーカイブ管理
+- 年度別データ管理と過去データ参照
 
 #### チーム管理
 - チーム作成・編集・削除（ログインコード発行）
@@ -180,12 +179,11 @@
 | `/admin/event/[year]/form/[formId]/responses` | アンケート回答一覧 | 管理者認証 |
 | `/admin/event/[year]/members` | メンバー管理・CSVインポート | 管理者認証 |
 | `/admin/event/[year]/stats` | 年次統計・レポート | 管理者認証 |
-| `/admin/dashboard` | 最新年度へのリダイレクト | 管理者認証 |
-| `/dashboard/all` | 全体ダッシュボード | 班認証 |
-| `/dashboard` | 配布管理画面 | 班認証 |
+| `/admin/event/[year]/dashboard` | 配布管理画面（班認証） | 班認証 |
+| `/admin/event/[year]/dashboard/all` | 全体ダッシュボード（班認証） | 班認証 |
 | `/form/[id]` | アンケート回答フォーム | なし |
 | `/admin` | 管理者ログイン | なし |
-| `/` | ログインコード入力 | なし |
+| `/` | ログインコード入力（最新年度へリダイレクト） | なし |
 
 ---
 
@@ -400,26 +398,8 @@ interface TempAccount {
 }
 ```
 
-##### 8. 配布履歴 (`/distributionHistory/{historyId}`)
-```typescript
-interface DistributionHistory {
-  historyId: string;
-  eventId: string;
-  year: number;
-  eventName: string;
-  distributionDate: Date;
-  totalStores: number;
-  completedStores: number;
-  failedStores: number;
-  completionRate: number;
-  teams: TeamHistory[];
-  areas: AreaHistory[];
-  createdAt: Date;
-  archivedAt: Date;
-}
-```
 
-##### 9. 年次統計 (`/yearlyStats/{year}`)
+##### 8. 年次統計 (`/yearlyStats/{year}`)
 ```typescript
 interface YearlyStats {
   year: number;
@@ -508,13 +488,17 @@ interface YearlyStats {
    - ログインコード入力フィールド
    - 注意事項表示
 
-2. **配布管理ダッシュボード** (`/dashboard`)
+2. **配布管理ダッシュボード** (`/admin/event/[year]/dashboard`)
    - **インテリジェント店舗リスト**: 担当＋周辺区域の自動表示
    - **五十音順ソート**: 店名→住所の常時ソート適用
    - **多段階フィルタ**: 区域・配布状況・キーワード検索
    - **配布状況更新**: ワンタップで状況変更
    - **手動店舗追加**: カナ自動生成機能付き
    - **リアルタイム進捗**: 完了率・残り件数表示
+
+3. **全体ダッシュボード** (`/admin/event/[year]/dashboard/all`)
+   - **全区域表示**: すべての班の配布状況確認
+   - **他班配布状況**: 班を跨いだ配布状況の確認
 
 ### 管理者画面
 1. **管理者ログイン** (`/admin`)
@@ -536,6 +520,7 @@ interface YearlyStats {
    - **フォーム管理** (`/admin/event/[year]/form`) - アンケート作成・管理
    - **メンバー管理** (`/admin/event/[year]/members`) - CSVインポート・参加者管理
    - **統計レポート** (`/admin/event/[year]/stats`) - 年次統計・チーム分析
+   - **配布ダッシュボード** (`/admin/event/[year]/dashboard`) - 班認証での配布管理
 
 ---
 
