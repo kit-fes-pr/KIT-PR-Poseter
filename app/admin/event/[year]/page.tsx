@@ -179,6 +179,7 @@ export default function AdminEventYear() {
             <div className="flex items-center space-x-2">
               <button onClick={() => router.push('/admin/event')} className="px-3 py-2 border rounded-md text-sm sm:block hidden">年度一覧</button>
               <button onClick={() => router.push(`/admin/event/${y}/team`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">チーム管理</button>
+              <button onClick={() => router.push(`/admin/event/${y}/area`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">区域管理</button>
               <button onClick={() => router.push(`/admin/event/${y}/form`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">フォーム管理</button>
               <button onClick={() => router.push(`/admin/event/${y}/members`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">メンバー管理</button>
               <button onClick={() => router.push(`/admin/event/${y}/stats`)} className="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm sm:block hidden">統計レポート</button>
@@ -188,6 +189,7 @@ export default function AdminEventYear() {
                   <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded shadow-md z-10">
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push('/admin/event')}>年度一覧</button>
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/team`)}>チーム管理</button>
+                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/area`)}>区域管理</button>
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/form`)}>フォーム管理</button>
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/members`)}>メンバー管理</button>
                     <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${y}/stats`)}>統計レポート</button>
