@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const teamDoc = teamQuery.docs[0];
     const teamData = teamDoc.data();
 
-    // 学外配布日の判定（どちらも一致で許可）
+    // 学外配布日の判定
     const fmtJst = (d: Date) => {
       const parts = new Intl.DateTimeFormat('ja-JP', {
         timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -41,17 +41,6 @@ export async function POST(request: NextRequest) {
     };
 
     const todayKey = fmtJst(new Date());
-    // team.validDate
-    let validKey: string | null = null;
-    try {
-      if (teamData.validDate) {
-        const vd = teamData.validDate._seconds ? new Date(teamData.validDate._seconds * 1000)
-          : (typeof teamData.validDate === 'string' ? new Date(teamData.validDate) : new Date(teamData.validDate));
-        if (!isNaN(vd.getTime())) validKey = fmtJst(vd);
-      }
-    } catch (error) {
-      console.error('エラー内容:', error);
-    }
 
     // event.distributionDate / distributionStartDate - distributionEndDate（team.eventId から解決）
     let distKey: string | null = null;
@@ -80,17 +69,16 @@ export async function POST(request: NextRequest) {
       console.error('エラー内容:', error);
     }
 
-    // どちらも存在し、かつ当日一致（イベントは単日一致 or 期間内一致）
-    if (!validKey || (!distKey && !(distStartKey && distEndKey))) {
-      return NextResponse.json({ error: '配布日が未設定です（team.validDate と event.distribution(単日 or 期間) の両方を設定してください）' }, { status: 403 });
+    // イベントの配布日設定が存在し、当日一致（単日一致 or 期間内一致）
+    if (!distKey && !(distStartKey && distEndKey)) {
+      return NextResponse.json({ error: '配布日が未設定です（イベントの配布日を設定してください）' }, { status: 403 });
     }
     const inRange = distStartKey && distEndKey ? (distStartKey <= todayKey && todayKey <= distEndKey) : (distKey === todayKey);
-    if (!(validKey === todayKey && inRange)) {
-      const dispValid = validKey.replace(/-/g, '/');
+    if (!inRange) {
       const dispDist = distStartKey && distEndKey
         ? `${distStartKey.replace(/-/g,'/')}〜${distEndKey.replace(/-/g,'/')}`
         : (distKey ? distKey.replace(/-/g,'/') : '-');
-      return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispValid} / イベント: ${dispDist}` }, { status: 403 });
+      return NextResponse.json({ error: `本日は配布日ではありません。イベント: ${dispDist}` }, { status: 403 });
     }
 
     // 一時メールアドレス + パスワード方式
