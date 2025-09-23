@@ -6,7 +6,7 @@ import { SurveyForm, FormCreateData } from '@/types/forms';
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '認証が必要です' },
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const idToken = authHeader.split('Bearer ')[1];
-    
+
     try {
       const decodedToken = await adminAuth.verifyIdToken(idToken);
 
@@ -37,41 +37,28 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('eventId') || 'kohdai2025';
 
-    // フォーム一覧を取得（インデックスエラーを避けるため、orderByなしで取得してからソート）
+    // フォーム一覧を取得（非正規化されたカウンタを使用）
     const formsSnapshot = await adminDb
       .collection('forms')
       .where('eventId', '==', eventId)
       .get();
 
-    const forms = [];
-    for (const doc of formsSnapshot.docs) {
-      const formData = doc.data() as SurveyForm;
-      
-      // 回答数を取得
-      const responsesSnapshot = await adminDb
-        .collection('forms')
-        .doc(doc.id)
-        .collection('responses')
-        .get();
-      
-      const responseCount = responsesSnapshot.size;
-      let lastResponseAt: Date | undefined;
-      
-      if (responseCount > 0) {
-        const lastResponse = responsesSnapshot.docs
-          .sort((a, b) => b.data().submittedAt.toDate().getTime() - a.data().submittedAt.toDate().getTime())[0];
-        lastResponseAt = lastResponse.data().submittedAt.toDate();
-      }
-
-      forms.push({
+    const forms = formsSnapshot.docs.map((doc) => {
+      const formData = doc.data() as SurveyForm & { responseCount?: number; lastResponseAt?: any };
+      const createdAt = (formData.createdAt as any)?.toDate ? (formData.createdAt as any).toDate() : formData.createdAt;
+      const updatedAt = (formData.updatedAt as any)?.toDate ? (formData.updatedAt as any).toDate() : formData.updatedAt;
+      const lastResponseAt = (formData.lastResponseAt as any)?.toDate
+        ? (formData.lastResponseAt as any).toDate()
+        : formData.lastResponseAt;
+      return {
         ...formData,
         formId: doc.id,
-        responseCount,
+        responseCount: formData.responseCount || 0,
         lastResponseAt,
-        createdAt: (formData.createdAt as any)?.toDate ? (formData.createdAt as any).toDate() : formData.createdAt,
-        updatedAt: (formData.updatedAt as any)?.toDate ? (formData.updatedAt as any).toDate() : formData.updatedAt,
-      });
-    }
+        createdAt,
+        updatedAt,
+      };
+    });
 
     // createdAtでソート（新しい順）
     forms.sort((a, b) => {
@@ -93,7 +80,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '認証が必要です' },
@@ -154,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const formData: Omit<SurveyForm, 'formId'> = {
+    const formData: Omit<SurveyForm, 'formId'> & { responseCount: number } = {
       title: title.trim(),
       description: description?.trim() || '',
       isActive: true,
@@ -169,6 +156,7 @@ export async function POST(request: NextRequest) {
       createdBy: decodedToken.uid,
       createdAt: now,
       updatedAt: now,
+      responseCount: 0,
     };
 
     // Firestoreに保存

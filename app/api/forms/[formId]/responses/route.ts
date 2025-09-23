@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
 
 export async function GET(
@@ -255,6 +256,18 @@ export async function POST(
       .doc(resolvedParams.formId)
       .collection('responses')
       .add(responseData);
+
+    // 親フォームに集計を反映（レスポンス数 +1, 最終回答日時を更新）
+    try {
+      await adminDb.collection('forms').doc(resolvedParams.formId).update({
+        responseCount: FieldValue.increment(1),
+        lastResponseAt: new Date(),
+        updatedAt: new Date(),
+      });
+    } catch (e) {
+      console.error('フォーム集計更新エラー:', e);
+      // 集計更新失敗は致命的ではないため継続
+    }
 
     return NextResponse.json({
       message: '回答を送信しました',

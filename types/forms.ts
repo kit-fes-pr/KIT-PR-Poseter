@@ -13,6 +13,9 @@ export interface SurveyForm {
   createdBy: string;  // 管理者ID
   createdAt: Date;
   updatedAt: Date;
+  // 非正規化された集計フィールド（任意）
+  responseCount?: number;
+  lastResponseAt?: Date;
 }
 
 export interface FormField {
