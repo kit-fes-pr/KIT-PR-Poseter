@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -64,6 +64,15 @@ export default function YearlyStatsPage() {
     return () => unsubscribe();
   }, [router]);
 
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await fetcher(`/api/admin/yearly-stats?year=${year}`);
+      setStats(data.yearlyStats);
+    } catch (error) {
+      console.error('統計読み込みエラー:', error);
+    }
+  }, [year]);
+
   // 管理者認証とデータ読み込み
   useEffect(() => {
     const init = async () => {
@@ -87,16 +96,7 @@ export default function YearlyStatsPage() {
       }
     };
     init();
-  }, [router, year]);
-
-  const loadStats = async () => {
-    try {
-      const data = await fetcher(`/api/admin/yearly-stats?year=${year}`);
-      setStats(data.yearlyStats);
-    } catch (error) {
-      console.error('統計読み込みエラー:', error);
-    }
-  };
+  }, [router, year, loadStats]);
 
   const handleLogout = async () => {
     try {

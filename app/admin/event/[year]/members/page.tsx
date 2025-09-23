@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -33,7 +33,8 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importResults, setImportResults] = useState<any>(null);
+  type ImportResults = { success: number; failed: number; errors: string[] };
+  const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Firebase認証状態を監視
@@ -46,6 +47,15 @@ export default function MembersPage() {
     });
     return () => unsubscribe();
   }, [router]);
+
+  const loadMembers = useCallback(async () => {
+    try {
+      const data = await fetcher(`/api/admin/members?year=${year}`);
+      setMembers(data.members || []);
+    } catch (error) {
+      console.error('メンバー読み込みエラー:', error);
+    }
+  }, [year]);
 
   // 管理者認証とデータ読み込み
   useEffect(() => {
@@ -70,16 +80,7 @@ export default function MembersPage() {
       }
     };
     init();
-  }, [router, year]);
-
-  const loadMembers = async () => {
-    try {
-      const data = await fetcher(`/api/admin/members?year=${year}`);
-      setMembers(data.members || []);
-    } catch (error) {
-      console.error('メンバー読み込みエラー:', error);
-    }
-  };
+  }, [router, year, loadMembers]);
 
   const handleLogout = async () => {
     try {
@@ -109,7 +110,7 @@ export default function MembersPage() {
     
     return lines.slice(1).map(line => {
       const values = line.split(',').map(v => v.trim());
-      const row: any = {};
+      const row: Record<string, string> = {};
       headers.forEach((header, index) => {
         row[header] = values[index] || '';
       });

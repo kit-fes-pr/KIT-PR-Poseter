@@ -38,22 +38,22 @@ export async function GET(request: NextRequest) {
       .collection('assignments')
       .where('year', '==', year)
       .get();
-    const assignments = assignmentsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Array<{
+    const assignments = assignmentsSnap.docs.map(d => d.data() as {
       responseId: string;
       formId: string;
       teamId: string;
       timeSlot: 'morning' | 'afternoon';
-    }>;
+    });
 
     // PR割り当て（teamIdのみ、formIdは不明）
     const prSnap = await adminDb
       .collection('prAssignments')
       .where('year', '==', year)
       .get();
-    const prAssignments = prSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Array<{
+    const prAssignments = prSnap.docs.map(d => d.data() as {
       responseId: string;
       teamId: string;
-    }>;
+    });
 
     // formIdごとに responseId をまとめて responses をバルク取得
     const byForm: Record<string, Set<string>> = {};

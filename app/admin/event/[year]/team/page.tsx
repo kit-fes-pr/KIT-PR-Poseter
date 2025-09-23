@@ -63,7 +63,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   }>>([]);
   const [showPRModal, setShowPRModal] = useState(false);
   const [prParticipants, setPrParticipants] = useState<PRAssignmentChoice[]>([]);
-  const [prChoices, setPrChoices] = useState<Record<string, 'none'>>({});
+  const [prChoices, setPrChoices] = useState<Record<string, 'none' | undefined>>({});
   const [showManualModal, setShowManualModal] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [manualAssignTeamId, setManualAssignTeamId] = useState<string>('');
@@ -140,9 +140,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data: { teams: Team[] } = await res.json();
         // PRチームはこの画面では非表示
-        const onlyNonPR = (data.teams || []).filter((t: any) => t.timeSlot !== 'pr');
+        const onlyNonPR = (data.teams || []).filter((t: Team) => t.timeSlot !== 'pr');
         setTeams(onlyNonPR);
       }
     } catch (err) {
@@ -793,7 +793,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   checked={prChoices[participant.responseId] === 'none'}
                   onChange={(e) => setPrChoices(prev => ({
                     ...prev,
-                    [participant.responseId]: e.target.checked ? 'none' : (undefined as any)
+                    [participant.responseId]: e.target.checked ? 'none' : undefined
                   }))}
                   className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                 />
@@ -916,8 +916,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         setShowManualModal(false);
                         setSelectedParticipant(null);
                         setManualAssignTeamId('');
-                      } catch (e: any) {
-                        setError(e.message || '更新に失敗しました');
+                      } catch (e: unknown) {
+                        const msg = e instanceof Error ? e.message : '更新に失敗しました';
+                        setError(msg);
                       } finally {
                         setManualAssignLoading(false);
                       }

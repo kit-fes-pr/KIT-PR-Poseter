@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
 
 type MemberItem = {
   responseId: string;
@@ -47,11 +46,11 @@ export async function GET(
       .where('teamId', '==', teamId)
       .get();
 
-    const normalAssignments = assignmentsSnap.docs.map(d => ({ assignmentId: d.id, ...d.data() })) as Array<{
+    const normalAssignments = assignmentsSnap.docs.map(d => d.data() as {
       responseId: string;
       formId: string;
       timeSlot: 'morning' | 'afternoon';
-    }>;
+    });
 
     // 2) PR割り当て（prAssignments）
     const prSnap = await adminDb
@@ -59,9 +58,9 @@ export async function GET(
       .where('year', '==', year)
       .where('teamId', '==', teamId)
       .get();
-    const prAssignments = prSnap.docs.map(d => ({ assignmentId: d.id, ...d.data() })) as Array<{
+    const prAssignments = prSnap.docs.map(d => d.data() as {
       responseId: string;
-    }>;
+    });
 
     // 3) 回答ドキュメントをまとめて取得
     // 3-1) 通常割り当ては formId があるのでダイレクト参照で取得
