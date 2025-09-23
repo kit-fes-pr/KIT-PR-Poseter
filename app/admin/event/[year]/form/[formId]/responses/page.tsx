@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { formatDate } from '@/lib/utils/dateUtils';
 import { SurveyForm, ParticipantSurveyResponse, FormResponse, FormField } from '@/types/forms';
 
 interface StatOption {
@@ -171,50 +171,6 @@ export default function FormResponsesPage({
     return value || '-';
   };
 
-  const formatDate = (dateValue: any) => {
-    if (!dateValue) return '-';
-    
-    try {
-      let date: Date;
-      
-      // Firestore Timestamp の場合
-      if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
-        date = dateValue.toDate();
-      }
-      // 文字列の場合
-      else if (typeof dateValue === 'string') {
-        date = new Date(dateValue);
-      }
-      // 既に Date オブジェクトの場合
-      else if (dateValue instanceof Date) {
-        date = dateValue;
-      }
-      // 数値（Unix timestamp）の場合
-      else if (typeof dateValue === 'number') {
-        date = new Date(dateValue);
-      }
-      else {
-        return 'Invalid Date';
-      }
-      
-      // 有効な日付かチェック
-      if (isNaN(date.getTime())) {
-        return 'Invalid Date';
-      }
-      
-      return date.toLocaleString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'Invalid Date';
-    }
-  };
 
   // フィールドごとの統計を生成する関数
   const generateFieldStatistics = (field: FormField) => {

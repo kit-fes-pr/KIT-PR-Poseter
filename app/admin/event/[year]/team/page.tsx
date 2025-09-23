@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { formatDate } from '@/lib/utils/dateUtils';
 
 interface Participant {
   responseId: string;
@@ -336,45 +336,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     }
   };
 
-  const formatDate = (dateValue: unknown) => {
-    if (!dateValue) return '-';
-
-    try {
-      let date: Date;
-
-      if (
-        typeof dateValue === 'object' &&
-        dateValue !== null &&
-        'toDate' in dateValue &&
-        typeof (dateValue as any).toDate === 'function'
-      ) {
-        date = (dateValue as any).toDate();
-      } else if (typeof dateValue === 'string') {
-        date = new Date(dateValue);
-      } else if (dateValue instanceof Date) {
-        date = dateValue;
-      } else if (typeof dateValue === 'number') {
-        date = new Date(dateValue);
-      } else {
-        return 'Invalid Date';
-      }
-
-      if (isNaN(date.getTime())) {
-        return 'Invalid Date';
-      }
-
-      return date.toLocaleString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'Invalid Date';
-    }
-  };
 
   const getAssignmentForParticipant = (responseId: string) => {
     return assignments.find(a => a.responseId === responseId);
