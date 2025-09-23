@@ -68,7 +68,8 @@ export default function AdminRegister() {
       } else {
         setError(result.error || 'アカウント作成に失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       setError('アカウント作成に失敗しました');
     } finally {
       setIsLoading(false);

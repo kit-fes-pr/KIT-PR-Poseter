@@ -78,7 +78,8 @@ export default function AdminEventIndex() {
         const { events, latest } = await fetcher('/api/admin/events');
         setEvents(events || []);
         setLatest(latest || null);
-      } catch {
+      } catch (error) {
+        console.error('エラー内容:', error);
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {

@@ -61,7 +61,8 @@ export default function MembersPage() {
         setIsAdmin(true);
 
         await loadMembers();
-      } catch {
+      } catch (error) {
+        console.error('エラー内容:', error);
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {

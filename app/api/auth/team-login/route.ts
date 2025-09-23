@@ -49,7 +49,9 @@ export async function POST(request: NextRequest) {
           : (typeof teamData.validDate === 'string' ? new Date(teamData.validDate) : new Date(teamData.validDate));
         if (!isNaN(vd.getTime())) validKey = fmtJst(vd);
       }
-    } catch {}
+    } catch (error) {
+      console.error('エラー内容:', error);
+    }
 
     // event.distributionDate / distributionStartDate - distributionEndDate（team.eventId から解決）
     let distKey: string | null = null;
@@ -74,7 +76,9 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    } catch {}
+    } catch (error) {
+      console.error('エラー内容:', error);
+    }
 
     // どちらも存在し、かつ当日一致（イベントは単日一致 or 期間内一致）
     if (!validKey || (!distKey && !(distStartKey && distEndKey))) {
@@ -100,7 +104,8 @@ export async function POST(request: NextRequest) {
       uid = existing.uid;
       // 既存の一時ユーザーのパスワードをローテーション
       await adminAuth.updateUser(uid, { password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       const created = await adminAuth.createUser({ email: tempEmail, password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
       uid = created.uid;
     }

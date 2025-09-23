@@ -103,7 +103,8 @@ export default function AdminLogin() {
       } else {
         setError(result.error || 'ログインに失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       setError('ログインに失敗しました');
     } finally {
       setIsLoading(false);

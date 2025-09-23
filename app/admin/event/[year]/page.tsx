@@ -90,7 +90,8 @@ export default function AdminEventYear() {
             distributionEndDate: e ? e.toISOString().slice(0, 10) : ''
           });
         }
-      } catch {
+      } catch (error) {
+        console.error('エラー内容:', error);
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {
@@ -154,7 +155,8 @@ export default function AdminEventYear() {
         const err = await response.json();
         alert(err.error || 'チームの作成に失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       alert('チームの作成に失敗しました');
     }
   };
@@ -207,6 +209,7 @@ export default function AdminEventYear() {
                           if (!res.ok) throw new Error(data.error || '削除に失敗しました');
                           router.replace('/admin/event');
                         } catch (e: unknown) {
+                          console.error('エラー内容:', e);
                           alert((e as Error).message || '削除に失敗しました');
                         }
                       }}
@@ -294,6 +297,7 @@ export default function AdminEventYear() {
                             // Refresh stats data after deletion
                             window.location.reload();
                           } catch (error: unknown) {
+                            console.error('エラー内容:', error);
                             const message = error instanceof Error ? error.message : '削除に失敗しました';
                             alert(message);
                           }
@@ -450,6 +454,7 @@ export default function AdminEventYear() {
                     setEvent(data.data);
                     setIsEditing(false);
                   } catch (error: unknown) {
+                    console.error('エラー内容:', error);
                     const message = error instanceof Error ? error.message : '更新に失敗しました';
                     alert(message);
                   }
@@ -484,6 +489,7 @@ export default function AdminEventYear() {
                     window.location.reload();
                     setEditAccessTeam(null);
                   } catch (error: unknown) {
+                    console.error('エラー内容:', error);
                     const message = error instanceof Error ? error.message : '更新に失敗しました';
                     alert(message);
                   }

@@ -422,7 +422,8 @@ export default function TeamDetailPage() {
                       date = new Date(v as any);
                     }
                     return date && !isNaN(date.getTime()) ? date.toLocaleDateString('ja-JP') : '-';
-                  } catch {
+                  } catch (error) {
+                    console.error('エラー内容:', error);
                     return '-';
                   }
                 })()

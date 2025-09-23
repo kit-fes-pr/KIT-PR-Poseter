@@ -73,7 +73,9 @@ export async function GET(request: NextRequest) {
             stores = stores.filter((s: Store) => allowedAreas.includes(s.areaCode));
           }
         }
-      } catch {}
+      } catch (error) {
+        console.error('エラー内容:', error);
+      }
       // ログインコード（班）単位で管理: 自分が作成 or 自分が配布した店舗のみ表示
       const selfCode = decodedToken.teamCode;
       stores = stores.filter((s: Store) => s.createdByTeamCode === selfCode || s.distributedBy === selfCode);
@@ -134,7 +136,9 @@ export async function POST(request: NextRequest) {
         const teamDoc = await adminDb.collection('teams').doc(decodedToken.teamId).get();
         const teamData = teamDoc.data() as Record<string, unknown> | undefined;
         teamAssignedArea = teamData?.assignedArea as string;
-      } catch {}
+      } catch (error) {
+        console.error('エラー内容:', error);
+      }
     }
 
     const storeRef = adminDb.collection('stores').doc();

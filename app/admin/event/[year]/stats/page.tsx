@@ -78,7 +78,8 @@ export default function YearlyStatsPage() {
         setIsAdmin(true);
 
         await loadStats();
-      } catch {
+      } catch (error) {
+        console.error('エラー内容:', error);
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {

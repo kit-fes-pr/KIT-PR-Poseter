@@ -116,7 +116,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                 const error = await response.json();
                 alert(error.error || '店舗の登録に失敗しました');
             }
-        } catch {
+        } catch (error) {
+            console.error('エラー内容:', error);
             alert('店舗の登録に失敗しました');
         }
     };
@@ -152,7 +153,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                 const error = await response.json();
                 alert(error.error || '更新に失敗しました');
             }
-        } catch {
+        } catch (error) {
+            console.error('エラー内容:', error);
             alert('更新に失敗しました');
         }
     };
@@ -179,7 +181,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                 const error = await response.json();
                 alert(error.error || '更新に失敗しました');
             }
-        } catch {
+        } catch (error) {
+            console.error('エラー内容:', error);
             alert('更新に失敗しました');
         }
     };
@@ -199,7 +202,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                 const err = await res.json();
                 alert(err.error || '削除に失敗しました');
             }
-        } catch {
+        } catch (error) {
+            console.error('エラー内容:', error);
             alert('削除に失敗しました');
         }
     };
