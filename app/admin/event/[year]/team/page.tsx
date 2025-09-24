@@ -26,6 +26,8 @@ interface Team {
   adjacentAreas?: string[];
   maxMembers: number;
   preferredGrades?: number[];
+  validStartDate?: unknown;
+  validEndDate?: unknown;
 }
 
 interface Assignment {
@@ -122,6 +124,29 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatTeamPeriod = (t?: Team) => {
+    if (!t) return '-';
+    const parseAny = (v: unknown) => {
+      const obj = v as { _seconds?: number; toDate?: () => Date } | string | Date | undefined | null;
+      if (!obj) return undefined as unknown as Date;
+      if (typeof obj === 'string') return new Date(obj);
+      if (obj instanceof Date) return obj;
+      if (typeof obj === 'object') {
+        if (typeof obj._seconds === 'number') return new Date(obj._seconds * 1000);
+        if (typeof obj.toDate === 'function') return obj.toDate();
+      }
+      return new Date(obj as unknown as Date);
+    };
+    const s = t.validStartDate ? parseAny(t.validStartDate) : undefined;
+    const e = t.validEndDate ? parseAny(t.validEndDate) : undefined;
+    const fmt = (d?: Date) => (d && !isNaN(d.getTime()) ? d.toLocaleDateString('ja-JP') : '');
+    const fs = fmt(s);
+    const fe = fmt(e);
+    if (fs && fe && fs !== fe) return `${fs} 〜 ${fe}`;
+    if (fs) return fs;
+    return '-';
   };
 
   const isPRSection = (section: string) => {
@@ -698,6 +723,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                             <div className="text-sm">
                               <div className="font-medium text-gray-900">{team.teamName}</div>
                               <div className="text-gray-500">{team.assignedArea}</div>
+                              <div className="text-gray-400 text-xs">アクセス可能日: {formatTeamPeriod(team)}</div>
                               <div className="flex space-x-2 mt-1">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.assignedBy === 'auto'
                                   ? 'bg-blue-100 text-blue-800'
@@ -864,7 +890,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       <option value="">チームを選択</option>
                       {teams.map(team => (
                         <option key={team.teamId} value={team.teamId}>
-                          {team.teamName} - {team.assignedArea} (最大{team.maxMembers || 10}人)
+                          {team.teamName} - {team.assignedArea}（{formatTeamPeriod(team)}）(最大{team.maxMembers || 10}人)
                         </option>
                       ))}
                     </select>

@@ -19,7 +19,14 @@ export interface Team {
   eventId: string;
   isActive: boolean;
   // Firestore Timestamp may arrive via API; accept several shapes
-  validDate?:
+  validStartDate?:
+    | Date
+    | string
+    | number
+    | { _seconds: number; _nanoseconds?: number }
+    | { toDate: () => Date }
+    | null;
+  validEndDate?:
     | Date
     | string
     | number

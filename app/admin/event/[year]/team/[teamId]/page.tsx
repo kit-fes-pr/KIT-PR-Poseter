@@ -347,23 +347,15 @@ export default function TeamDetailPage() {
               <p><span className="text-gray-600">アクセス可能日:</span> <span className="ml-2">{
                 (() => {
                   try {
-                    if (!team?.validDate) return '-';
-                    const v = team.validDate as unknown;
-                    let date: Date | null = null;
-                    if (
-                      typeof v === 'object' && v !== null && '_seconds' in v &&
-                      typeof (v as any)._seconds === 'number'
-                    ) {
-                      date = new Date((v as any)._seconds * 1000);
-                    } else if (
-                      typeof v === 'object' && v !== null && 'toDate' in v &&
-                      typeof (v as any).toDate === 'function'
-                    ) {
-                      date = (v as any).toDate();
-                    } else {
-                      date = new Date(v as any);
-                    }
-                    return date && !isNaN(date.getTime()) ? date.toLocaleDateString('ja-JP') : '-';
+                    const parseAny = (v: any) => v?._seconds ? new Date(v._seconds * 1000) : (typeof v === 'string' ? new Date(v) : new Date(v));
+                    const vs = team?.validStartDate ? parseAny(team.validStartDate) : (team?.validDate ? parseAny(team.validDate as any) : null);
+                    const ve = team?.validEndDate ? parseAny(team.validEndDate) : (team?.validDate ? parseAny(team.validDate as any) : null);
+                    const fmt = (d: Date | null) => (d && !isNaN(d.getTime())) ? d.toLocaleDateString('ja-JP') : '';
+                    const s = fmt(vs);
+                    const e = fmt(ve);
+                    if (s && e && s !== e) return `${s} 〜 ${e}`;
+                    if (s) return s;
+                    return '-';
                   } catch (error) {
                     console.error('エラー内容:', error);
                     return '-';

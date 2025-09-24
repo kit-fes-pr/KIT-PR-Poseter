@@ -54,10 +54,22 @@ export async function PATCH(
     if (typeof body.isActive === 'boolean') update.isActive = body.isActive;
     if (Array.isArray(body.adjacentAreas)) update.adjacentAreas = body.adjacentAreas;
     if (typeof body.adjacentAreas === 'string') update.adjacentAreas = body.adjacentAreas.split(',').map((s: string) => s.trim());
+    // validStartDate / validEndDate に対応（後方互換で validDate が来たら両端に同じ日を設定）
     if (body.validDate) {
       const d = new Date(body.validDate);
       if (isNaN(d.getTime())) return NextResponse.json({ error: 'validDate の形式が不正です' }, { status: 400 });
-      update.validDate = d;
+      update.validStartDate = d;
+      update.validEndDate = d;
+    }
+    if (body.validStartDate) {
+      const s = new Date(body.validStartDate);
+      if (isNaN(s.getTime())) return NextResponse.json({ error: 'validStartDate の形式が不正です' }, { status: 400 });
+      update.validStartDate = s;
+    }
+    if (body.validEndDate) {
+      const e = new Date(body.validEndDate);
+      if (isNaN(e.getTime())) return NextResponse.json({ error: 'validEndDate の形式が不正です' }, { status: 400 });
+      update.validEndDate = e;
     }
 
     await ref.update(update);
@@ -101,4 +113,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'チームの削除に失敗しました' }, { status: 500 });
   }
 }
-

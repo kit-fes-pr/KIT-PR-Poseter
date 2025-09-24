@@ -81,6 +81,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `本日は配布日ではありません。イベント: ${dispDist}` }, { status: 403 });
     }
 
+    // 班のアクセス可能日（範囲）の確認（存在する場合のみチェック）
+    let teamStartKey: string | null = null;
+    let teamEndKey: string | null = null;
+    try {
+      const parseAny = (v: unknown) => {
+        const obj = v as { _seconds?: number; toDate?: () => Date } | string | Date | undefined | null;
+        if (!obj) return new Date('invalid');
+        if (typeof obj === 'string') return new Date(obj);
+        if (obj instanceof Date) return obj;
+        if (typeof obj === 'object') {
+          if (typeof obj._seconds === 'number') return new Date(obj._seconds * 1000);
+          if (typeof obj.toDate === 'function') return obj.toDate();
+        }
+        return new Date(obj as unknown as Date);
+      };
+      if (teamData.validStartDate) {
+        const vs = parseAny(teamData.validStartDate);
+        if (!isNaN(vs.getTime())) teamStartKey = fmtJst(vs);
+      } else if (teamData.validDate) { // 後方互換
+        const vd = parseAny(teamData.validDate);
+        if (!isNaN(vd.getTime())) {
+          teamStartKey = fmtJst(vd);
+          teamEndKey = fmtJst(vd);
+        }
+      }
+      if (teamData.validEndDate) {
+        const ve = parseAny(teamData.validEndDate);
+        if (!isNaN(ve.getTime())) teamEndKey = fmtJst(ve);
+      }
+    } catch (error) {
+      console.error('エラー内容:', error);
+    }
+
+    if (teamStartKey || teamEndKey) {
+      const ts = teamStartKey || teamEndKey; // どちらか片方でも設定されていれば判定対象
+      const te = teamEndKey || teamStartKey;
+      const teamInRange = (ts && te) ? (ts <= todayKey && todayKey <= te) : (todayKey === ts);
+      if (!teamInRange) {
+        const dispTeam = (ts && te && ts !== te)
+          ? `${ts.replace(/-/g,'/')}〜${te.replace(/-/g,'/')}`
+          : (ts ? ts.replace(/-/g,'/') : '-');
+        return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispTeam}` }, { status: 403 });
+      }
+    }
+
     // 一時メールアドレス + パスワード方式
     const tempEmail = `${teamData.teamCode}@temp.kohdai-poster.local`;
     const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);

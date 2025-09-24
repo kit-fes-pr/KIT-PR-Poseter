@@ -22,9 +22,10 @@ export default function AdminEventYear() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [event, setEvent] = useState<Record<string, unknown> | null>(null);
   const [eventLoading, setEventLoading] = useState(true);
-  const [teamForm, setTeamForm] = useState({ teamCode: '', teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '' });
-  const [editAccessTeam, setEditAccessTeam] = useState<{ teamId: string; teamName: string; current?: string } | null>(null);
-  const [editAccessDate, setEditAccessDate] = useState('');
+  const [teamForm, setTeamForm] = useState({ teamCode: '', teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '', validStartDate: '', validEndDate: '' });
+  const [editAccessTeam, setEditAccessTeam] = useState<{ teamId: string; teamName: string; currentStart?: string; currentEnd?: string } | null>(null);
+  const [editAccessStartDate, setEditAccessStartDate] = useState('');
+  const [editAccessEndDate, setEditAccessEndDate] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<{ eventName: string; distributionStartDate: string; distributionEndDate: string }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
@@ -142,15 +143,16 @@ export default function AdminEventYear() {
       const response = await fetch('/api/admin/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          ...teamForm,
-          adjacentAreas: teamForm.adjacentAreas.split(',').map(a => a.trim()),
-          eventId: event.id,
-          validDate: new Date().toISOString().split('T')[0],
-        }),
+          body: JSON.stringify({
+            ...teamForm,
+            adjacentAreas: teamForm.adjacentAreas.split(',').map(a => a.trim()),
+            eventId: event.id,
+            validStartDate: teamForm.validStartDate || undefined,
+            validEndDate: teamForm.validEndDate || teamForm.validStartDate || undefined,
+          }),
       });
       if (response.ok) {
-        setTeamForm({ teamCode: '', teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '' });
+        setTeamForm({ teamCode: '', teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '', validStartDate: '', validEndDate: '' });
         alert('チームが作成されました');
       } else {
         const err = await response.json();
@@ -411,10 +413,29 @@ export default function AdminEventYear() {
                 onChange={(e) => setTeamForm({ ...teamForm, adjacentAreas: e.target.value })}
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">アクセス可能開始日（任意）</label>
+              <input
+                type="date"
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                value={teamForm.validStartDate}
+                onChange={(e) => setTeamForm({ ...teamForm, validStartDate: e.target.value, validEndDate: teamForm.validEndDate || e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">アクセス可能終了日（任意）</label>
+              <input
+                type="date"
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                value={teamForm.validEndDate}
+                onChange={(e) => setTeamForm({ ...teamForm, validEndDate: e.target.value })}
+              />
+            </div>
           </div>
           <div className="mt-4 flex justify-end">
             <button
               onClick={createTeam}
+              disabled={!teamForm.validStartDate}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
             >
               作成
@@ -471,19 +492,25 @@ export default function AdminEventYear() {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">アクセス可能日を変更（{editAccessTeam.teamName}）</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">配布日（アクセス可能日）</label>
-              <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editAccessDate} onChange={(e) => setEditAccessDate(e.target.value)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">開始日</label>
+                <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editAccessStartDate} onChange={(e) => setEditAccessStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">終了日</label>
+                <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editAccessEndDate} onChange={(e) => setEditAccessEndDate(e.target.value)} />
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setEditAccessTeam(null)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md">キャンセル</button>
               <button
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
-                disabled={!editAccessDate}
+                disabled={!editAccessStartDate}
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem('authToken');
-                    const res = await fetch('/api/admin/teams', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ teamId: editAccessTeam.teamId, validDate: editAccessDate }) });
+                    const res = await fetch('/api/admin/teams', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ teamId: editAccessTeam.teamId, validStartDate: editAccessStartDate, validEndDate: editAccessEndDate || editAccessStartDate }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     // Revalidate related SWR keys instead of full reload
@@ -493,6 +520,8 @@ export default function AdminEventYear() {
                       mutate(`/api/admin/current-year-total?year=${y}&includeStores=1`),
                     ]);
                     setEditAccessTeam(null);
+                    setEditAccessStartDate('');
+                    setEditAccessEndDate('');
                   } catch (error: unknown) {
                     console.error('エラー内容:', error);
                     const message = error instanceof Error ? error.message : '更新に失敗しました';

@@ -24,7 +24,7 @@ export default function AdminEventIndex() {
   const [menuEventId, setMenuEventId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTarget, setEditTarget] = useState<Record<string, unknown> | null>(null);
-  const [editForm, setEditForm] = useState<{ eventName: string; distributionDate: string }>({ eventName: '', distributionDate: '' });
+  const [editForm, setEditForm] = useState<{ eventName: string; distributionStartDate: string; distributionEndDate: string }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
 
   // ログアウト処理
   const handleLogout = async () => {
@@ -177,8 +177,10 @@ export default function AdminEventIndex() {
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push(`/admin/event/${ev.year}`); setMenuEventId(null); }}>開く</button>
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
                               setEditTarget(ev);
-                              const d = ev.distributionDate ? ((ev.distributionDate as Record<string, unknown>)._seconds ? new Date((ev.distributionDate as Record<string, unknown>)._seconds as number * 1000) : new Date(ev.distributionDate as unknown as Date)) : null;
-                              setEditForm({ eventName: String(ev.eventName) || '', distributionDate: d ? d.toISOString().slice(0,10) : '' });
+                              const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
+                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              setEditForm({ eventName: String(ev.eventName) || '', distributionStartDate: s ? s.toISOString().slice(0,10) : '', distributionEndDate: e ? e.toISOString().slice(0,10) : '' });
                               setIsEditing(true);
                               setMenuEventId(null);
                             }}>編集</button>
@@ -291,9 +293,15 @@ export default function AdminEventIndex() {
                 <label className="block text-sm font-medium text-gray-700">イベント名</label>
                 <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.eventName} onChange={(e) => setEditForm({ ...editForm, eventName: e.target.value })} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">配布日</label>
-                <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionDate} onChange={(e) => setEditForm({ ...editForm, distributionDate: e.target.value })} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布開始日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionStartDate} onChange={(e) => setEditForm({ ...editForm, distributionStartDate: e.target.value, distributionEndDate: editForm.distributionEndDate || e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布終了日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionEndDate} onChange={(e) => setEditForm({ ...editForm, distributionEndDate: e.target.value })} />
+                </div>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
@@ -302,7 +310,7 @@ export default function AdminEventIndex() {
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem('authToken');
-                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionDate: editForm.distributionDate }) });
+                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     const { events, latest } = await fetcher('/api/admin/events');
