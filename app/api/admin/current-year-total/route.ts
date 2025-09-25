@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // イベント情報取得（あれば年度を使う）
     const eventDoc = await adminDb.collection('distributionEvents').doc(targetEventId).get();
-    const eventData = eventDoc.exists ? eventDoc.data() as any : null;
+    const eventData = eventDoc.exists ? eventDoc.data() as Record<string, unknown> : null;
     const year = eventData?.year || new Date().getFullYear();
 
     const storesSnapshot = await adminDb
@@ -33,13 +33,13 @@ export async function POST(request: NextRequest) {
       .where('eventId', '==', targetEventId)
       .get();
 
-    const stores = storesSnapshot.docs.map(d => d.data()) as any[];
+    const stores = storesSnapshot.docs.map(d => d.data()) as Record<string, unknown>[];
     const totalStores = stores.length;
     const completedStores = stores.filter(s => s.distributionStatus === 'completed').length;
     const failedStores = stores.filter(s => s.distributionStatus === 'failed').length;
     const revisitStores = stores.filter(s => s.distributionStatus === 'revisit').length;
     const pendingStores = stores.filter(s => s.distributionStatus === 'pending').length;
-    const totalDistributedCount = stores.reduce((sum, s) => sum + (s.distributedCount || 0), 0);
+    const totalDistributedCount = stores.reduce((sum, s) => sum + ((s.distributedCount as number) || 0), 0);
 
     const payload = {
       eventId: targetEventId,
@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
     if (!year) {
       const eventDoc = await adminDb.collection('distributionEvents').doc(eventId).get();
       if (eventDoc.exists) {
-        const eventData = eventDoc.data() as any;
-        year = eventData.year;
+        const eventData = eventDoc.data() as Record<string, unknown>;
+        year = eventData.year as number;
       }
     }
 
@@ -119,24 +119,24 @@ export async function GET(request: NextRequest) {
         const teamsByCode: Record<string, string> = {};
         const teamsByArea: Record<string, Array<{ code: string; name: string }>> = {};
         teamsSnapshot.docs.forEach(doc => {
-          const t = doc.data() as any;
-          if (t.teamCode) teamsByCode[t.teamCode] = t.teamName || t.teamCode;
+          const t = doc.data() as Record<string, unknown>;
+          if (t.teamCode) teamsByCode[t.teamCode as string] = (t.teamName as string) || (t.teamCode as string);
           if (t.assignedArea) {
-            if (!teamsByArea[t.assignedArea]) teamsByArea[t.assignedArea] = [];
-            teamsByArea[t.assignedArea].push({ code: t.teamCode, name: t.teamName || t.teamCode });
+            if (!teamsByArea[t.assignedArea as string]) teamsByArea[t.assignedArea as string] = [];
+            teamsByArea[t.assignedArea as string].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
           }
           if (Array.isArray(t.adjacentAreas)) {
             t.adjacentAreas.forEach((area: string) => {
               if (!teamsByArea[area]) teamsByArea[area] = [];
-              teamsByArea[area].push({ code: t.teamCode, name: t.teamName || t.teamCode });
+              teamsByArea[area].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
             });
           }
         });
 
-        const storesWithNames = stores.map((s: any) => {
-          const distributedByName = s.distributedBy ? (teamsByCode[s.distributedBy] || null) : null;
-          const assignedTeams = s.areaCode && teamsByArea[s.areaCode]
-            ? teamsByArea[s.areaCode].map(t => `${t.name}（${t.code}）`)
+        const storesWithNames = stores.map((s: Record<string, unknown>) => {
+          const distributedByName = s.distributedBy ? (teamsByCode[s.distributedBy as string] || null) : null;
+          const assignedTeams = s.areaCode && teamsByArea[s.areaCode as string]
+            ? teamsByArea[s.areaCode as string].map(t => `${t.name}（${t.code}）`)
             : [];
           return {
             ...s,
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: null });
     }
 
-    const base = { id: doc.id, ...(doc.data() as any) } as any;
+    const base = { id: doc.id, ...(doc.data() as Record<string, unknown>) } as Record<string, unknown>;
 
     if (includeStores) {
       const eid = base.eventId || eventId;
@@ -167,24 +167,24 @@ export async function GET(request: NextRequest) {
       const teamsByCode: Record<string, string> = {};
       const teamsByArea: Record<string, Array<{ code: string; name: string }>> = {};
       teamsSnapshot.docs.forEach(doc => {
-        const t = doc.data() as any;
-        if (t.teamCode) teamsByCode[t.teamCode] = t.teamName || t.teamCode;
+        const t = doc.data() as Record<string, unknown>;
+        if (t.teamCode) teamsByCode[t.teamCode as string] = (t.teamName as string) || (t.teamCode as string);
         if (t.assignedArea) {
-          if (!teamsByArea[t.assignedArea]) teamsByArea[t.assignedArea] = [];
-          teamsByArea[t.assignedArea].push({ code: t.teamCode, name: t.teamName || t.teamCode });
+          if (!teamsByArea[t.assignedArea as string]) teamsByArea[t.assignedArea as string] = [];
+          teamsByArea[t.assignedArea as string].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
         }
         if (Array.isArray(t.adjacentAreas)) {
           t.adjacentAreas.forEach((area: string) => {
             if (!teamsByArea[area]) teamsByArea[area] = [];
-            teamsByArea[area].push({ code: t.teamCode, name: t.teamName || t.teamCode });
+            teamsByArea[area].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
           });
         }
       });
 
-      const storesWithNames = stores.map((s: any) => {
-        const distributedByName = s.distributedBy ? (teamsByCode[s.distributedBy] || null) : null;
-        const assignedTeams = s.areaCode && teamsByArea[s.areaCode]
-          ? teamsByArea[s.areaCode].map(t => `${t.name}（${t.code}）`)
+      const storesWithNames = stores.map((s: Record<string, unknown>) => {
+        const distributedByName = s.distributedBy ? (teamsByCode[s.distributedBy as string] || null) : null;
+        const assignedTeams = s.areaCode && teamsByArea[s.areaCode as string]
+          ? teamsByArea[s.areaCode as string].map(t => `${t.name}（${t.code}）`)
           : [];
         return {
           ...s,

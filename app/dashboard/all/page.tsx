@@ -3,6 +3,5 @@
 import DashboardContent from '../DashboardContent';
 
 export default function AllTeamsDashboardPage() {
-  return <DashboardContent mode="all" />;
+    return <DashboardContent mode="all" />;
 }
-

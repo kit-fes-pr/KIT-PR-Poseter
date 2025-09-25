@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const teamDoc = teamQuery.docs[0];
     const teamData = teamDoc.data();
 
-    // 学外配布日の判定（どちらも一致で許可）
+    // 学外配布日の判定
     const fmtJst = (d: Date) => {
       const parts = new Intl.DateTimeFormat('ja-JP', {
         timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -41,15 +41,6 @@ export async function POST(request: NextRequest) {
     };
 
     const todayKey = fmtJst(new Date());
-    // team.validDate
-    let validKey: string | null = null;
-    try {
-      if (teamData.validDate) {
-        const vd = teamData.validDate._seconds ? new Date(teamData.validDate._seconds * 1000)
-          : (typeof teamData.validDate === 'string' ? new Date(teamData.validDate) : new Date(teamData.validDate));
-        if (!isNaN(vd.getTime())) validKey = fmtJst(vd);
-      }
-    } catch {}
 
     // event.distributionDate / distributionStartDate - distributionEndDate（team.eventId から解決）
     let distKey: string | null = null;
@@ -59,34 +50,80 @@ export async function POST(request: NextRequest) {
       if (teamData.eventId) {
         const evDoc = await adminDb.collection('distributionEvents').doc(teamData.eventId).get();
         if (evDoc.exists) {
-          const ev = evDoc.data() as any;
-          const parseDate = (v: any) => v?._seconds ? new Date(v._seconds * 1000)
-            : (typeof v === 'string' ? new Date(v) : new Date(v));
+          const ev = evDoc.data() as Record<string, unknown>;
+          const parseDate = (v: Record<string, unknown> | string | Date) => (v as Record<string, unknown>)?._seconds ? new Date((v as Record<string, unknown>)._seconds as number * 1000)
+            : (typeof v === 'string' ? new Date(v) : new Date(v as unknown as Date));
           if (ev?.distributionStartDate || ev?.distributionEndDate) {
-            const ds = ev.distributionStartDate ? parseDate(ev.distributionStartDate) : null;
-            const de = ev.distributionEndDate ? parseDate(ev.distributionEndDate) : null;
+            const ds = ev.distributionStartDate ? parseDate(ev.distributionStartDate as Record<string, unknown> | string | Date) : null;
+            const de = ev.distributionEndDate ? parseDate(ev.distributionEndDate as Record<string, unknown> | string | Date) : null;
             if (ds && !isNaN(ds.getTime())) distStartKey = fmtJst(ds);
             if (de && !isNaN(de.getTime())) distEndKey = fmtJst(de);
           }
           if (ev?.distributionDate) {
-            const dd = parseDate(ev.distributionDate);
+            const dd = parseDate(ev.distributionDate as Record<string, unknown> | string | Date);
             if (!isNaN(dd.getTime())) distKey = fmtJst(dd);
           }
         }
       }
-    } catch {}
+    } catch (error) {
+      console.error('エラー内容:', error);
+    }
 
-    // どちらも存在し、かつ当日一致（イベントは単日一致 or 期間内一致）
-    if (!validKey || (!distKey && !(distStartKey && distEndKey))) {
-      return NextResponse.json({ error: '配布日が未設定です（team.validDate と event.distribution(単日 or 期間) の両方を設定してください）' }, { status: 403 });
+    // イベントの配布日設定が存在し、当日一致（単日一致 or 期間内一致）
+    if (!distKey && !(distStartKey && distEndKey)) {
+      return NextResponse.json({ error: '配布日が未設定です（イベントの配布日を設定してください）' }, { status: 403 });
     }
     const inRange = distStartKey && distEndKey ? (distStartKey <= todayKey && todayKey <= distEndKey) : (distKey === todayKey);
-    if (!(validKey === todayKey && inRange)) {
-      const dispValid = validKey.replace(/-/g, '/');
+    if (!inRange) {
       const dispDist = distStartKey && distEndKey
         ? `${distStartKey.replace(/-/g,'/')}〜${distEndKey.replace(/-/g,'/')}`
         : (distKey ? distKey.replace(/-/g,'/') : '-');
-      return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispValid} / イベント: ${dispDist}` }, { status: 403 });
+      return NextResponse.json({ error: `本日は配布日ではありません。イベント: ${dispDist}` }, { status: 403 });
+    }
+
+    // 班のアクセス可能日（範囲）の確認（存在する場合のみチェック）
+    let teamStartKey: string | null = null;
+    let teamEndKey: string | null = null;
+    try {
+      const parseAny = (v: unknown) => {
+        const obj = v as { _seconds?: number; toDate?: () => Date } | string | Date | undefined | null;
+        if (!obj) return new Date('invalid');
+        if (typeof obj === 'string') return new Date(obj);
+        if (obj instanceof Date) return obj;
+        if (typeof obj === 'object') {
+          if (typeof obj._seconds === 'number') return new Date(obj._seconds * 1000);
+          if (typeof obj.toDate === 'function') return obj.toDate();
+        }
+        return new Date(obj as unknown as Date);
+      };
+      if (teamData.validStartDate) {
+        const vs = parseAny(teamData.validStartDate);
+        if (!isNaN(vs.getTime())) teamStartKey = fmtJst(vs);
+      } else if (teamData.validDate) { // 後方互換
+        const vd = parseAny(teamData.validDate);
+        if (!isNaN(vd.getTime())) {
+          teamStartKey = fmtJst(vd);
+          teamEndKey = fmtJst(vd);
+        }
+      }
+      if (teamData.validEndDate) {
+        const ve = parseAny(teamData.validEndDate);
+        if (!isNaN(ve.getTime())) teamEndKey = fmtJst(ve);
+      }
+    } catch (error) {
+      console.error('エラー内容:', error);
+    }
+
+    if (teamStartKey || teamEndKey) {
+      const ts = teamStartKey || teamEndKey; // どちらか片方でも設定されていれば判定対象
+      const te = teamEndKey || teamStartKey;
+      const teamInRange = (ts && te) ? (ts <= todayKey && todayKey <= te) : (todayKey === ts);
+      if (!teamInRange) {
+        const dispTeam = (ts && te && ts !== te)
+          ? `${ts.replace(/-/g,'/')}〜${te.replace(/-/g,'/')}`
+          : (ts ? ts.replace(/-/g,'/') : '-');
+        return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispTeam}` }, { status: 403 });
+      }
     }
 
     // 一時メールアドレス + パスワード方式
@@ -100,7 +137,8 @@ export async function POST(request: NextRequest) {
       uid = existing.uid;
       // 既存の一時ユーザーのパスワードをローテーション
       await adminAuth.updateUser(uid, { password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       const created = await adminAuth.createUser({ email: tempEmail, password: tempPassword, emailVerified: true, displayName: teamData.teamName || teamData.teamCode, disabled: false });
       uid = created.uid;
     }

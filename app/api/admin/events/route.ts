@@ -26,14 +26,14 @@ export async function GET(request: NextRequest) {
         .get();
       if (snap.empty) return NextResponse.json({ data: null });
       const d = snap.docs[0];
-      return NextResponse.json({ data: { id: d.id, ...(d.data() as any) } });
+      return NextResponse.json({ data: { id: d.id, ...(d.data() as Record<string, unknown>) } });
     }
 
     const snap = await adminDb
       .collection('distributionEvents')
       .orderBy('year', 'desc')
       .get();
-    const events = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    const events = snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
     const latest = events[0] || null;
     return NextResponse.json({ events, latest });
   } catch (error) {
@@ -134,7 +134,7 @@ export async function PATCH(request: NextRequest) {
       docRef = snap.docs[0].ref;
     }
 
-    const update: Record<string, any> = { updatedAt: new Date() };
+    const update: Record<string, unknown> = { updatedAt: new Date() };
     if (typeof eventName === 'string') update.eventName = eventName;
     if (typeof isActive === 'boolean') update.isActive = isActive;
     // 単日（distributionDate）と期間（distributionStartDate, distributionEndDate）の両対応
@@ -148,7 +148,7 @@ export async function PATCH(request: NextRequest) {
 
     await docRef.update(update);
     const doc = await docRef.get();
-    return NextResponse.json({ success: true, data: { id: doc.id, ...(doc.data() as any) } });
+    return NextResponse.json({ success: true, data: { id: doc.id, ...(doc.data() as Record<string, unknown>) } });
   } catch (error) {
     console.error('Update event error:', error);
     return NextResponse.json({ error: 'イベントの更新に失敗しました' }, { status: 500 });

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -13,16 +15,30 @@ const fetcher = async (url: string) => {
 export default function AdminEventIndex() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [events, setEvents] = useState<any[]>([]);
-  const [latest, setLatest] = useState<any | null>(null);
+  const [events, setEvents] = useState<Record<string, unknown>[]>([]);
+  const [latest, setLatest] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<{ year: string; eventName: string; distributionStartDate: string; distributionEndDate: string }>({ year: '', eventName: '', distributionStartDate: '', distributionEndDate: '' });
   const [menuEventId, setMenuEventId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editTarget, setEditTarget] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState<{ eventName: string; distributionDate: string }>({ eventName: '', distributionDate: '' });
+  const [editTarget, setEditTarget] = useState<Record<string, unknown> | null>(null);
+  const [editForm, setEditForm] = useState<{ eventName: string; distributionStartDate: string; distributionEndDate: string }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
+
+  // ログアウト処理
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('authToken');
+      router.push('/admin');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+      // Firebase サインアウトが失敗してもローカルをクリア
+      localStorage.removeItem('authToken');
+      router.push('/admin');
+    }
+  };
 
   // Close popup menu on outside click
   useEffect(() => {
@@ -32,9 +48,22 @@ export default function AdminEventIndex() {
       if (!target) return;
       if (!target.closest('[data-menu-root]')) setMenuEventId(null);
     };
-    document.addEventListener('mousedown', onDown as any);
-    return () => document.removeEventListener('mousedown', onDown as any);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, [menuEventId]);
+
+  // Firebase認証状態を監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // ログアウト状態の場合はadminページにリダイレクト
+        localStorage.removeItem('authToken');
+        router.push('/admin');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   useEffect(() => {
     const init = async () => {
@@ -49,7 +78,8 @@ export default function AdminEventIndex() {
         const { events, latest } = await fetcher('/api/admin/events');
         setEvents(events || []);
         setLatest(latest || null);
-      } catch (e) {
+      } catch (error) {
+        console.error('エラー内容:', error);
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {
@@ -75,10 +105,7 @@ export default function AdminEventIndex() {
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
               >学外配布年度を追加</button>
               <button
-                onClick={() => {
-                  localStorage.removeItem('authToken');
-                  router.push('/admin');
-                }}
+                onClick={handleLogout}
                 className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm"
               >ログアウト</button>
             </div>
@@ -98,8 +125,8 @@ export default function AdminEventIndex() {
                 <h2 className="text-lg font-medium mb-2">最新年度</h2>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold">{latest.year} 年度</p>
-                    <p className="text-sm text-gray-600">{latest.eventName || '学外配布'}</p>
+                    <p className="text-2xl font-bold">{String(latest.year)} 年度</p>
+                    <p className="text-sm text-gray-600">{String(latest.eventName) || '学外配布'}</p>
                   </div>
                   <button
                     onClick={() => router.push(`/admin/event/${latest.year}`)}
@@ -114,7 +141,7 @@ export default function AdminEventIndex() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {events.map((ev) => (
                   <div
-                    key={ev.id}
+                    key={ev.id as string}
                     onClick={() => router.push(`/admin/event/${ev.year}`)}
                     role="button"
                     tabIndex={0}
@@ -123,13 +150,13 @@ export default function AdminEventIndex() {
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-base font-semibold">{ev.year} 年度</p>
+                        <p className="text-base font-semibold">{String(ev.year)} 年度</p>
                         <p className="text-sm text-gray-500">
-                          {ev.eventName || '学外配布'} / {
+                          {String(ev.eventName) || '学外配布'} / {
                             (() => {
-                              const parse = (v: any) => v?._seconds ? new Date(v._seconds * 1000) : new Date(v);
-                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate) : (ev.distributionDate ? parse(ev.distributionDate) : null);
-                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate) : (ev.distributionDate ? parse(ev.distributionDate) : null);
+                              const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
+                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
                               if (!s || !e) return '-';
                               const sd = s.toLocaleDateString('ja-JP');
                               const ed = e.toLocaleDateString('ja-JP');
@@ -141,7 +168,7 @@ export default function AdminEventIndex() {
                       <div className="relative" data-menu-root onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                         <button
                           className="px-2 py-1 border rounded text-sm"
-                          onClick={(e) => { e.stopPropagation(); setMenuEventId(menuEventId === ev.id ? null : ev.id); }}
+                          onClick={(e) => { e.stopPropagation(); setMenuEventId(menuEventId === ev.id ? null : ev.id as string); }}
                           aria-label="メニュー"
                           title="メニュー"
                         >≡</button>
@@ -150,8 +177,10 @@ export default function AdminEventIndex() {
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push(`/admin/event/${ev.year}`); setMenuEventId(null); }}>開く</button>
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
                               setEditTarget(ev);
-                              const d = ev.distributionDate ? (ev.distributionDate._seconds ? new Date(ev.distributionDate._seconds * 1000) : new Date(ev.distributionDate)) : null;
-                              setEditForm({ eventName: ev.eventName || '', distributionDate: d ? d.toISOString().slice(0,10) : '' });
+                              const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
+                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              setEditForm({ eventName: String(ev.eventName) || '', distributionStartDate: s ? s.toISOString().slice(0,10) : '', distributionEndDate: e ? e.toISOString().slice(0,10) : '' });
                               setIsEditing(true);
                               setMenuEventId(null);
                             }}>編集</button>
@@ -167,8 +196,9 @@ export default function AdminEventIndex() {
                                 setEvents(events || []);
                                 setLatest(latest || null);
                                 setMenuEventId(null);
-                              } catch (e: any) {
-                                alert(e.message || '削除に失敗しました');
+                              } catch (error: unknown) {
+                                const message = error instanceof Error ? error.message : '削除に失敗しました';
+                                alert(message);
                               }
                             }}>削除</button>
                           </div>
@@ -241,8 +271,9 @@ export default function AdminEventIndex() {
                     setLatest(latest || null);
                     setIsCreating(false);
                     setForm({ year: '', eventName: '', distributionStartDate: '', distributionEndDate: '' });
-                  } catch (e: any) {
-                    alert(e.message || '作成に失敗しました');
+                  } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : '作成に失敗しました';
+                    alert(message);
                   }
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md"
@@ -256,15 +287,21 @@ export default function AdminEventIndex() {
       {isEditing && editTarget && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">イベントを編集（{editTarget.year}年度）</h2>
+            <h2 className="text-lg font-semibold mb-4">イベントを編集（{String(editTarget.year)}年度）</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">イベント名</label>
                 <input type="text" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.eventName} onChange={(e) => setEditForm({ ...editForm, eventName: e.target.value })} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">配布日</label>
-                <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionDate} onChange={(e) => setEditForm({ ...editForm, distributionDate: e.target.value })} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布開始日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionStartDate} onChange={(e) => setEditForm({ ...editForm, distributionStartDate: e.target.value, distributionEndDate: editForm.distributionEndDate || e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">配布終了日</label>
+                  <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={editForm.distributionEndDate} onChange={(e) => setEditForm({ ...editForm, distributionEndDate: e.target.value })} />
+                </div>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
@@ -273,7 +310,7 @@ export default function AdminEventIndex() {
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem('authToken');
-                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionDate: editForm.distributionDate }) });
+                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     const { events, latest } = await fetcher('/api/admin/events');
@@ -281,8 +318,9 @@ export default function AdminEventIndex() {
                     setLatest(latest || null);
                     setIsEditing(false);
                     setEditTarget(null);
-                  } catch (e: any) {
-                    alert(e.message || '更新に失敗しました');
+                  } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : '更新に失敗しました';
+                    alert(message);
                   }
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md"

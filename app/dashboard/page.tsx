@@ -125,7 +125,8 @@ export default function Dashboard() {
         const error = await response.json();
         alert(error.error || '店舗の登録に失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       alert('店舗の登録に失敗しました');
     }
   };
@@ -140,8 +141,8 @@ export default function Dashboard() {
         setMenuStoreId(null);
       }
     };
-    document.addEventListener('mousedown', onDown as any);
-    return () => document.removeEventListener('mousedown', onDown as any);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
   }, [menuStoreId]);
 
   const updateStoreStatus = async (storeId: string, status: Store['distributionStatus'], count?: number, reason?: string) => {
@@ -166,7 +167,8 @@ export default function Dashboard() {
         const error = await response.json();
         alert(error.error || '更新に失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       alert('更新に失敗しました');
     }
   };
@@ -197,7 +199,8 @@ export default function Dashboard() {
         const error = await response.json();
         alert(error.error || '更新に失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       alert('更新に失敗しました');
     }
   };
@@ -217,7 +220,8 @@ export default function Dashboard() {
         const err = await res.json();
         alert(err.error || '削除に失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       alert('削除に失敗しました');
     }
   };
@@ -471,7 +475,7 @@ export default function Dashboard() {
                     const val = e.target.value as Store['distributionStatus'];
                     setValue('distributionStatus', val);
                     if (val !== 'completed') setValue('distributedCount', 0);
-                    if (val !== 'failed') setValue('failureReason', undefined as any);
+                    if (val !== 'failed') setValue('failureReason', undefined);
                   }}
                 >
                   <option value="pending">未配布</option>
@@ -585,8 +589,8 @@ export default function Dashboard() {
                           const val = e.target.value as Store['distributionStatus'];
                           setEditValue('distributionStatus', val);
                           if (val !== 'completed') setEditValue('distributedCount', 0);
-                          if (val !== 'failed') setEditValue('failureReason', undefined as any);
-                        }}
+                          if (val !== 'failed') setEditValue('failureReason', undefined);
+                      }}
                       >
                         <option value="pending">未配布</option>
                         <option value="completed">配布完了</option>

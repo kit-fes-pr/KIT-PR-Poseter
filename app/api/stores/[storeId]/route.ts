@@ -127,7 +127,7 @@ export async function DELETE(
       return NextResponse.json({ error: '店舗が見つかりません' }, { status: 404 });
     }
 
-    const store = storeDoc.data() as any;
+    const store = storeDoc.data() as Record<string, unknown>;
 
     // 管理者は削除可能。それ以外は作成チームのみ削除可能。
     const isAdmin = decodedToken.role === 'admin';

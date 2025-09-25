@@ -22,7 +22,7 @@ export async function GET(
     if (!teamDoc.exists) {
       return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
     }
-    const teamData = teamDoc.data() as any;
+    const teamData = teamDoc.data() as Record<string, unknown>;
 
     const storesSnapshot = await adminDb.collection('stores')
       .where('eventId', '==', teamData.eventId)
@@ -32,9 +32,9 @@ export async function GET(
     const stores = storesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     // 追加の集計
-    const completed = stores.filter((s: any) => s.distributionStatus === 'completed').length;
-    const failed = stores.filter((s: any) => s.distributionStatus === 'failed').length;
-    const revisit = stores.filter((s: any) => s.distributionStatus === 'revisit').length;
+    const completed = stores.filter((s: Record<string, unknown>) => s.distributionStatus === 'completed').length;
+    const failed = stores.filter((s: Record<string, unknown>) => s.distributionStatus === 'failed').length;
+    const revisit = stores.filter((s: Record<string, unknown>) => s.distributionStatus === 'revisit').length;
     const total = stores.length;
 
     return NextResponse.json({

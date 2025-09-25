@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Team, Store } from '@/types';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -26,8 +29,29 @@ export default function TeamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isBasicEditOpen, setIsBasicEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<{ teamName: string; timeSlot: string; assignedArea: string; adjacentAreas: string; validDate: string }>({ teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '', validDate: '' });
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [assignedMembers, setAssignedMembers] = useState<Array<{ responseId: string; name: string; grade: number; section: string; timeSlot: 'morning' | 'afternoon' | 'pr'; formId: string }>>([]);
+
+  // Firebase認証状態を監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // ログアウト状態の場合はadminページにリダイレクト
+        localStorage.removeItem('authToken');
+        router.push('/admin');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   useEffect(() => {
+    if (!teamId) {
+      console.error('No teamId provided');
+      router.push('/admin/event');
+      return;
+    }
+
     const init = async () => {
       try {
         const token = localStorage.getItem('authToken');
@@ -40,7 +64,32 @@ export default function TeamDetailPage() {
 
         const td = await fetcherAuth(`/api/admin/teams/${teamId}`);
         setTeam(td.team);
-        const d = td.team.validDate ? (td.team.validDate._seconds ? new Date(td.team.validDate._seconds * 1000) : new Date(td.team.validDate)) : null;
+
+        // validDate の安全な処理
+        let d: Date | null = null;
+        try {
+          const v = td.team.validDate as unknown;
+          if (v) {
+            if (
+              typeof v === 'object' && v !== null && '_seconds' in v &&
+              typeof (v as any)._seconds === 'number'
+            ) {
+              d = new Date((v as any)._seconds * 1000);
+            } else if (
+              typeof v === 'object' && v !== null && 'toDate' in v &&
+              typeof (v as any).toDate === 'function'
+            ) {
+              d = (v as any).toDate();
+            } else {
+              d = new Date(v as any);
+            }
+            if (d && isNaN(d.getTime())) d = null;
+          }
+        } catch (error) {
+          console.error('validDate parsing error:', error);
+          d = null;
+        }
+
         setEditForm({
           teamName: td.team.teamName || '',
           timeSlot: td.team.timeSlot || 'morning',
@@ -51,7 +100,8 @@ export default function TeamDetailPage() {
 
         const st = await fetcherAuth(`/api/admin/teams/${teamId}/stores`);
         setStores(st.stores || []);
-      } catch (e) {
+      } catch (error) {
+        console.error('Team detail loading error:', error);
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {
@@ -60,6 +110,32 @@ export default function TeamDetailPage() {
     };
     if (teamId) init();
   }, [router, teamId]);
+
+  // 割り当てメンバー取得（サーバー側で効率化されたAPIを利用）
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!teamId || !y) return;
+      try {
+        setMemberLoading(true);
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        const res = await fetch(`/api/admin/teams/${teamId}/members?year=${y}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || '割り当てメンバーの取得に失敗しました');
+        }
+        const data = await res.json();
+        setAssignedMembers(data.members || []);
+      } catch (e) {
+        console.error('Load assigned members error:', e);
+      } finally {
+        setMemberLoading(false);
+      }
+    };
+    loadMembers();
+  }, [teamId, y]);
 
   if (!isAdmin) return null;
 
@@ -105,7 +181,10 @@ export default function TeamDetailPage() {
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '削除に失敗しました');
                     router.push(`/admin/event/${y}`);
-                  } catch (e: any) { alert(e.message || '削除に失敗しました'); }
+                  } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : '削除に失敗しました';
+                    alert(message);
+                  }
                 }}
               >削除</button>
             </div>
@@ -167,6 +246,9 @@ export default function TeamDetailPage() {
                     <select className="mt-1 w-full border rounded px-3 py-2" value={editForm.timeSlot} onChange={(e) => setEditForm({ ...editForm, timeSlot: e.target.value })}>
                       <option value="morning">午前</option>
                       <option value="afternoon">午後</option>
+                      <option value="both">全日</option>
+                      <option value="pr">PR配布日</option>
+                      <option value="other">その他</option>
                     </select>
                   </div>
                   <div>
@@ -200,7 +282,10 @@ export default function TeamDetailPage() {
                         if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                         setTeam(data.team);
                         setIsBasicEditOpen(false);
-                      } catch (e: any) { alert(e.message || '更新に失敗しました'); }
+                      } catch (error: unknown) {
+                        const message = error instanceof Error ? error.message : '更新に失敗しました';
+                        alert(message);
+                      }
                     }}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-md"
                   >保存</button>
@@ -250,13 +335,86 @@ export default function TeamDetailPage() {
             <div className="space-y-3 text-sm">
               <p><span className="text-gray-600">チーム名:</span> <span className="ml-2 font-medium">{team?.teamName || '-'}</span></p>
               <p><span className="text-gray-600">コード:</span> <span className="ml-2">{team?.teamCode || '-'}</span></p>
-              <p><span className="text-gray-600">時間帯:</span> <span className="ml-2">{team?.timeSlot === 'morning' ? '午前' : '午後'}</span></p>
+              <p><span className="text-gray-600">時間帯:</span> <span className="ml-2">{
+                team?.timeSlot === 'morning' ? '午前' :
+                team?.timeSlot === 'afternoon' ? '午後' :
+                team?.timeSlot === 'both' || team?.timeSlot === 'all' ? '全日' :
+                team?.timeSlot === 'pr' ? 'PR配布日' :
+                team?.timeSlot === 'other' ? 'その他' : '-'
+              }</span></p>
               <p><span className="text-gray-600">担当区域:</span> <span className="ml-2">{team?.assignedArea || '-'}</span></p>
               <p><span className="text-gray-600">周辺区域:</span> <span className="ml-2">{Array.isArray(team?.adjacentAreas) ? team?.adjacentAreas.join(', ') : '-'}</span></p>
-              <p><span className="text-gray-600">アクセス可能日:</span> <span className="ml-2">{team?.validDate ? team.validDate.toLocaleDateString('ja-JP') : '-'}</span></p>
+              <p><span className="text-gray-600">アクセス可能日:</span> <span className="ml-2">{
+                (() => {
+                  try {
+                    const parseAny = (v: any) => v?._seconds ? new Date(v._seconds * 1000) : (typeof v === 'string' ? new Date(v) : new Date(v));
+                    const vs = team?.validStartDate ? parseAny(team.validStartDate) : (team?.validDate ? parseAny(team.validDate as any) : null);
+                    const ve = team?.validEndDate ? parseAny(team.validEndDate) : (team?.validDate ? parseAny(team.validDate as any) : null);
+                    const fmt = (d: Date | null) => (d && !isNaN(d.getTime())) ? d.toLocaleDateString('ja-JP') : '';
+                    const s = fmt(vs);
+                    const e = fmt(ve);
+                    if (s && e && s !== e) return `${s} 〜 ${e}`;
+                    if (s) return s;
+                    return '-';
+                  } catch (error) {
+                    console.error('エラー内容:', error);
+                    return '-';
+                  }
+                })()
+              }</span></p>
               <div className="pt-2">
                 <button onClick={() => setIsBasicEditOpen(true)} className="px-3 py-1 border rounded-md">編集</button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* 割り当てメンバー */}
+        <div className="bg-white p-6 rounded-lg shadow lg:col-span-3">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium">割り当てメンバー</h2>
+            <span className="text-sm text-gray-500">{assignedMembers.length} 名</span>
+          </div>
+          {memberLoading ? (
+            <p className="text-sm text-gray-500">読み込み中...</p>
+          ) : assignedMembers.length === 0 ? (
+            <p className="text-sm text-gray-500">現在このチームに割り当てられたメンバーはありません</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">氏名</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学年</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">セクション</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時間帯</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {assignedMembers
+                    .slice()
+                    .sort((a, b) => {
+                      if ((b.grade || 0) !== (a.grade || 0)) return (b.grade || 0) - (a.grade || 0);
+                      return new Intl.Collator('ja').compare(a.name || '', b.name || '');
+                    })
+                    .map(m => (
+                      <tr key={m.responseId}>
+                        <td className="px-6 py-3 text-sm text-gray-900">{m.name}</td>
+                        <td className="px-6 py-3 text-sm text-gray-900">{m.grade ? `${m.grade}年` : '-'}</td>
+                        <td className="px-6 py-3 text-sm text-gray-900">{m.section}</td>
+                        <td className="px-6 py-3 text-sm">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            m.timeSlot === 'morning' ? 'bg-yellow-100 text-yellow-800' : 
+                            m.timeSlot === 'afternoon' ? 'bg-purple-100 text-purple-800' : 
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {m.timeSlot === 'morning' ? '午前' : m.timeSlot === 'afternoon' ? '午後' : 'PR配布'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

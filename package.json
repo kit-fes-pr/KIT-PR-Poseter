@@ -1,6 +1,6 @@
 {
-  "name": "latest",
-  "version": "0.1.0",
+  "name": "kit-poster-management-system",
+  "version": "1.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

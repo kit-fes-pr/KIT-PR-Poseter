@@ -1,24 +1,36 @@
 export interface DistributionEvent {
   eventId: string;
   eventName: string;
-  distributionDate: Date;
+  // 期間対応: 開始日・終了日（後方互換で distributionDate も保持）
+  distributionStartDate?: Date | string;
+  distributionEndDate?: Date | string;
+  distributionDate?: Date | string; // 後方互換
   year: number;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: "morning" | "afternoon";
+  timeSlot: "morning" | "afternoon" | "both" | "all" | "pr" | "other";
   assignedArea: string;
   adjacentAreas: string[];
   eventId: string;
+  year?: number; // 年度情報を追加
   isActive: boolean;
-  validDate: Date;
-  createdAt: Date;
+  // アクセス可能期間（範囲対応）
+  validStartDate?: Date | string | { _seconds: number; _nanoseconds?: number } | { toDate: () => Date } | null;
+  validEndDate?: Date | string | { _seconds: number; _nanoseconds?: number } | { toDate: () => Date } | null;
+  validDate?: Date | string | { _seconds: number; _nanoseconds?: number } | { toDate: () => Date } | null; // 後方互換
+  // メンバー関連
+  maxMembers?: number;
+  memberCount?: number;
+  // タイムスタンプ
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface Store {
@@ -54,12 +66,17 @@ export interface Area {
 export interface Member {
   memberId: string;
   name: string;
+  displayName?: string; // 表示名
+  studentId?: string; // 学籍番号
   section: string;
+  department?: string; // 学科
   grade: number;
-  availableTime: "morning" | "afternoon" | "both";
+  availableTime: "morning" | "afternoon" | "both" | "pr" | "other";
   teamId?: string;
+  year?: number; // 年度
   source: "csv" | "form";
-  createdAt: Date;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface Admin {

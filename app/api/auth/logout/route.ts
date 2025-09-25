@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
@@ -33,8 +31,6 @@ export async function POST(request: NextRequest) {
         console.error('Token verification failed:', error);
       }
     }
-
-    await signOut(auth);
 
     return NextResponse.json({ success: true });
 

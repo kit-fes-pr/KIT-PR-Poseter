@@ -29,13 +29,12 @@
 #### イベント管理
 - 年度別の配布イベント作成・管理
 - アクティブイベントの切り替え
-- 過去イベントのアーカイブ管理
+- 年度別データ管理と過去データ参照
 
-#### 履歴・統計機能
+#### 統計機能
 - 年度別配布実績の記録・参照
 - チームパフォーマンスの分析・比較
-- 年次トレンドグラフと統計レポート
-- 最高パフォーマンスチームの記録
+- 年次統計レポートと最高パフォーマンスチームの記録
 
 ### 1. 店舗情報管理
 #### 店舗登録方式
@@ -46,7 +45,7 @@
 - 配布状況（配布済み/配布不可/保留/要再訪問）
 - 配布枚数
 - 配布不可理由（不在/断られた/閉店/その他）
-- 住所（事前登録 or 手動入力）
+- 住所（手動入力）
 - 配布区域管理番号（ログイン認証から自動設定）
 - 備考（自由記述欄）
 
@@ -59,11 +58,20 @@
   - 参加時間帯（午前/午後）
 
 #### 参加者管理
-**CSVインポート機能**
-- 項目: 名前、所属セクション、参加可能時間帯、学年
-
 **アンケートフォーム**
 - 項目: 名前、学年、所属セクション、参加可能時間帯
+- フォーム作成・編集・削除機能
+- 回答データの管理・確認機能
+
+**CSVインポート機能**
+- 項目: 名前、所属セクション、参加可能時間帯、学年
+- バリデーション機能とエラー詳細表示
+- 一括インポート処理とリアルタイム結果表示
+
+**メンバー管理画面**
+- 参加者情報の一覧表示・検索・絞り込み
+- 登録方法（CSV/フォーム/手動）の表示
+- チーム割り当て状況の確認
 
 ### 3. 配布区域管理
 #### 区域設定
@@ -81,19 +89,35 @@
   - 配布区域（自動＋手動選択）
   - 配布状況（未配布/配布済み/配布不可/要再訪問）
   - 店名・住所検索（部分一致）
-- **配布状況表示**: リアルタイム色分け表示
-- **進捗確認**: 班別・全体の配布進捗・完了率
 
 ### 5. 管理者機能（Adminページ）
-- 年度別配布区域設定
-- 班の午前/午後スケジュール管理
-- ログインコード発行・管理
-- 参加者名簿管理
-- 配布状況統計・レポート
-- 周辺区域設定
-- **年度別イベント管理**: 年ごとのデータ管理とアーカイブ
-- **履歴管理**: 過去の配布実績と統計情報の参照
-- **年次レポート**: チームパフォーマンスやトレンド分析
+#### イベント管理
+- 年度別イベント作成・編集・削除
+- 配布日設定とアクティブイベント切り替え
+- 年度別データ管理と過去データ参照
+
+#### チーム管理
+- チーム作成・編集・削除（ログインコード発行）
+- 午前/午後/PR配布の時間帯管理
+- 担当区域・周辺区域設定
+- チーム別詳細情報と配布実績
+
+#### 参加者管理
+- CSVインポートによる一括登録
+- アンケートフォーム作成・管理
+- メンバー情報の一覧・検索・絞り込み
+- チーム割り当て状況の管理
+
+#### 統計・レポート機能
+- **リアルタイム統計**: 配布状況・完了率・進捗監視
+- **年次統計レポート**: チームパフォーマンス分析とランキング
+- **CSVエクスポート**: 統計データの出力
+- **トレンド分析**: 配布推移と累積データ
+
+#### PR配布専用管理
+- PR配布チームの割り当て管理
+- PR系参加者の自動・手動割り当て
+- PR配布実績の個別管理
 
 ---
 
@@ -142,17 +166,22 @@
 ### ページ構成・ルーティング
 | パス | 画面名 | 認証要件 |
 |-----|--------|---------|
-| `/admin/event` | イベント管理 | 管理者認証 |
+| `/admin/event` | イベント管理（年度一覧） | 管理者認証 |
 | `/admin/event/[year]` | 年度別イベント管理 | 管理者認証 |
-| `/admin/event/[year]/[teamId]` | チーム詳細管理 | 管理者認証 |
-| `/dashboard/all` | 全体ダッシュボード | 班認証 |
-| `/` | ログインコード入力 | なし |
-| `/form/{id}` | アンケート回答フォーム | なし |
+| `/admin/event/[year]/team` | チーム管理 | 管理者認証 |
+| `/admin/event/[year]/team/[teamId]` | チーム詳細管理 | 管理者認証 |
+| `/admin/event/[year]/team/pr` | PR配布割り当て管理 | 管理者認証 |
+| `/admin/event/[year]/form` | アンケートフォーム一覧 | 管理者認証 |
+| `/admin/event/[year]/form/new` | アンケートフォーム作成 | 管理者認証 |
+| `/admin/event/[year]/form/[formId]` | アンケートフォーム編集 | 管理者認証 |
+| `/admin/event/[year]/form/[formId]/responses` | アンケート回答一覧 | 管理者認証 |
+| `/admin/event/[year]/members` | メンバー管理・CSVインポート | 管理者認証 |
+| `/admin/event/[year]/stats` | 年次統計・レポート | 管理者認証 |
 | `/admin` | 管理者ログイン | なし |
-| `/dashboard` | 配布管理画面 | 班認証 |
-| `/admin/dashboard` | 管理者ダッシュボード | 管理者認証 |
-| `/admin/form`| アンケートフォーム一覧 | 管理者認証 |
-| `/admin/form/{id}` | アンケートフォーム作成 | 管理者認証 |
+| `/dashboard` | 配布管理画面（班認証） | 班認証 |
+| `/dashboard/all` | 全体ダッシュボード（班認証） | 班認証 |
+| `/form/[id]` | アンケート回答フォーム | なし |
+| `/` | ログインコード入力（最新年度へリダイレクト） | なし |
 
 ---
 
@@ -181,7 +210,7 @@ interface Team {
   teamId: string;           // "AM1-2025"
   teamCode: string;         // "AM1-2025"
   teamName: string;         // "午前1班"
-  timeSlot: "morning" | "afternoon";
+  timeSlot: "morning" | "afternoon" | "pr" | "both" | "other";
   assignedArea: string;     // "午前1"
   adjacentAreas: string[];  // ["午前2", "午後1"] 周辺区域
   eventId: string;          // "kohdai2025"
@@ -236,10 +265,23 @@ interface Member {
   name: string;
   section: string;          // 所属セクション
   grade: number;            // 学年
-  availableTime: "morning" | "afternoon" | "both";
+  availableTime: "morning" | "afternoon" | "both" | "pr" | "other";
+  year: number;             // 参加年度
   teamId?: string;          // 割り当て班ID
-  source: "csv" | "form";   // 登録元
+  source: "csv" | "form" | "manual";   // 登録元
   createdAt: Date;
+}
+```
+
+##### 6. PR配布割り当て (`/prAssignments/{assignmentId}`)
+```typescript
+interface PrAssignment {
+  assignmentId: string;
+  year: number;
+  responseId: string;       // フォーム回答ID
+  teamId: string;           // PR配布チームID
+  assignedAt: Date;
+  assignedBy: "manual" | "auto";
 }
 ```
 
@@ -315,7 +357,7 @@ API Routes:
 
 Pages/Components:
 - `app/admin/register/page.tsx` - 管理者登録フォーム
-- `app/admin/login/page.tsx` - ログインフォーム
+- `app/admin/page.tsx` - ログインフォーム
 - `app/admin/verify-email/page.tsx` - メール認証完了ページ
 
 ### セキュリティ仕様
@@ -327,7 +369,7 @@ Pages/Components:
 | エラー条件 | メッセージ |
 |-----------|-----------|
 | 無効なログインコード | "入力されたログインコードが見つかりません" |
-| 配布日以外のアクセス | "本日は配布日ではありません。配布日: {date}" |
+| 配布日以外のアクセス | "本日は配布日ではありません。イベント: {dateまたはrange}" |
 | 権限不足 | 自動的に適切な認証画面にリダイレクト |
 | セッション期限切れ | "セッションが期限切れです。再度ログインしてください" |
 
@@ -354,26 +396,8 @@ interface TempAccount {
 }
 ```
 
-##### 8. 配布履歴 (`/distributionHistory/{historyId}`)
-```typescript
-interface DistributionHistory {
-  historyId: string;
-  eventId: string;
-  year: number;
-  eventName: string;
-  distributionDate: Date;
-  totalStores: number;
-  completedStores: number;
-  failedStores: number;
-  completionRate: number;
-  teams: TeamHistory[];
-  areas: AreaHistory[];
-  createdAt: Date;
-  archivedAt: Date;
-}
-```
 
-##### 9. 年次統計 (`/yearlyStats/{year}`)
+##### 8. 年次統計 (`/yearlyStats/{year}`)
 ```typescript
 interface YearlyStats {
   year: number;
@@ -418,20 +442,40 @@ interface YearlyStats {
 | `PUT` | `/api/stores/{storeId}` | 店舗配布状況更新 |
 | `GET` | `/api/stores/search` | 高度検索（クエリパラメータ：q, area, status） |
 
-#### 区域・管理機能
+#### 管理機能
 | メソッド | エンドポイント | 説明 |
 |---------|---------------|------|
-| `GET` | `/api/areas` | 配布区域一覧 |
-| `POST` | `/api/areas` | 区域作成/更新 |
-| `GET` | `/api/admin/stats` | 配布統計データ |
-| `POST` | `/api/admin/teams` | チーム作成 |
-| `POST` | `/api/admin/members/import` | 参加者CSVインポート |
-| `GET` | `/api/admin/export` | データエクスポート |
-| `GET` | `/api/admin/history` | 配布履歴取得 |
-| `GET` | `/api/admin/yearly-stats` | 年次統計取得 |
-| `GET` | `/api/admin/current-year-total` | 当年度統計取得 |
+| `GET` | `/api/admin/stats` | 配布統計データ（年度指定可能） |
 | `GET` | `/api/admin/events` | イベント一覧取得 |
+| `POST` | `/api/admin/events` | イベント作成 |
+| `PATCH` | `/api/admin/events` | イベント更新 |
+| `DELETE` | `/api/admin/events` | イベント削除 |
+| `GET` | `/api/admin/teams` | チーム一覧取得（年度指定可能） |
+| `POST` | `/api/admin/teams` | チーム作成 |
+| `GET` | `/api/admin/teams/{teamId}` | チーム詳細取得 |
+| `PATCH` | `/api/admin/teams/{teamId}` | チーム更新 |
+| `DELETE` | `/api/admin/teams/{teamId}` | チーム削除 |
 | `GET` | `/api/admin/teams/{teamId}/stores` | チーム別店舗情報取得 |
+| `GET` | `/api/admin/assignments` | 通常割り当て一覧取得 |
+| `GET` | `/api/admin/pr-assignments` | PR配布割り当て一覧取得 |
+| `POST` | `/api/admin/pr-assignments` | PR配布割り当て作成 |
+| `DELETE` | `/api/admin/pr-assignments` | PR配布割り当て削除 |
+| `GET` | `/api/admin/members` | メンバー一覧取得（年度指定可能） |
+| `POST` | `/api/admin/members` | メンバー作成 |
+| `POST` | `/api/admin/members/import` | CSVインポート |
+| `GET` | `/api/admin/yearly-stats` | 年次統計取得 |
+| `GET` | `/api/admin/current-year-total` | 当年度店舗履歴取得 |
+
+#### アンケートフォーム関連
+| メソッド | エンドポイント | 説明 |
+|---------|---------------|------|
+| `GET` | `/api/forms` | フォーム一覧取得（管理者用） |
+| `POST` | `/api/forms` | フォーム作成 |
+| `GET` | `/api/forms/{formId}` | フォーム詳細取得 |
+| `PATCH` | `/api/forms/{formId}` | フォーム更新 |
+| `DELETE` | `/api/forms/{formId}` | フォーム削除 |
+| `GET` | `/api/forms/{formId}/responses` | 回答一覧取得（管理者用） |
+| `POST` | `/api/forms/{formId}/responses` | 回答送信 |
 
 ---
 
@@ -450,22 +494,31 @@ interface YearlyStats {
    - **手動店舗追加**: カナ自動生成機能付き
    - **リアルタイム進捗**: 完了率・残り件数表示
 
+3. **全体ダッシュボード** (`/dashboard/all`)
+   - **全区域表示**: すべての班の配布状況確認
+   - **他班配布状況**: 班を跨いだ配布状況の確認
+
 ### 管理者画面
 1. **管理者ログイン** (`/admin`)
-   - Google認証ボタン
+   - Firebase認証（st.kanazawa-it.ac.jpドメイン限定）
 
-2. **管理者ダッシュボード** (`/admin/dashboard`)
+2. **年度一覧** (`/admin/event`)
+   - 年度別イベント管理・作成・編集・削除
+   - 過去年度へのアクセス
+
+3. **年度別管理画面** (`/admin/event/[year]`)
    - 全体統計表示（班別進捗・完了率）
-   - チーム管理（ログインコード発行）
-   - 配布区域設定
-   - メンバー管理（CSV インポート）
-   - リアルタイム進捗監視（班別リスト表示）
+   - チーム管理（作成・ログインコード発行）
+   - リアルタイム進捗監視
 
-3. **イベント管理** (`/admin/event`)
-   - 年度別イベント管理
-   - 配布履歴の確認・アーカイブ
-   - 年次統計レポート
-   - チーム別詳細データ確認
+4. **専門管理画面**
+   - **チーム管理** (`/admin/event/[year]/team`) - チーム一覧・作成
+   - **チーム詳細** (`/admin/event/[year]/team/[teamId]`) - 個別チーム管理
+   - **PR配布管理** (`/admin/event/[year]/team/pr`) - PR配布専用割り当て
+   - **フォーム管理** (`/admin/event/[year]/form`) - アンケート作成・管理
+   - **メンバー管理** (`/admin/event/[year]/members`) - CSVインポート・参加者管理
+   - **統計レポート** (`/admin/event/[year]/stats`) - 年次統計・チーム分析
+   - **配布ダッシュボード** (`/admin/event/[year]/dashboard`) - 班認証での配布管理
 
 ---
 
@@ -497,9 +550,6 @@ interface YearlyStats {
    - GitHub連携設定
    - 環境変数設定
 
-4. **ドメイン（オプション）**
-   - 独自ドメイン取得・設定
-
 ### データプライバシー
 
 **収集データ**
@@ -516,7 +566,6 @@ interface YearlyStats {
 
 ## 文書情報
 
-**最終更新**: 2025年9月18日  
+**最終更新**: 2025年9月23日  
 **作成者**: 工大祭実行委員会 PR系 平田  
-**文書バージョン**: 1.1  
-**更新内容**: 年度管理機能・履歴管理機能・統計レポート機能の追加
+**文書バージョン**: 1.2  

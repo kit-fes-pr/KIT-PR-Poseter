@@ -1,14 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 
 export default function AdminLogin() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 認証状態を監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      setAuthLoading(false);
+      
+      // ログイン済みの場合は管理者権限をチェックしてからリダイレクト
+      if (user) {
+        try {
+          const idToken = await user.getIdToken();
+          const response = await fetch('/api/auth/verify', {
+            headers: { Authorization: `Bearer ${idToken}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.user?.isAdmin) {
+              // 管理者権限が確認できた場合のみリダイレクト
+              localStorage.setItem('authToken', idToken);
+              router.push('/admin/event');
+            } else {
+              // 管理者権限がない場合はログアウト
+              setError('管理者権限がありません');
+              setUser(null);
+            }
+          } else {
+            // 認証失敗の場合はログアウト
+            setError('認証に失敗しました');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('認証チェックエラー:', error);
+          setError('認証チェックに失敗しました');
+          setUser(null);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const {
     register,
@@ -58,12 +103,37 @@ export default function AdminLogin() {
       } else {
         setError(result.error || 'ログインに失敗しました');
       }
-    } catch {
+    } catch (error) {
+      console.error('エラー内容:', error);
       setError('ログインに失敗しました');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // 認証チェック中は loading を表示
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">認証状態を確認中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ログイン済みの場合は何も表示しない（リダイレクト処理中）
+  if (user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">リダイレクト中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

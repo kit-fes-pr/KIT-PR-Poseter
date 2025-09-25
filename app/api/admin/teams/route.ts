@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
       assignedArea,
       adjacentAreas,
       eventId,
-      validDate
+      validStartDate,
+      validEndDate
     } = await request.json();
 
     if (!teamCode || !teamName || !assignedArea || !eventId) {
@@ -58,12 +59,13 @@ export async function POST(request: NextRequest) {
     const teamData: Omit<Team, 'teamId'> = {
       teamCode,
       teamName,
-      timeSlot,
+      timeSlot: timeSlot || 'both', // フォームからの値を使用、未設定時は両方対応
       assignedArea,
       adjacentAreas: adjacentAreas || [],
       eventId,
       isActive: true,
-      validDate: new Date(validDate),
+      validStartDate: validStartDate ? new Date(validStartDate) : undefined,
+      validEndDate: validEndDate ? new Date(validEndDate) : undefined,
       createdAt: new Date()
     };
 
@@ -156,21 +158,41 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { teamId, validDate } = await request.json();
-    if (!teamId || !validDate) {
-      return NextResponse.json({ error: 'teamId と validDate は必須です' }, { status: 400 });
+    const { teamId, validDate, validStartDate, validEndDate } = await request.json();
+    if (!teamId) {
+      return NextResponse.json({ error: 'teamId は必須です' }, { status: 400 });
     }
 
     const ref = adminDb.collection('teams').doc(String(teamId));
     const doc = await ref.get();
     if (!doc.exists) return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
 
-    const dateObj = new Date(validDate);
-    if (isNaN(dateObj.getTime())) return NextResponse.json({ error: 'validDate の形式が不正です' }, { status: 400 });
+    const update: Record<string, unknown> = { updatedAt: new Date() };
+    // 後方互換: validDate が来たら単日として両端にセット
+    if (validDate) {
+      const d = new Date(validDate);
+      if (isNaN(d.getTime())) return NextResponse.json({ error: 'validDate の形式が不正です' }, { status: 400 });
+      update.validStartDate = d;
+      update.validEndDate = d;
+    }
+    if (validStartDate) {
+      const s = new Date(validStartDate);
+      if (isNaN(s.getTime())) return NextResponse.json({ error: 'validStartDate の形式が不正です' }, { status: 400 });
+      update.validStartDate = s;
+    }
+    if (validEndDate) {
+      const e = new Date(validEndDate);
+      if (isNaN(e.getTime())) return NextResponse.json({ error: 'validEndDate の形式が不正です' }, { status: 400 });
+      update.validEndDate = e;
+    }
 
-    await ref.update({ validDate: dateObj, updatedAt: new Date() });
+    if (!('validStartDate' in update) && !('validEndDate' in update)) {
+      return NextResponse.json({ error: '更新対象のフィールドがありません' }, { status: 400 });
+    }
+
+    await ref.update(update);
     const updated = await ref.get();
-    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as any) } });
+    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as Record<string, unknown>) } });
   } catch (error) {
     console.error('Update team error:', error);
     return NextResponse.json({ error: 'チームの更新に失敗しました' }, { status: 500 });
