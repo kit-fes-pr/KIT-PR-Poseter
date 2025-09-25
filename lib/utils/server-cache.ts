@@ -3,7 +3,7 @@
  */
 export class ServerCache {
   private static cache = new Map<string, {
-    data: any;
+    data: unknown;
     timestamp: number;
     ttl: number;
     accessCount: number;
@@ -46,7 +46,7 @@ export class ServerCache {
   /**
    * データをキャッシュに保存
    */
-  static set(key: string, data: any, ttl: number = this.DEFAULT_TTL): void {
+  static set(key: string, data: unknown, ttl: number = this.DEFAULT_TTL): void {
     // キャッシュサイズ制限
     if (this.cache.size >= this.MAX_CACHE_SIZE) {
       this.evictLRU();
@@ -191,7 +191,7 @@ export class ServerCache {
   /**
    * キャッシュウォームアップ（事前読み込み）
    */
-  static async warmup(tasks: Array<{ key: string; factory: () => Promise<any>; ttl?: number }>): Promise<void> {
+  static async warmup(tasks: Array<{ key: string; factory: () => Promise<unknown>; ttl?: number }>): Promise<void> {
     console.log(`🔥 キャッシュウォームアップ開始: ${tasks.length}件`);
     const startTime = Date.now();
 
@@ -242,8 +242,8 @@ export class FirestoreCache {
    */
   static async getCachedMinimalData(
     year: number,
-    queryFn: () => Promise<any>
-  ): Promise<any> {
+    queryFn: () => Promise<unknown>
+  ): Promise<unknown> {
     const key = this.getYearKey('dashboard', year, 'minimal');
     return ServerCache.getOrSet(key, queryFn, 30 * 1000); // 30秒キャッシュ
   }
@@ -253,8 +253,8 @@ export class FirestoreCache {
    */
   static async getCachedEvent(
     year: number,
-    queryFn: () => Promise<any>
-  ): Promise<any> {
+    queryFn: () => Promise<unknown>
+  ): Promise<unknown> {
     const key = this.getYearKey('events', year);
     return ServerCache.getOrSet(key, queryFn, 2 * 60 * 1000); // 2分キャッシュ
   }

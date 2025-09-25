@@ -4,13 +4,30 @@ import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 
 interface DashboardData {
-  event: any;
-  teams: any[];
+  event: {
+    id: string;
+    eventName: string;
+    year: number;
+    distributionStartDate?: string;
+    distributionEndDate?: string;
+  } | null;
+  teams: Array<{
+    teamId: string;
+    teamCode: string;
+    teamName: string;
+    assignedArea: string;
+    memberCount?: number;
+  }>;
   stats: {
     totalTeams: number;
     totalMembers: number;
-    byArea: Record<string, any>;
-    teamStats: any[];
+    byArea: Record<string, { teamCount: number; memberCount: number; teams?: string[] }>;
+    teamStats: Array<{
+      teamId: string;
+      teamCode: string;
+      memberCount: number;
+      assignedArea: string;
+    }>;
   };
   performance: {
     responseTime: number;
@@ -61,7 +78,7 @@ export function useFastDashboard(year: number | null, enabled = true) {
         console.warn('⚠️ データ取得が遅延しています...');
       },
       loadingTimeout: 3000, // 3秒でスロー判定
-      onSuccess: (data) => {
+      onSuccess: () => {
         const totalTime = Date.now() - loadStartRef.current;
         setLoadingStage('ready');
         console.log(`✅ ダッシュボード読み込み完了 (合計: ${totalTime}ms)`);
@@ -132,7 +149,7 @@ export function preloadDashboard(year: number) {
   // バックグラウンドでデータを取得してキャッシュ
   fetch(`/api/admin/dashboard/${year}`, {
     headers: { 'Authorization': `Bearer ${token}` }
-  }).then(res => res.json()).then(data => {
+  }).then(res => res.json()).then(() => {
     console.log(`📦 年度${year}のダッシュボードデータをプリロードしました`);
   }).catch(err => {
     console.warn('プリロード失敗:', err);

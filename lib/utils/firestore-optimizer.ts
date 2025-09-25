@@ -4,14 +4,14 @@ import { adminDb } from '@/lib/firebase-admin';
  * 最適化されたFirestoreクエリヘルパー
  */
 export class FirestoreOptimizer {
-  private static queryCache = new Map<string, { data: any; timestamp: number }>();
+  private static queryCache = new Map<string, { data: unknown; timestamp: number }>();
   private static CACHE_DURATION = 30 * 1000; // 30秒キャッシュ
 
   /**
    * 複数のクエリを並列実行し、結果をキャッシュ
    */
-  static async parallelQuery(queries: Array<{ key: string; query: () => Promise<any> }>): Promise<Record<string, any>> {
-    const results: Record<string, any> = {};
+  static async parallelQuery(queries: Array<{ key: string; query: () => Promise<unknown> }>): Promise<Record<string, unknown>> {
+    const results: Record<string, unknown> = {};
     const activeQueries: Promise<void>[] = [];
 
     for (const { key, query } of queries) {
@@ -50,7 +50,7 @@ export class FirestoreOptimizer {
   /**
    * Firestoreインデックス最適化のヒント
    */
-  static getIndexHints(collection: string, year: number) {
+  static getIndexHints(collection: string) {
     const hints = {
       teams: [
         'year ASC, updatedAt DESC',
@@ -73,11 +73,11 @@ export class FirestoreOptimizer {
   /**
    * バッチ処理でドキュメントを効率的に取得
    */
-  static async batchGet(refs: any[]): Promise<any[]> {
+  static async batchGet(refs: unknown[]): Promise<unknown[]> {
     if (refs.length === 0) return [];
     
     const batchSize = 10; // Firestoreのバッチサイズ制限
-    const batches: any[][] = [];
+    const batches: unknown[][] = [];
     
     for (let i = 0; i < refs.length; i += batchSize) {
       batches.push(refs.slice(i, i + batchSize));
@@ -85,7 +85,7 @@ export class FirestoreOptimizer {
     
     const results = await Promise.all(
       batches.map(batch => 
-        adminDb.getAll(...batch).then(docs => 
+        adminDb.getAll(...(batch as Parameters<typeof adminDb.getAll>)).then(docs => 
           docs.map(doc => ({ id: doc.id, ...doc.data() }))
         )
       )

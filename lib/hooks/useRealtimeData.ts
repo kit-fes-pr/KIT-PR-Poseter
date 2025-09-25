@@ -3,12 +3,12 @@
 import { useEffect, useRef } from 'react';
 import { useSWRConfig } from 'swr';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, WhereFilterOp } from 'firebase/firestore';
 
 interface RealtimeOptions {
   enabled?: boolean;
   collection: string;
-  filters?: Array<{ field: string; operator: any; value: any }>;
+  filters?: Array<{ field: string; operator: WhereFilterOp; value: unknown }>;
   swrKeys?: string[]; // 更新時に再検証するSWRキー
 }
 
@@ -77,7 +77,7 @@ export function useRealtimeUpdates({
         console.log(`リアルタイム更新停止: ${collectionName}`);
       }
     };
-  }, [enabled, collectionName, JSON.stringify(filters), JSON.stringify(swrKeys), mutate]);
+  }, [enabled, collectionName, filters, swrKeys, mutate]);
   
   return {
     isListening: !!unsubscribeRef.current
@@ -86,7 +86,7 @@ export function useRealtimeUpdates({
 
 // チーム専用のリアルタイムHook
 export function useTeamRealtimeUpdates(year?: number, enabled = true) {
-  const filters = year ? [{ field: 'year', operator: '==', value: year }] : [];
+  const filters = year ? [{ field: 'year', operator: '==' as WhereFilterOp, value: year }] : [];
   const swrKeys = year ? [
     `/api/admin/teams?year=${year}`,
     `/api/admin/teams/incremental?year=${year}`,

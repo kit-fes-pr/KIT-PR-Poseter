@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext } from 'react';
+import { useState, createContext, useContext } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFastDashboard } from './useFastDashboard';
 
 interface PageTransitionState {
   isTransitioning: boolean;
@@ -120,9 +119,11 @@ export function useFastPageTransition() {
       replace?: boolean;
       preloadDelay?: number;
       minLoadingTime?: number;
+      // Allow toggling data preloading from callers
+      preloadData?: boolean;
     } = {}
   ) => {
-    const { replace = false, preloadDelay = 0, minLoadingTime = 200 } = options;
+    const { replace = false, preloadDelay = 0, minLoadingTime = 200, preloadData = true } = options;
     
     if (isNavigating) {
       // 既に遷移中の場合はキューに追加
@@ -136,30 +137,32 @@ export function useFastPageTransition() {
     try {
       // 1. 即座にローディング表示
       
-      // 2. データプリロード（遅延付き）
-      setTimeout(async () => {
-        const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
-        if (yearMatch) {
-          const year = parseInt(yearMatch[1]);
-          const token = localStorage.getItem('authToken');
-          
-          if (token) {
-            try {
-              // バックグラウンドでダッシュボードデータを取得
-              fetch(`/api/admin/dashboard/${year}`, {
-                headers: { 
-                  'Authorization': `Bearer ${token}`,
-                  'Cache-Control': 'max-age=30'
-                }
-              }).catch(() => {
-                // エラーは無視（プリロード失敗時）
-              });
-            } catch (error) {
-              console.warn('プリロードエラー:', error);
+      // 2. データプリロード（遅延付き、オプションで無効化可能）
+      if (preloadData) {
+        setTimeout(async () => {
+          const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
+          if (yearMatch) {
+            const year = parseInt(yearMatch[1]);
+            const token = localStorage.getItem('authToken');
+            
+            if (token) {
+              try {
+                // バックグラウンドでダッシュボードデータを取得
+                fetch(`/api/admin/dashboard/${year}`, {
+                  headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Cache-Control': 'max-age=30'
+                  }
+                }).catch(() => {
+                  // エラーは無視（プリロード失敗時）
+                });
+              } catch (error) {
+                console.warn('プリロードエラー:', error);
+              }
             }
           }
-        }
-      }, preloadDelay);
+        }, preloadDelay);
+      }
 
       // 3. ナビゲーション実行
       if (replace) {

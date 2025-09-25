@@ -66,7 +66,7 @@ export class SmartPrefetcher {
     // チーム詳細ページからの予測
     const teamMatch = currentPath.match(/\/admin\/event\/(\d+)\/team\/(.+)$/);
     if (teamMatch) {
-      const [, year, teamId] = teamMatch;
+      const [, , teamId] = teamMatch;
       this.queuePrefetch(`/api/admin/teams/${teamId}`);
       this.queuePrefetch(`/api/admin/members?teamId=${teamId}`);
     }
@@ -122,14 +122,14 @@ export class SmartPrefetcher {
   /**
    * バックグラウンドでの低優先度取得
    */
-  private async backgroundFetch(url: string): Promise<any> {
+  private async backgroundFetch(url: string): Promise<unknown> {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('認証が必要');
     
     // Request Idle Callback があれば使用
     if ('requestIdleCallback' in window) {
       return new Promise((resolve, reject) => {
-        (window as any).requestIdleCallback(async () => {
+        (window as { requestIdleCallback: (callback: () => void) => void }).requestIdleCallback(async () => {
           try {
             const response = await fetch(url, {
               headers: { 

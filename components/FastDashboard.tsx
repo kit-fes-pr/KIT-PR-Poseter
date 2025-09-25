@@ -1,47 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { FastNavButton } from '@/lib/hooks/useFastNavigation';
 import { DashboardSkeleton, InlineLoader } from '@/components/ui/SkeletonLoader';
 
-interface HyperFastDashboardProps {
+interface FastDashboardProps {
   year: number;
   isAdmin: boolean;
 }
 
-export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboardProps) {
+export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
   const [showDetailedView, setShowDetailedView] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-  
+
   const { navigateWithPreload } = useFastPageTransition();
-  
+
   // 段階的データ読み込み（超高速版）
-  const { 
-    data, 
-    error, 
-    isInitialLoading, 
+  const {
+    data,
+    error,
+    isInitialLoading,
     isLoadingMore,
     loadingProgress,
     hasMore,
-    loadMore,
-    debug
+    loadMore
   } = useProgressiveData(year, isAdmin);
 
-  // パフォーマンス統計の更新
-  useEffect(() => {
-    if (data?.performance?.dataFreshnessTime) {
-      setLastUpdateTime(new Date(data.performance.dataFreshnessTime).toLocaleTimeString('ja-JP'));
-    }
-  }, [data?.performance?.dataFreshnessTime]);
 
   // 初期読み込み中のスケルトン表示
   if (isInitialLoading || (!data && !error)) {
     return (
       <div className="relative">
         <DashboardSkeleton />
-        
+
         {/* 読み込み進捗オーバーレイ */}
         <div className="fixed top-4 right-4 z-50">
           <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded-lg shadow-lg">
@@ -49,13 +41,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               <span className="text-sm font-medium">初期データ読み込み中...</span>
             </div>
-            
-            {/* デバッグ情報（開発環境のみ） */}
-            {process.env.NODE_ENV === 'development' && debug && (
-              <div className="mt-1 text-xs text-blue-600">
-                Stage: {debug.stage}
-              </div>
-            )}
+
           </div>
         </div>
       </div>
@@ -75,7 +61,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
             サーバーの応答が遅延しています
           </p>
           <div className="flex space-x-3 justify-center">
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
             >
@@ -97,14 +83,14 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
               <h1 className="text-xl font-semibold text-gray-900">
                 {year} 年度管理
               </h1>
-              
+
               {/* パフォーマンス指標 */}
-              {data?.performance && (
+              {Boolean((data as Record<string, unknown> | undefined)?.performance && typeof (data as Record<string, unknown>)?.performance === 'object' && (data as Record<string, unknown>)?.performance !== null) && (
                 <div className="hidden md:flex items-center space-x-2 text-xs">
                   <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">
-                    ⚡ {data.performance.responseTime}ms
+                    ⚡ {String(((data as Record<string, unknown>)?.performance as Record<string, unknown>)?.responseTime) || '0'}ms
                   </span>
-                  {data.progressive?.isLoading && (
+                  {Boolean((data as Record<string, unknown> | undefined)?.progressive && typeof (data as Record<string, unknown>)?.progressive === 'object' && ((data as Record<string, unknown>)?.progressive as Record<string, unknown>)?.isLoading) && (
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
                       📊 {Math.round(loadingProgress)}%
                     </span>
@@ -112,7 +98,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <FastNavButton
                 href="/admin/event"
@@ -120,14 +106,14 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
               >
                 年度一覧
               </FastNavButton>
-              
+
               <FastNavButton
                 href={`/admin/event/${year}/team`}
                 className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
               >
                 チーム管理
               </FastNavButton>
-              
+
               <FastNavButton
                 href={`/admin/event/${year}/form`}
                 className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
@@ -142,39 +128,24 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
       {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
-          {/* 超高速読み込み統計（開発環境のみ） */}
-          {process.env.NODE_ENV === 'development' && debug && (
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-4">
-                  <span className="font-semibold text-green-800">🚀 ハイパー高速化統計</span>
-                  <span className="text-green-700">段階: {debug.stage}</span>
-                  <span className="text-blue-700">読み込み: {debug.progressiveTeamsCount}/{debug.totalExpected}</span>
-                  <span className="text-purple-700">キャッシュ: {debug.minimalDataSize}B</span>
-                </div>
-                <div className="text-xs text-gray-600">
-                  更新: {lastUpdateTime}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* イベント情報カード */}
-          {data?.event && (
+          {Boolean((data as Record<string, unknown> | undefined)?.event) && (
             <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">
-                    {data.event.eventName || `${year}年度イベント`}
+                    {String(((data as Record<string, unknown>)?.event as Record<string, unknown>)?.eventName) || `${year}年度イベント`}
                   </h2>
                   <p className="text-sm text-gray-600 mt-2">
                     配布期間: {(() => {
                       try {
-                        const start = data.event.distributionStartDate ? 
-                          new Date(data.event.distributionStartDate).toLocaleDateString('ja-JP') : '';
-                        const end = data.event.distributionEndDate ? 
-                          new Date(data.event.distributionEndDate).toLocaleDateString('ja-JP') : '';
-                        
+                        const eventData = (data as Record<string, unknown>)?.event as Record<string, unknown>;
+                        const start = eventData?.distributionStartDate ?
+                          new Date(String(eventData.distributionStartDate)).toLocaleDateString('ja-JP') : '';
+                        const end = eventData?.distributionEndDate ?
+                          new Date(String(eventData.distributionEndDate)).toLocaleDateString('ja-JP') : '';
+
                         if (start && end && start !== end) return `${start} 〜 ${end}`;
                         return start || '未設定';
                       } catch {
@@ -183,7 +154,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                     })()}
                   </p>
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   {isLoadingMore && (
                     <InlineLoader size="sm" message="追加読み込み中" />
@@ -202,30 +173,30 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
           {/* リアルタイム統計カード */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { 
-                label: '総チーム数', 
-                value: data?.stats?.totalTeams || 0, 
+              {
+                label: '総チーム数',
+                value: data?.stats?.totalTeams || 0,
                 loaded: data?.stats?.loadedTeams || 0,
-                icon: '👥', 
-                color: 'blue' 
+                icon: '👥',
+                color: 'blue'
               },
-              { 
-                label: '総メンバー数', 
-                value: data?.stats?.totalMembers || 0, 
-                icon: '🎓', 
-                color: 'green' 
+              {
+                label: '総メンバー数',
+                value: data?.stats?.totalMembers || 0,
+                icon: '🎓',
+                color: 'green'
               },
-              { 
-                label: 'エリア数', 
-                value: Object.keys(data?.stats?.byArea || {}).length, 
-                icon: '📍', 
-                color: 'purple' 
+              {
+                label: 'エリア数',
+                value: data?.stats?.totalAreas || 0,
+                icon: '📍',
+                color: 'purple'
               }
             ].map((stat, index) => (
-              <div 
-                key={stat.label} 
+              <div
+                key={stat.label}
                 className="bg-white overflow-hidden shadow-lg rounded-xl transform transition-all hover:scale-105 border border-gray-100"
-                style={{ 
+                style={{
                   animationDelay: `${index * 100}ms`,
                   animation: 'fadeInUp 0.6s ease-out forwards'
                 }}
@@ -242,7 +213,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                         </dt>
                         <dd className={`text-2xl font-bold text-${stat.color}-600 flex items-center`}>
                           <span>{stat.value}</span>
-                          {'loaded' in stat && stat.loaded < stat.value && (
+                          {'loaded' in stat && stat.loaded !== undefined && stat.loaded < stat.value && (
                             <span className="ml-2 text-sm text-gray-400">
                               ({stat.loaded}件表示中)
                             </span>
@@ -274,7 +245,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                 </span>
               </div>
             </div>
-            
+
             {(data?.teams || []).length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-4xl mb-2">📋</div>
@@ -294,11 +265,11 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {(data?.teams || []).slice(0, showDetailedView ? undefined : 15).map((team, index) => (
-                      <tr 
-                        key={team.teamId} 
+                      <tr
+                        key={team.teamId}
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
                         onClick={() => navigateWithPreload(`/admin/event/${year}/team/${team.teamId}`)}
-                        style={{ 
+                        style={{
                           animationDelay: `${index * 30}ms`,
                           animation: 'slideInFromLeft 0.4s ease-out forwards'
                         }}
@@ -324,10 +295,10 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {(() => {
                             try {
-                              const parseDate = (dateStr: string | undefined) => 
+                              const parseDate = (dateStr: string | undefined) =>
                                 dateStr ? new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '';
-                              const start = parseDate(team.validStartDate || team.validDate);
-                              const end = parseDate(team.validEndDate || team.validDate);
+                              const start = parseDate(team.validStartDate || (team as Record<string, unknown>).validDate as string);
+                              const end = parseDate(team.validEndDate || (team as Record<string, unknown>).validDate as string);
                               if (start && end && start !== end) return `${start}〜${end}`;
                               return start || '-';
                             } catch {
@@ -339,7 +310,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                     ))}
                   </tbody>
                 </table>
-                
+
                 {/* 追加読み込みボタン */}
                 {!showDetailedView && (data?.teams || []).length > 15 && (
                   <div className="bg-gray-50 px-6 py-4 text-center">
@@ -351,7 +322,7 @@ export default function HyperFastDashboard({ year, isAdmin }: HyperFastDashboard
                     </button>
                   </div>
                 )}
-                
+
                 {hasMore && (
                   <div className="bg-gray-50 px-6 py-4 text-center">
                     <button

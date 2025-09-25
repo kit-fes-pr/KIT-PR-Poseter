@@ -12,7 +12,7 @@ const incrementalFetcher = createIncrementalFetcher(cacheManager);
 interface OptimizedTeamManagerProps {
   year: number;
   isAdmin: boolean;
-  onTeamUpdate?: (teams: any[]) => void;
+  onTeamUpdate?: (teams: Array<{ teamId: string; teamCode: string; teamName: string; assignedArea: string }>) => void;
 }
 
 export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: OptimizedTeamManagerProps) {
@@ -33,8 +33,9 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
     {
       ...optimizedSWRConfig,
       onSuccess: (data) => {
-        console.log(`チームデータ取得成功 (${data?.length || 0}件)`);
-        onTeamUpdate?.(data || []);
+        const teams = Array.isArray(data) ? data : [];
+        console.log(`チームデータ取得成功 (${teams.length}件)`);
+        onTeamUpdate?.(teams);
       },
       onError: (error) => {
         console.error('チームデータ取得エラー:', error);
@@ -46,7 +47,7 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
   
   // ソートされたチーム一覧
   const sortedTeams = useMemo(() => {
-    if (!teams) return [];
+    if (!teams || !Array.isArray(teams)) return [];
     
     return [...teams].sort((a, b) => {
       const codeA = String(a.teamCode || '').toLowerCase();
@@ -78,16 +79,17 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
     
     return {
       hasCached: !!cached,
-      cachedCount: cached?.data?.length || 0,
+      cachedCount: Array.isArray(cached?.data) ? cached.data.length : 0,
       isRealtimeActive: isListening
     };
-  }, [year, isListening, teams]);
+  }, [year, isListening]);
   
   // 手動更新機能
   const forceRefresh = async () => {
     const cacheKey = `admin_teams_incremental_year_${year}`;
     cacheManager.removeCache(cacheKey);
     await mutateTeams();
+    mutate(cacheKey); // SWR cache invalidation
   };
   
   // 定期的なキャッシュクリーンアップ
@@ -135,7 +137,7 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
             <span>
               キャッシュ: {cacheStats.hasCached ? `${cacheStats.cachedCount}件` : 'なし'} | 
               リアルタイム: {cacheStats.isRealtimeActive ? '有効' : '無効'} |
-              データ: {teams?.length || 0}件
+              データ: {Array.isArray(teams) ? teams.length : 0}件
             </span>
             <button
               onClick={forceRefresh}

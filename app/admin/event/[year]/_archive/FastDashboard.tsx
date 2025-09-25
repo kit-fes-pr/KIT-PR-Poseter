@@ -133,11 +133,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                       new Date(data.event.distributionStartDate).toLocaleDateString('ja-JP') : '';
                     const end = data.event.distributionEndDate ? 
                       new Date(data.event.distributionEndDate).toLocaleDateString('ja-JP') : '';
-                    const single = data.event.distributionDate ? 
-                      new Date(data.event.distributionDate).toLocaleDateString('ja-JP') : '';
-                    
                     if (start && end && start !== end) return `${start} 〜 ${end}`;
-                    return start || single || '未設定';
+                    return start || end || '未設定';
                   } catch {
                     return '未設定';
                   }
@@ -259,8 +256,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                       try {
                         const parseDate = (dateStr: string | undefined) => 
                           dateStr ? new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '';
-                        const start = parseDate(team.validStartDate || team.validDate);
-                        const end = parseDate(team.validEndDate || team.validDate);
+                        const start = parseDate((team as Record<string, unknown>).validStartDate as string || (team as Record<string, unknown>).validDate as string);
+                        const end = parseDate((team as Record<string, unknown>).validEndDate as string || (team as Record<string, unknown>).validDate as string);
                         if (start && end && start !== end) return `${start}〜${end}`;
                         return start || '-';
                       } catch {

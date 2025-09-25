@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // 削除されたドキュメントの取得（別途削除ログがある場合）
-    let deletedTeams: any[] = [];
+    let deletedTeams: Array<{ teamId: string; deletedAt: Date }> = [];
     if (includeDeleted && lastUpdated) {
       const deletedQuery = adminDb.collection('deletedTeams')
         .where('year', '==', parseInt(year))

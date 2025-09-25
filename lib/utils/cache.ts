@@ -1,11 +1,10 @@
-import { useSWRConfig } from 'swr';
 
 // ローカルストレージベースのキャッシュマネージャー
 export class LocalCacheManager {
   private prefix = 'kitpr_cache_';
   
   // キャッシュデータの保存
-  setCache(key: string, data: any, timestamp?: string): void {
+  setCache(key: string, data: unknown, timestamp?: string): void {
     try {
       const cacheData = {
         data,
@@ -19,7 +18,7 @@ export class LocalCacheManager {
   }
   
   // キャッシュデータの取得
-  getCache(key: string): { data: any; timestamp: string } | null {
+  getCache(key: string): { data: unknown; timestamp: string } | null {
     try {
       const cached = localStorage.getItem(this.prefix + key);
       if (!cached) return null;
@@ -48,14 +47,14 @@ export class LocalCacheManager {
   }
   
   // 差分データをマージ
-  mergeIncrementalData(existing: any[], incremental: any[], keyField = 'teamId'): any[] {
+  mergeIncrementalData(existing: unknown[], incremental: unknown[], keyField = 'teamId'): unknown[] {
     const result = [...existing];
     
     incremental.forEach(newItem => {
-      const index = result.findIndex(item => item[keyField] === newItem[keyField]);
+      const index = result.findIndex(item => (item as Record<string, unknown>)[keyField] === (newItem as Record<string, unknown>)[keyField]);
       if (index >= 0) {
         // 既存データを更新
-        result[index] = { ...result[index], ...newItem };
+        result[index] = { ...(result[index] as Record<string, unknown>), ...(newItem as Record<string, unknown>) };
       } else {
         // 新しいデータを追加
         result.push(newItem);
@@ -66,15 +65,15 @@ export class LocalCacheManager {
   }
   
   // 削除されたアイテムを除去
-  removeDeletedItems(existing: any[], deleted: any[], keyField = 'teamId'): any[] {
-    const deletedIds = new Set(deleted.map(item => item[keyField]));
-    return existing.filter(item => !deletedIds.has(item[keyField]));
+  removeDeletedItems(existing: unknown[], deleted: unknown[], keyField = 'teamId'): unknown[] {
+    const deletedIds = new Set(deleted.map(item => (item as Record<string, unknown>)[keyField]));
+    return existing.filter(item => !deletedIds.has((item as Record<string, unknown>)[keyField]));
   }
 }
 
 // SWR用の差分取得fetcher
 export const createIncrementalFetcher = (cacheManager: LocalCacheManager) => {
-  return async (url: string): Promise<any> => {
+  return async (url: string): Promise<unknown> => {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('認証が必要です');
     
@@ -103,11 +102,11 @@ export const createIncrementalFetcher = (cacheManager: LocalCacheManager) => {
     
     if (result.isIncremental && cached) {
       // 差分データをマージ
-      let mergedData = cacheManager.mergeIncrementalData(cached.data, result.teams);
+      let mergedData = cacheManager.mergeIncrementalData(cached.data as unknown[], result.teams as unknown[]);
       
       // 削除されたアイテムを除去
       if (result.deletedTeams?.length > 0) {
-        mergedData = cacheManager.removeDeletedItems(mergedData, result.deletedTeams);
+        mergedData = cacheManager.removeDeletedItems(mergedData, result.deletedTeams as unknown[]);
       }
       
       // 新しいキャッシュを保存
@@ -130,8 +129,8 @@ export const optimizedSWRConfig = {
   dedupingInterval: 10000, // 10秒間は重複リクエストを防ぐ
   errorRetryInterval: 5000,
   errorRetryCount: 3,
-  shouldRetryOnError: (error: any) => {
+  shouldRetryOnError: (error: { status?: number }) => {
     // 認証エラーの場合はリトライしない
-    return ![401, 403].includes(error?.status);
+    return error?.status ? ![401, 403].includes(error.status) : true;
   }
 };

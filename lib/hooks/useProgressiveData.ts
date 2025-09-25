@@ -5,13 +5,40 @@ import useSWR from 'swr';
 import { useErrorRecovery } from '@/lib/utils/error-recovery';
 
 interface ProgressiveDataState {
-  minimalData: any;
-  progressiveTeams: any[];
+  minimalData: {
+    event: {
+      id: string;
+      eventName: string;
+      year: number;
+      distributionStartDate?: string;
+      distributionEndDate?: string;
+    } | null;
+    stats?: {
+      totalTeams: number;
+      totalMembers: number;
+      totalAreas?: number;
+      isMinimal?: boolean;
+    };
+    performance: {
+      responseTime: number;
+      dataFreshnessTime: string;
+      isMinimalResponse?: boolean;
+    };
+  } | null;
+  progressiveTeams: Array<{
+    teamId: string;
+    teamCode: string;
+    teamName: string;
+    assignedArea: string;
+    memberCount?: number;
+    validStartDate?: string;
+    validEndDate?: string;
+  }>;
   isLoadingMinimal: boolean;
   isLoadingProgressive: boolean;
   loadingProgress: number;
   totalExpected: number;
-  error: any;
+  error: Error | null;
   hasMore: boolean;
 }
 
@@ -65,10 +92,10 @@ export function useProgressiveData(year: number | null, enabled = true) {
       onSuccess: (data) => {
         setState(prev => ({
           ...prev,
-          minimalData: data,
+          minimalData: data as ProgressiveDataState['minimalData'],
           isLoadingMinimal: false,
-          totalExpected: data.stats?.totalTeams || 0,
-          hasMore: (data.stats?.totalTeams || 0) > 0
+          totalExpected: (data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0,
+          hasMore: ((data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0) > 0
         }));
       },
       onError: (error) => {
@@ -124,15 +151,18 @@ export function useProgressiveData(year: number | null, enabled = true) {
       console.error('段階的データエラー:', error);
       setState(prev => ({
         ...prev,
-        error,
+        error: error instanceof Error ? error : new Error(String(error)),
         isLoadingProgressive: false
       }));
     }
   }, [year, state.hasMore]);
 
+  // Type the minimal data
+  const typedMinimalData = minimalData as ProgressiveDataState['minimalData'];
+
   // 3. 最小限データ取得後に段階的読み込み開始
   useEffect(() => {
-    if (minimalData && state.hasMore && state.progressiveTeams.length === 0) {
+    if (typedMinimalData && state.hasMore && state.progressiveTeams.length === 0) {
       // 500ms後に段階的読み込み開始（初期表示を優先）
       const timer = setTimeout(() => {
         loadProgressiveData(0, 10);
@@ -140,7 +170,7 @@ export function useProgressiveData(year: number | null, enabled = true) {
       
       return () => clearTimeout(timer);
     }
-  }, [minimalData, loadProgressiveData, state.hasMore, state.progressiveTeams.length]);
+  }, [typedMinimalData, loadProgressiveData, state.hasMore, state.progressiveTeams.length]);
 
   // 4. 手動での追加読み込み
   const loadMore = useCallback(() => {
@@ -150,13 +180,15 @@ export function useProgressiveData(year: number | null, enabled = true) {
   }, [loadProgressiveData, state.isLoadingProgressive, state.hasMore, state.progressiveTeams.length]);
 
   // 5. データマージ
-  const combinedData = minimalData ? {
-    ...minimalData,
+  const combinedData = typedMinimalData ? {
+    ...typedMinimalData,
     teams: state.progressiveTeams,
     stats: {
-      ...minimalData.stats,
-      loadedTeams: state.progressiveTeams.length,
-      totalTeams: state.totalExpected
+      totalTeams: state.totalExpected,
+      totalMembers: typedMinimalData.stats?.totalMembers || 0,
+      totalAreas: typedMinimalData.stats?.totalAreas,
+      isMinimal: typedMinimalData.stats?.isMinimal,
+      loadedTeams: state.progressiveTeams.length
     },
     progressive: {
       progress: state.loadingProgress,
@@ -189,9 +221,9 @@ export function useProgressiveData(year: number | null, enabled = true) {
  * ストリーミングデータHook（WebStreamを活用）
  */
 export function useStreamingData(year: number | null, enabled = true) {
-  const [chunks, setChunks] = useState<any[]>([]);
+  const [chunks, setChunks] = useState<unknown[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState<any>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!enabled || !year) return;
@@ -242,7 +274,7 @@ export function useStreamingData(year: number | null, enabled = true) {
       } catch (streamError) {
         console.error('ストリーミングエラー:', streamError);
         if (mounted) {
-          setError(streamError);
+          setError(streamError as Error);
         }
       } finally {
         if (mounted) {
@@ -259,22 +291,23 @@ export function useStreamingData(year: number | null, enabled = true) {
   }, [year, enabled]);
 
   // チャンクデータを統合
-  const combinedData = chunks.reduce((acc, chunk) => {
-    switch (chunk.type) {
+  const combinedData = chunks.reduce((acc: Record<string, unknown>, chunk) => {
+    const typedChunk = chunk as { type: string; data: Record<string, unknown> };
+    switch (typedChunk.type) {
       case 'event':
-        return { ...acc, event: chunk.data.event };
+        return { ...acc, event: typedChunk.data.event };
       case 'quick-stats':
-        return { ...acc, stats: { ...acc.stats, ...chunk.data.quickStats } };
+        return { ...acc, stats: { ...(acc.stats || {}), ...(typedChunk.data.quickStats || {}) } };
       case 'teams-partial':
       case 'teams-remaining':
-        const existingTeams = acc.teams || [];
-        return { ...acc, teams: [...existingTeams, ...chunk.data.teams] };
+        const existingTeams = (acc.teams as unknown[]) || [];
+        return { ...acc, teams: [...existingTeams, ...(typedChunk.data.teams as unknown[] || [])] };
       case 'final':
-        return { ...acc, ...chunk.data };
+        return { ...acc, ...typedChunk.data };
       default:
         return acc;
     }
-  }, {} as any);
+  }, {});
 
   return {
     data: combinedData,

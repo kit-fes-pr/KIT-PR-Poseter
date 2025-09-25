@@ -1,6 +1,6 @@
 'use client';
 
-import { mutate } from 'swr';
+// import { mutate } from 'swr'; // Currently unused
 
 /**
  * エラー回復システム
@@ -27,7 +27,7 @@ export class ErrorRecoverySystem {
     options: {
       maxRetries?: number;
       baseDelay?: number;
-      onRetry?: (attempt: number, error: any) => void;
+      onRetry?: (attempt: number, error: unknown) => void;
     } = {}
   ): Promise<T> {
     const { 
@@ -68,7 +68,7 @@ export class ErrorRecoverySystem {
   /**
    * ネットワークエラーの詳細診断
    */
-  diagnoseNetworkError(error: any): {
+  diagnoseNetworkError(error: unknown): {
     type: 'network' | 'server' | 'auth' | 'timeout' | 'unknown';
     message: string;
     suggestion: string;
@@ -83,7 +83,8 @@ export class ErrorRecoverySystem {
       };
     }
 
-    if (error?.status === 401 || error?.status === 403) {
+    const httpError = error as { status?: number };
+    if (httpError?.status === 401 || httpError?.status === 403) {
       return {
         type: 'auth',
         message: '認証エラーが発生しました',
@@ -92,7 +93,7 @@ export class ErrorRecoverySystem {
       };
     }
 
-    if (error?.status >= 500) {
+    if (httpError?.status && httpError.status >= 500) {
       return {
         type: 'server',
         message: 'サーバーエラーが発生しました',
@@ -101,7 +102,7 @@ export class ErrorRecoverySystem {
       };
     }
 
-    if (error?.name === 'TimeoutError' || error?.code === 'TIMEOUT') {
+    if ((error as { name?: string })?.name === 'TimeoutError' || (error as { code?: string })?.code === 'TIMEOUT') {
       return {
         type: 'timeout',
         message: '通信がタイムアウトしました',
@@ -121,7 +122,7 @@ export class ErrorRecoverySystem {
   /**
    * SWR用のエラー回復フック
    */
-  createRecoveryFetcher(originalFetcher: (url: string) => Promise<any>) {
+  createRecoveryFetcher(originalFetcher: (url: string) => Promise<unknown>) {
     return async (url: string) => {
       return this.retryWithBackoff(
         () => originalFetcher(url),
@@ -170,7 +171,7 @@ export class ErrorRecoverySystem {
 export function useErrorRecovery() {
   const recovery = ErrorRecoverySystem.getInstance();
 
-  const handleError = (error: any, context?: string) => {
+  const handleError = (error: unknown, context?: string) => {
     const diagnosis = recovery.diagnoseNetworkError(error);
     
     console.error(`エラー発生 [${context || 'unknown'}]:`, {
@@ -186,13 +187,13 @@ export function useErrorRecovery() {
     key: string,
     options?: {
       maxRetries?: number;
-      onRetry?: (attempt: number, error: any) => void;
+      onRetry?: (attempt: number, error: unknown) => void;
     }
   ) => {
     return recovery.retryWithBackoff(operation, key, options);
   };
 
-  const createRobustFetcher = (baseFetcher: (url: string) => Promise<any>) => {
+  const createRobustFetcher = (baseFetcher: (url: string) => Promise<unknown>) => {
     return recovery.createRecoveryFetcher(baseFetcher);
   };
 

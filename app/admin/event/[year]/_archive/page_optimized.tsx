@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { useErrorRecovery } from '@/lib/utils/error-recovery';
-import SuperFastDashboard from './components/SuperFastDashboard';
+import SuperFastDashboard from './SuperFastDashboard';
 import { FastLoadingIndicator } from '@/components/ui/SkeletonLoader';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -43,20 +43,24 @@ export default function OptimizedAdminEventYear() {
         const token = localStorage.getItem('authToken');
         if (!token) {
           if (mounted) {
-            navigateWithPreload('/admin', { replace: true, preloadData: false });
+            navigateWithPreload('/admin', { replace: true,  });
           }
           return;
         }
 
         // 認証確認を並列で実行
-        const [authResponse, firebaseAuth] = await Promise.allSettled([
+        const [authResponse] = await Promise.allSettled([
           // API認証確認
-          fetch('/api/auth/verify', { 
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 5000 // 5秒タイムアウト
-          } as RequestInit),
+          retryOperation(
+            () => fetch('/api/auth/verify', {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 5000
+            } as RequestInit),
+            'fast-auth',
+            { maxRetries: 2 }
+          ),
           // Firebase認証確認
-          new Promise<any>((resolve) => {
+          new Promise<unknown>((resolve) => {
             const unsubscribe = onAuthStateChanged(auth, (user) => {
               unsubscribe();
               resolve(user);
@@ -71,12 +75,12 @@ export default function OptimizedAdminEventYear() {
           if (data?.user?.isAdmin && mounted) {
             setIsAdmin(true);
           } else if (mounted) {
-            navigateWithPreload('/admin', { replace: true, preloadData: false });
+            navigateWithPreload('/admin', { replace: true,  });
           }
         } else if (mounted) {
           // 認証失敗
           localStorage.removeItem('authToken');
-          navigateWithPreload('/admin', { replace: true, preloadData: false });
+          navigateWithPreload('/admin', { replace: true,  });
         }
 
       } catch (error) {
@@ -85,7 +89,7 @@ export default function OptimizedAdminEventYear() {
         if (mounted) {
           if (diagnosis.type === 'auth') {
             localStorage.removeItem('authToken');
-            navigateWithPreload('/admin', { replace: true, preloadData: false });
+            navigateWithPreload('/admin', { replace: true,  });
           } else if (diagnosis.recoverable) {
             setAuthError('認証の確認中にエラーが発生しました');
           } else {
@@ -104,7 +108,7 @@ export default function OptimizedAdminEventYear() {
     return () => {
       mounted = false;
     };
-  }, [navigateWithPreload, handleError]);
+  }, [navigateWithPreload, handleError, retryOperation]);
 
   // 年度の妥当性チェック
   useEffect(() => {

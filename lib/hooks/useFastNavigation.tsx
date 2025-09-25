@@ -18,7 +18,7 @@ export function useFastNavigation() {
     targetPath: null,
     startTime: 0
   });
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prefetcher = SmartPrefetcher.getInstance();
 
   /**
@@ -47,7 +47,11 @@ export function useFastNavigation() {
       const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
       if (yearMatch) {
         const year = parseInt(yearMatch[1]);
-        preloadDashboard(year).catch(console.warn);
+        try {
+          preloadDashboard(year);
+        } catch (error) {
+          console.warn('Preload error:', error);
+        }
       }
       
       // スマートプリフェッチでパターン学習

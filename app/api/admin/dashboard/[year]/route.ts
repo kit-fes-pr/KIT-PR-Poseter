@@ -71,53 +71,53 @@ export async function GET(
 
     // イベントデータの処理
     let event = null;
-    if (!eventDoc.empty) {
-      const doc = eventDoc.docs[0];
+    if (!(eventDoc as { empty: boolean; docs: unknown[] }).empty) {
+      const doc = (eventDoc as { empty: boolean; docs: unknown[] }).docs[0] as { id: string; data: () => unknown };
       event = {
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as Record<string, unknown>),
         // Timestamp を ISO string に変換
-        createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || doc.data().createdAt,
-        distributionStartDate: doc.data().distributionStartDate?.toDate?.()?.toISOString() || doc.data().distributionStartDate,
-        distributionEndDate: doc.data().distributionEndDate?.toDate?.()?.toISOString() || doc.data().distributionEndDate,
-        distributionDate: doc.data().distributionDate?.toDate?.()?.toISOString() || doc.data().distributionDate
+        createdAt: (doc.data() as Record<string, { toDate?: () => Date }>).createdAt?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).createdAt,
+        distributionStartDate: (doc.data() as Record<string, { toDate?: () => Date }>).distributionStartDate?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).distributionStartDate,
+        distributionEndDate: (doc.data() as Record<string, { toDate?: () => Date }>).distributionEndDate?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).distributionEndDate,
+        distributionDate: (doc.data() as Record<string, { toDate?: () => Date }>).distributionDate?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).distributionDate
       };
     }
 
     // チームデータの処理
-    const teams = teamsSnapshot.docs.map(doc => ({
+    const teams = (teamsSnapshot as { docs: { id: string; data: () => Record<string, unknown> }[] }).docs.map(doc => ({
       teamId: doc.id,
       ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || doc.data().createdAt,
-      updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString() || doc.data().updatedAt,
-      validStartDate: doc.data().validStartDate?.toDate?.()?.toISOString() || doc.data().validStartDate,
-      validEndDate: doc.data().validEndDate?.toDate?.()?.toISOString() || doc.data().validEndDate,
-      validDate: doc.data().validDate?.toDate?.()?.toISOString() || doc.data().validDate
+      createdAt: (doc.data() as Record<string, { toDate?: () => Date }>).createdAt?.toDate?.()?.toISOString() || doc.data().createdAt,
+      updatedAt: (doc.data() as Record<string, { toDate?: () => Date }>).updatedAt?.toDate?.()?.toISOString() || doc.data().updatedAt,
+      validStartDate: (doc.data() as Record<string, { toDate?: () => Date }>).validStartDate?.toDate?.()?.toISOString() || doc.data().validStartDate,
+      validEndDate: (doc.data() as Record<string, { toDate?: () => Date }>).validEndDate?.toDate?.()?.toISOString() || doc.data().validEndDate,
+      validDate: (doc.data() as Record<string, { toDate?: () => Date }>).validDate?.toDate?.()?.toISOString() || doc.data().validDate
     }));
 
     // メンバー統計の計算
-    const members = membersSnapshot.docs.map(doc => doc.data());
+    const members = (membersSnapshot as { docs: { data: () => Record<string, unknown> }[] }).docs.map(doc => doc.data());
     const memberStats = {
       totalMembers: members.length,
       byTeam: members.reduce((acc, member) => {
-        const teamId = member.teamId;
+        const teamId = String((member as Record<string, unknown>).teamId);
         if (!acc[teamId]) {
           acc[teamId] = { count: 0, members: [] };
         }
-        acc[teamId].count++;
-        acc[teamId].members.push({
-          name: member.name || member.displayName,
-          studentId: member.studentId,
-          grade: member.grade,
-          department: member.department
+        (acc[teamId] as { count: number; members: Array<{ name: string; studentId: string; grade: string; department: string }> }).count++;
+        (acc[teamId] as { count: number; members: Array<{ name: string; studentId: string; grade: string; department: string }> }).members.push({
+          name: String((member as Record<string, unknown>).name || (member as Record<string, unknown>).displayName),
+          studentId: String((member as Record<string, unknown>).studentId),
+          grade: String((member as Record<string, unknown>).grade),
+          department: String((member as Record<string, unknown>).department)
         });
         return acc;
-      }, {} as Record<string, any>)
+      }, {} as Record<string, { count: number; members: Array<{ name: string; studentId: string; grade: string; department: string }> }>)
     };
 
     // チーム統計の計算
     const teamStats = teams.map(team => {
-      const teamMembers = memberStats.byTeam[team.teamId] || { count: 0, members: [] };
+      const teamMembers = memberStats.byTeam[team.teamId] as { count: number; members: Array<{ name: string; studentId: string; grade: string; department: string }> } | undefined || { count: 0, members: [] };
       return {
         ...team,
         memberCount: teamMembers.count,
@@ -127,16 +127,16 @@ export async function GET(
 
     // エリア別統計
     const areaStats = teams.reduce((acc, team) => {
-      const area = team.assignedArea || '未設定';
+      const area = String((team as Record<string, unknown>).assignedArea || '未設定');
       if (!acc[area]) {
         acc[area] = { teamCount: 0, memberCount: 0, teams: [] };
       }
-      const teamMembers = memberStats.byTeam[team.teamId] || { count: 0 };
+      const teamMembers = (memberStats.byTeam[team.teamId] as { count: number } | undefined) || { count: 0 };
       acc[area].teamCount++;
       acc[area].memberCount += teamMembers.count;
-      acc[area].teams.push(team.teamCode);
+      acc[area].teams.push(String((team as Record<string, unknown>).teamCode));
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, { teamCount: number; memberCount: number; teams: string[] }>);
 
     const responseTime = Date.now() - startTime;
     console.log(`ダッシュボードデータ取得完了: ${responseTime}ms`);

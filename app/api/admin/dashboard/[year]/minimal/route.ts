@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { ServerCache, FirestoreCache } from '@/lib/utils/server-cache';
+import { FirestoreCache } from '@/lib/utils/server-cache';
+import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
 
 /**
  * 超軽量ダッシュボードAPI - 最小限データで超高速初期表示
@@ -11,6 +12,7 @@ export async function GET(
   context: { params: Promise<{ year: string }> }
 ) {
   const startTime = Date.now();
+  let yearNum: number = 0;
   
   try {
     const { year } = await context.params;
@@ -27,12 +29,16 @@ export async function GET(
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const yearNum = parseInt(year);
+    yearNum = parseInt(year);
     if (isNaN(yearNum)) {
       return NextResponse.json({ error: '不正な年度です' }, { status: 400 });
     }
 
-    console.log(`⚡ 最小限データ取得開始: ${year}年度`);
+    logInfo('最小限データ取得開始', { 
+      component: 'minimal-dashboard-api',
+      year: yearNum,
+      operation: 'data_fetch_start' 
+    });
 
     // キャッシュされた最小限データを取得
     const minimalData = await FirestoreCache.getCachedMinimalData(yearNum, async () => {
@@ -83,7 +89,7 @@ export async function GET(
       };
     });
 
-    const { event, totalTeams, totalMembers } = minimalData;
+    const { event, totalTeams, totalMembers } = minimalData as { event: unknown; totalTeams: number; totalMembers: number };
 
     // 最小限の統計
     const minimalStats = {
@@ -94,7 +100,11 @@ export async function GET(
     };
 
     const responseTime = Date.now() - startTime;
-    console.log(`⚡ 最小限データ完了: ${responseTime}ms`);
+    logPerformance('minimal-dashboard-complete', responseTime, {
+      component: 'minimal-dashboard-api',
+      year: yearNum,
+      operation: 'complete'
+    });
 
     return NextResponse.json({
       event,
@@ -119,7 +129,13 @@ export async function GET(
 
   } catch (error) {
     const responseTime = Date.now() - startTime;
-    console.error('最小限データエラー:', error);
+    logError('最小限データ取得エラー', {
+      component: 'minimal-dashboard-api',
+      year: yearNum,
+      duration: responseTime,
+      operation: 'error'
+    }, error);
+    
     return NextResponse.json(
       { 
         error: 'データ取得に失敗しました',

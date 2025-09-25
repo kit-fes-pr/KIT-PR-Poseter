@@ -35,7 +35,7 @@ export async function GET(
     console.log(`📦 段階的データ取得: offset=${offset}, limit=${limit}`);
 
     // チームデータをチャンク単位で取得
-    let teamsQuery = adminDb.collection('teams')
+    const teamsQuery = adminDb.collection('teams')
       .where('year', '==', yearNum)
       .orderBy('updatedAt', 'desc')
       .offset(offset)
@@ -75,14 +75,14 @@ export async function GET(
 
     // エリア統計の更新
     const areaStats = teams.reduce((acc, team) => {
-      const area = team.assignedArea || '未設定';
+      const area = String((team as Record<string, unknown>).assignedArea || '未設定');
       if (!acc[area]) {
         acc[area] = { teamCount: 0, memberCount: 0 };
       }
       acc[area].teamCount++;
       acc[area].memberCount += team.memberCount || 0;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, { teamCount: number; memberCount: number }>);
 
     // 次のチャンクがあるかチェック
     const hasMore = teams.length === limit;

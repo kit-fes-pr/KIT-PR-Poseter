@@ -38,7 +38,7 @@ export async function GET(
         const encoder = new TextEncoder();
         
         // ヘルパー関数：データをストリームに送信
-        const sendChunk = (data: any, chunkType: string) => {
+        const sendChunk = (data: unknown, chunkType: string) => {
           const chunk = {
             type: chunkType,
             data,
@@ -134,13 +134,13 @@ export async function GET(
 
           // 8. 最終統計
           const areaStats = teams.reduce((acc, team) => {
-            const area = team.assignedArea || '未設定';
+            const area = String((team as Record<string, unknown>).assignedArea || '未設定');
             if (!acc[area]) {
               acc[area] = { teamCount: 0 };
             }
             acc[area].teamCount++;
             return acc;
-          }, {} as Record<string, any>);
+          }, {} as Record<string, { teamCount: number }>);
 
           const finalStats = {
             totalTeams,

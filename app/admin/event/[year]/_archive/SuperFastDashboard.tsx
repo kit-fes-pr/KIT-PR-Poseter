@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useFastDashboard } from '@/lib/hooks/useFastDashboard';
-import { useFastPageTransition, useLinkPreloader } from '@/lib/hooks/usePageTransition';
+import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { DashboardSkeleton, FastLoadingIndicator, InlineLoader } from '@/components/ui/SkeletonLoader';
 import { FastNavButton } from '@/lib/hooks/useFastNavigation';
 
@@ -16,7 +16,6 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
   const [optimisticUpdate, setOptimisticUpdate] = useState(false);
   
   const { navigateWithPreload, isNavigating } = useFastPageTransition();
-  const { preloadOnHover } = useLinkPreloader();
   
   // 高速ダッシュボードデータ取得
   const { 
@@ -130,7 +129,6 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
               <FastNavButton
                 href="/admin/event"
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
-                preloadData={false}
               >
                 年度一覧
               </FastNavButton>
@@ -138,7 +136,6 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
               <FastNavButton
                 href={`/admin/event/${year}/team`}
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
-                onMouseEnter={() => preloadOnHover(`/admin/event/${year}/team`)}
               >
                 チーム管理
               </FastNavButton>
@@ -199,11 +196,8 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
                           new Date(data.event.distributionStartDate).toLocaleDateString('ja-JP') : '';
                         const end = data.event.distributionEndDate ? 
                           new Date(data.event.distributionEndDate).toLocaleDateString('ja-JP') : '';
-                        const single = data.event.distributionDate ? 
-                          new Date(data.event.distributionDate).toLocaleDateString('ja-JP') : '';
-                        
                         if (start && end && start !== end) return `${start} 〜 ${end}`;
-                        return start || single || '未設定';
+                        return start || end || '未設定';
                       } catch {
                         return '未設定';
                       }
@@ -308,8 +302,8 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
                             try {
                               const parseDate = (dateStr: string | undefined) => 
                                 dateStr ? new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '';
-                              const start = parseDate(team.validStartDate || team.validDate);
-                              const end = parseDate(team.validEndDate || team.validDate);
+                              const start = parseDate((team as Record<string, unknown>).validStartDate as string || (team as Record<string, unknown>).validDate as string);
+                              const end = parseDate((team as Record<string, unknown>).validEndDate as string || (team as Record<string, unknown>).validDate as string);
                               if (start && end && start !== end) return `${start}〜${end}`;
                               return start || '-';
                             } catch {
