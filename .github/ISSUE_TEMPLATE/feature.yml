@@ -1,0 +1,27 @@
+name: 機能追加テンプレート
+description: 新たな機能の追加はこちらから
+labels: ["feature"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: やるべきこと
+      placeholder: 追加したい機能の内容を説明してください
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      placeholder: この機能が完了したと判断できる条件
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 参考資料
+      placeholder: 関連するリンク
+    validations:
+      required: false
