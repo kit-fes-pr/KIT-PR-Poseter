@@ -60,6 +60,7 @@ export function LoadingScreen({
     <div
       role="status"
       aria-live="polite"
+      aria-busy="true"
       className={`fixed inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm ${className}`}
     >
       <div className="text-center space-y-4">
