@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { FormCreateData } from '@/types/forms';
+import { LoadingInline } from '@/components/ui/Loading';
 
 export default function FormCreatePage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
@@ -121,7 +122,7 @@ export default function FormCreatePage({ params }: { params: Promise<{ year: str
   if (authLoading || !resolvedParams) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+        <LoadingInline size="lg" />
       </div>
     );
   }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
+import { LoadingInline } from '@/components/ui/Loading';
 
 interface Team {
   teamId: string;
@@ -217,8 +218,7 @@ export default function PRTeamAssignmentPage({ params }: { params: Promise<{ yea
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
+          <LoadingInline size="lg" />
         </div>
       </div>
     );
@@ -566,7 +566,7 @@ export default function PRTeamAssignmentPage({ params }: { params: Promise<{ yea
           </div>
         )}
 
-        {/* 非PR参加者（アコーディオンで隠す） */}
+        {/* 非PR参加者 */}
         <div className="bg-white shadow rounded-lg mt-4">
           <button
             className="w-full px-4 py-3 text-left border-b border-gray-200 flex items-center justify-between"

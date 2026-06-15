@@ -9,16 +9,6 @@ import { FastLoadingIndicator } from '@/components/ui/SkeletonLoader';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-/**
- * 超高速化されたメインダッシュボードページ
- * 
- * 改善点:
- * - 即座のUIフィードバック
- * - プリロード機能
- * - スケルトンUI
- * - エラー自動回復
- * - パフォーマンス監視
- */
 export default function OptimizedAdminEventYear() {
   const params = useParams<{ year: string }>();
   const yearParam = params?.year;
@@ -122,8 +112,7 @@ export default function OptimizedAdminEventYear() {
   if (authLoading || isNavigating) {
     return (
       <FastLoadingIndicator 
-        message={authLoading ? '認証を確認中...' : 'ページを準備中...'} 
-        isSlowLoading={authLoading && Date.now() > 3000}
+        message="読み込み中..." 
       />
     );
   }

@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { LocalCacheManager, createIncrementalFetcher, optimizedSWRConfig } from '@/lib/utils/cache';
 import { useTeamRealtimeUpdates } from '@/lib/hooks/useRealtimeData';
+import { LoadingInline } from '@/components/ui/Loading';
 
 // シングルトンインスタンス
 const cacheManager = new LocalCacheManager();
@@ -72,18 +73,6 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
     });
   }, [teams]);
   
-  // キャッシュ統計情報
-  const cacheStats = useMemo(() => {
-    const cacheKey = `admin_teams_incremental_year_${year}`;
-    const cached = cacheManager.getCache(cacheKey);
-    
-    return {
-      hasCached: !!cached,
-      cachedCount: Array.isArray(cached?.data) ? cached.data.length : 0,
-      isRealtimeActive: isListening
-    };
-  }, [year, isListening]);
-  
   // 手動更新機能
   const forceRefresh = async () => {
     const cacheKey = `admin_teams_incremental_year_${year}`;
@@ -120,35 +109,13 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
   if (isLoading && !teams) {
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-        <div className="flex items-center">
-          <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-2"></div>
-          <span className="text-blue-800">データを読み込み中...</span>
-        </div>
+        <LoadingInline className="text-blue-800" />
       </div>
     );
   }
   
   return (
     <div className="space-y-4">
-      {/* キャッシュ状態表示（開発時のみ） */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-gray-100 rounded-md p-3 text-xs text-gray-600">
-          <div className="flex justify-between items-center">
-            <span>
-              キャッシュ: {cacheStats.hasCached ? `${cacheStats.cachedCount}件` : 'なし'} | 
-              リアルタイム: {cacheStats.isRealtimeActive ? '有効' : '無効'} |
-              データ: {Array.isArray(teams) ? teams.length : 0}件
-            </span>
-            <button
-              onClick={forceRefresh}
-              className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs"
-            >
-              強制更新
-            </button>
-          </div>
-        </div>
-      )}
-      
       {/* チーム一覧 */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-4 py-5 border-b border-gray-200">

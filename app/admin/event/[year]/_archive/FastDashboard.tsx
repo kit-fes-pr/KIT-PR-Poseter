@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useFastDashboard, preloadDashboard } from '@/lib/hooks/useFastDashboard';
 import { useTeamRealtimeUpdates } from '@/lib/hooks/useRealtimeData';
+import { LoadingInline } from '@/components/ui/Loading';
 
 interface FastDashboardProps {
   year: number;
@@ -17,7 +18,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
     data, 
     error, 
     loadingStage, 
-    isSlowLoading,
     mutate 
   } = useFastDashboard(year, isAdmin);
   
@@ -65,10 +65,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full mr-3"></div>
-              <span className="text-gray-700">
-                {isSlowLoading ? 'データが大きいため時間がかかっています...' : 'データを読み込み中...'}
-              </span>
+              <LoadingInline />
             </div>
             {process.env.NODE_ENV === 'development' && (
               <div className="text-xs text-gray-500">
