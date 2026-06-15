@@ -53,6 +53,8 @@ export function LoadingScreen({
 }) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={`fixed inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm ${className}`}
     >
       <div className="text-center space-y-4">
