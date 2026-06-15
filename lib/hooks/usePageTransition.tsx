@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, createContext, useContext } from 'react';
+import { useCallback, useContext, useRef, useState, createContext } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface PageTransitionState {
@@ -68,7 +68,6 @@ export function PageTransitionProvider({ children }: { children: React.ReactNode
 
     clearInterval(progressTimer);
     
-    // 最低500msの遷移時間を保証（UX向上）
     setTimeout(() => {
       setState(prev => ({ ...prev, progress: 100 }));
     }, 500);
@@ -109,12 +108,24 @@ export function useFastPageTransition() {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationQueue, setNavigationQueue] = useState<string[]>([]);
+  const isNavigatingRef = useRef(false);
+  const navigationQueueRef = useRef<string[]>([]);
+
+  const updateNavigating = useCallback((next: boolean) => {
+    isNavigatingRef.current = next;
+    setIsNavigating(next);
+  }, []);
+
+  const updateQueue = useCallback((updater: (current: string[]) => string[]) => {
+    navigationQueueRef.current = updater(navigationQueueRef.current);
+    setNavigationQueue(navigationQueueRef.current);
+  }, []);
 
   /**
    * 瞬時UIフィードバック付きナビゲーション
    */
-  const navigateWithPreload = async (
-    path: string, 
+  const navigateWithPreload = useCallback(async (
+    path: string,
     options: {
       replace?: boolean;
       preloadDelay?: number;
@@ -125,13 +136,13 @@ export function useFastPageTransition() {
   ) => {
     const { replace = false, preloadDelay = 0, minLoadingTime = 200, preloadData = true } = options;
     
-    if (isNavigating) {
+    if (isNavigatingRef.current) {
       // 既に遷移中の場合はキューに追加
-      setNavigationQueue(prev => [...prev, path]);
+      updateQueue(prev => [...prev, path]);
       return;
     }
 
-    setIsNavigating(true);
+    updateNavigating(true);
     const startTime = Date.now();
 
     try {
@@ -180,33 +191,33 @@ export function useFastPageTransition() {
     } catch (error) {
       console.error('ナビゲーションエラー:', error);
     } finally {
-      setIsNavigating(false);
+      updateNavigating(false);
       
       // キューに次の遷移があれば実行
-      if (navigationQueue.length > 0) {
-        const nextPath = navigationQueue[0];
-        setNavigationQueue(prev => prev.slice(1));
+      if (navigationQueueRef.current.length > 0) {
+        const nextPath = navigationQueueRef.current[0];
+        updateQueue(prev => prev.slice(1));
         setTimeout(() => navigateWithPreload(nextPath), 100);
       }
     }
-  };
+  }, [router, updateNavigating, updateQueue]);
 
   /**
    * 戻るボタン用の高速ナビゲーション
    */
-  const goBackFast = () => {
-    setIsNavigating(true);
+  const goBackFast = useCallback(() => {
+    updateNavigating(true);
     router.back();
-    setTimeout(() => setIsNavigating(false), 300);
-  };
+    setTimeout(() => updateNavigating(false), 300);
+  }, [router, updateNavigating]);
 
   /**
    * 緊急停止
    */
-  const cancelNavigation = () => {
-    setIsNavigating(false);
-    setNavigationQueue([]);
-  };
+  const cancelNavigation = useCallback(() => {
+    updateNavigating(false);
+    updateQueue(() => []);
+  }, [updateNavigating, updateQueue]);
 
   return {
     navigateWithPreload,

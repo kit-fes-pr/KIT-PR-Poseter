@@ -1,0 +1,27 @@
+name: リファクタリングテンプレート
+description: コードのリファクタリングはこちらから
+labels: ["refactor"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: やるべきこと
+      placeholder: リファクタリングしたい内容を説明してください
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      placeholder: このリファクタリングが完了したと判断できる条件
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 参考資料
+      placeholder: 関連するリンク
+    validations:
+      required: false

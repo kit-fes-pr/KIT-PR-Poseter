@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { LoadingInline, LoadingScreen, LoadingSpinner } from './Loading';
 
 /**
  * 基本スケルトンUI
@@ -155,7 +156,7 @@ export const TeamDetailSkeleton: React.FC = () => (
 );
 
 /**
- * 高速ローディングインジケーター（アニメーション強化）
+ * 高速ローディングインジケーター
  */
 export const FastLoadingIndicator: React.FC<{
   message?: string;
@@ -166,40 +167,11 @@ export const FastLoadingIndicator: React.FC<{
   progress,
   isSlowLoading = false 
 }) => (
-  <div className={`fixed inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm
-    ${isSlowLoading ? 'bg-yellow-50/90' : ''}`}>
-    <div className="text-center space-y-4">
-      {/* スピナー */}
-      <div className="relative">
-        <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
-        {isSlowLoading && (
-          <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-r-orange-400 rounded-full animate-spin animation-delay-150"></div>
-        )}
-      </div>
-      
-      {/* メッセージ */}
-      <p className={`text-sm font-medium ${isSlowLoading ? 'text-orange-700' : 'text-gray-700'}`}>
-        {isSlowLoading ? '大量データを処理中...' : message}
-      </p>
-      
-      {/* プログレスバー */}
-      {typeof progress === 'number' && (
-        <div className="w-64 bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
-          ></div>
-        </div>
-      )}
-      
-      {/* ヒント（遅い場合） */}
-      {isSlowLoading && (
-        <p className="text-xs text-orange-600">
-          初回読み込みのため時間がかかっています
-        </p>
-      )}
-    </div>
-  </div>
+  <LoadingScreen
+    message={message}
+    progress={progress}
+    className={isSlowLoading ? 'bg-yellow-50/90' : ''}
+  />
 );
 
 /**
@@ -209,16 +181,9 @@ export const InlineLoader: React.FC<{
   size?: 'sm' | 'md' | 'lg';
   message?: string;
 }> = ({ size = 'md', message }) => {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-6 h-6', 
-    lg: 'w-8 h-8'
-  };
+  if (!message) {
+    return <LoadingSpinner size={size} />;
+  }
 
-  return (
-    <div className="flex items-center space-x-2 text-gray-600">
-      <div className={`border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin ${sizeClasses[size]}`}></div>
-      {message && <span className="text-sm">{message}</span>}
-    </div>
-  );
+  return <LoadingInline message={message} size={size} />;
 };

@@ -1,6 +1,5 @@
 'use client';
-
-// import { mutate } from 'swr'; // Currently unused
+import { useCallback } from 'react';
 
 /**
  * エラー回復システム
@@ -171,7 +170,7 @@ export class ErrorRecoverySystem {
 export function useErrorRecovery() {
   const recovery = ErrorRecoverySystem.getInstance();
 
-  const handleError = (error: unknown, context?: string) => {
+  const handleError = useCallback((error: unknown, context?: string) => {
     const diagnosis = recovery.diagnoseNetworkError(error);
     
     console.error(`エラー発生 [${context || 'unknown'}]:`, {
@@ -180,9 +179,9 @@ export function useErrorRecovery() {
     });
 
     return diagnosis;
-  };
+  }, [recovery]);
 
-  const retryOperation = async <T>(
+  const retryOperation = useCallback(async <T,>(
     operation: () => Promise<T>,
     key: string,
     options?: {
@@ -191,11 +190,11 @@ export function useErrorRecovery() {
     }
   ) => {
     return recovery.retryWithBackoff(operation, key, options);
-  };
+  }, [recovery]);
 
-  const createRobustFetcher = (baseFetcher: (url: string) => Promise<unknown>) => {
+  const createRobustFetcher = useCallback((baseFetcher: (url: string) => Promise<unknown>) => {
     return recovery.createRecoveryFetcher(baseFetcher);
-  };
+  }, [recovery]);
 
   return {
     handleError,

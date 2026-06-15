@@ -111,8 +111,7 @@ export default function AdminEventYear() {
   if (authLoading || isNavigating) {
     return (
       <FastLoadingIndicator
-        message={authLoading ? '認証を確認中...' : 'ページを準備中...'}
-        isSlowLoading={authLoading && Date.now() > 3000}
+        message="読み込み中..."
       />
     );
   }

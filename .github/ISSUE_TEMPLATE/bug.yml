@@ -1,0 +1,38 @@
+name: バグ報告テンプレート
+description: バグ報告はこちらから
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: バグの概要
+      placeholder: バグの内容を簡潔に説明してください
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: バグの再現手順と発生環境
+      placeholder: |
+        1. 
+
+        環境: 
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      placeholder: このバグが修正されると判断する条件
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 参考資料
+      placeholder: 関連するリンク
+    validations:
+      required: false

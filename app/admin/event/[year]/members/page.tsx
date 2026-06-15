@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { LoadingInline } from '@/components/ui/Loading';
 
 interface Member {
   memberId: string;
@@ -197,8 +198,7 @@ export default function MembersPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
+          <LoadingInline size="lg" />
         </div>
       </div>
     );

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { FastNavButton } from '@/lib/hooks/useFastNavigation';
-import { DashboardSkeleton, InlineLoader } from '@/components/ui/SkeletonLoader';
+import { LoadingScreen, LoadingInline, LoadingButtonLabel } from '@/components/ui/Loading';
 
 interface FastDashboardProps {
   year: number;
@@ -16,7 +16,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
 
   const { navigateWithPreload } = useFastPageTransition();
 
-  // 段階的データ読み込み（超高速版）
+  // 段階的データ読み込み
   const {
     data,
     error,
@@ -30,22 +30,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
 
   // 初期読み込み中のスケルトン表示
   if (isInitialLoading || (!data && !error)) {
-    return (
-      <div className="relative">
-        <DashboardSkeleton />
-
-        {/* 読み込み進捗オーバーレイ */}
-        <div className="fixed top-4 right-4 z-50">
-          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded-lg shadow-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm font-medium">初期データ読み込み中...</span>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // エラー状態
@@ -100,11 +85,11 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
             </div>
 
             <div className="flex items-center space-x-2">
-              <FastNavButton
-                href="/admin/event"
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
-              >
-                年度一覧
+                <FastNavButton
+                  href="/admin/event"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
+                >
+                  年度一覧
               </FastNavButton>
 
               <FastNavButton
@@ -156,8 +141,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  {isLoadingMore && (
-                    <InlineLoader size="sm" message="追加読み込み中" />
+                {isLoadingMore && (
+                    <LoadingInline size="sm" />
                   )}
                   <button
                     onClick={() => setShowDetailedView(!showDetailedView)}
@@ -235,10 +220,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
               </h3>
               <div className="flex items-center space-x-3">
                 {data?.progressive?.isLoading && (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm text-gray-600">追加読み込み中...</span>
-                  </div>
+                  <LoadingInline size="sm" />
                 )}
                 <span className="text-sm text-gray-500">
                   {(data?.teams || []).length} / {data?.stats?.totalTeams || 0} 件
@@ -325,13 +307,13 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
 
                 {hasMore && (
                   <div className="bg-gray-50 px-6 py-4 text-center">
-                    <button
-                      onClick={loadMore}
-                      disabled={isLoadingMore}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                    >
-                      {isLoadingMore ? '読み込み中...' : 'さらに読み込む'}
-                    </button>
+                  <button
+                    onClick={loadMore}
+                    disabled={isLoadingMore}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                      {isLoadingMore ? <LoadingButtonLabel /> : 'さらに読み込む'}
+                  </button>
                   </div>
                 )}
               </div>

@@ -1,0 +1,27 @@
+name: その他テンプレート
+description: その他のタスク（ビルド・設定変更など）はこちらから
+labels: ["other"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: やるべきこと
+      placeholder: 改善したいパフォーマンスの内容を説明してください
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      placeholder: このパフォーマンス改善が完了したと判断できる条件
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 参考資料
+      placeholder: 関連するリンク
+    validations:
+      required: false

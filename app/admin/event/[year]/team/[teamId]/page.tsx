@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { LoadingInline } from '@/components/ui/Loading';
 import { Team, Store } from '@/types';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -111,7 +112,7 @@ export default function TeamDetailPage() {
     if (teamId) init();
   }, [router, teamId]);
 
-  // 割り当てメンバー取得（サーバー側で効率化されたAPIを利用）
+  // 割り当てメンバー取得
   useEffect(() => {
     const loadMembers = async () => {
       if (!teamId || !y) return;
@@ -331,7 +332,7 @@ export default function TeamDetailPage() {
         </div>
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-3">
           <h2 className="text-lg font-medium mb-4">基本情報</h2>
-          {loading ? <p className="text-sm text-gray-500">読み込み中...</p> : (
+          {loading ? <LoadingInline /> : (
             <div className="space-y-3 text-sm">
               <p><span className="text-gray-600">チーム名:</span> <span className="ml-2 font-medium">{team?.teamName || '-'}</span></p>
               <p><span className="text-gray-600">コード:</span> <span className="ml-2">{team?.teamCode || '-'}</span></p>
@@ -376,7 +377,7 @@ export default function TeamDetailPage() {
             <span className="text-sm text-gray-500">{assignedMembers.length} 名</span>
           </div>
           {memberLoading ? (
-            <p className="text-sm text-gray-500">読み込み中...</p>
+            <LoadingInline />
           ) : assignedMembers.length === 0 ? (
             <p className="text-sm text-gray-500">現在このチームに割り当てられたメンバーはありません</p>
           ) : (

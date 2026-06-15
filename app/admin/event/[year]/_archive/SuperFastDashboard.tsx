@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useFastDashboard } from '@/lib/hooks/useFastDashboard';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
-import { DashboardSkeleton, FastLoadingIndicator, InlineLoader } from '@/components/ui/SkeletonLoader';
+import { LoadingInline, LoadingScreen } from '@/components/ui/Loading';
 import { FastNavButton } from '@/lib/hooks/useFastNavigation';
 
 interface SuperFastDashboardProps {
@@ -22,7 +22,6 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
     data, 
     error, 
     loadingStage, 
-    isSlowLoading,
     mutate 
   } = useFastDashboard(year, isAdmin);
 
@@ -37,10 +36,10 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
 
   // 全画面遷移ローダー
   if (isNavigating) {
-    return <FastLoadingIndicator message="ページを準備中..." />;
+    return <LoadingScreen />;
   }
 
-  // エラー状態（改善されたエラーUI）
+  // エラー状態
   if (error && !data) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -71,22 +70,10 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
     );
   }
 
-  // ローディング状態（スケルトンUI）
+  // ローディング状態
   if ((loadingStage === 'loading' && !data) || optimisticUpdate) {
     return (
-      <div className="relative">
-        <DashboardSkeleton />
-        {isSlowLoading && (
-          <div className="fixed top-4 right-4 z-50">
-            <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-2 rounded-md shadow-lg">
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm">大量データを処理中...</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      <LoadingScreen />
     );
   }
 
@@ -216,7 +203,7 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
             </div>
           )}
 
-          {/* 統計サマリー（アニメーション付き） */}
+          {/* 統計サマリー*/}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { label: '総チーム数', value: data.stats?.totalTeams || 0, icon: '👥', color: 'blue' },
@@ -245,14 +232,14 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
             ))}
           </div>
 
-          {/* チーム一覧（最適化版） */}
+          {/* チーム一覧*/}
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-4 py-5 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 チーム一覧 ({data.sortedTeams?.length || 0}件)
               </h3>
               {loadingStage === 'loading' && (
-                <InlineLoader size="sm" message="更新中" />
+                <LoadingInline size="sm" message="更新中" />
               )}
             </div>
             

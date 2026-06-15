@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { LoadingInline } from '@/components/ui/Loading';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -115,7 +116,7 @@ export default function AdminEventIndex() {
 
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {loading ? (
-          <p className="text-sm text-gray-500">読み込み中...</p>
+          <LoadingInline />
         ) : error ? (
           <p className="text-sm text-red-600">{error}</p>
         ) : (

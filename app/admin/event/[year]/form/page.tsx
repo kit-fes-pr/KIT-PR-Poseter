@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { SurveyForm } from '@/types/forms';
 import { formatDateOnly } from '@/lib/utils/dateUtils';
+import { LoadingInline } from '@/components/ui/Loading';
 
 interface FormWithStats extends SurveyForm {
   responseCount: number;
@@ -38,12 +39,7 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
     return () => unsubscribe();
   }, [router]);
 
-  useEffect(() => {
-    if (!resolvedParams || !user || authLoading) return;
-    loadForms();
-  }, [resolvedParams, user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadForms = async () => {
+  const loadForms = useCallback(async () => {
     if (!resolvedParams || !user) return;
 
     try {
@@ -70,7 +66,12 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
     } finally {
       setLoading(false);
     }
-  };
+  }, [resolvedParams, user]);
+
+  useEffect(() => {
+    if (!resolvedParams || !user || authLoading) return;
+    loadForms();
+  }, [resolvedParams, user, authLoading, loadForms]);
 
   const toggleFormStatus = async (formId: string, isActive: boolean) => {
     try {
@@ -132,15 +133,14 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
+          <LoadingInline size="lg" />
         </div>
       </div>
     );
   }
 
   if (!user) {
-    return null; // Will redirect to login via useEffect
+    return null;
   }
 
   return (
