@@ -35,7 +35,12 @@ export function LoadingInline({
   className?: string;
 }) {
   return (
-    <div className={`inline-flex items-center gap-2 text-gray-600 ${className}`}>
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className={`inline-flex items-center gap-2 text-gray-600 ${className}`}
+    >
       <LoadingSpinner size={size} />
       <span className="text-sm">{message}</span>
     </div>
