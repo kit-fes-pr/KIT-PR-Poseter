@@ -7,7 +7,7 @@ type MemberItem = {
   name: string;
   grade: number;
   section: string;
-  timeSlot: 'morning' | 'afternoon' | 'pr';
+  timeSlot: 'morning' | 'afternoon';
   formId: string;
 };
 
@@ -52,16 +52,6 @@ export async function GET(
       timeSlot: 'morning' | 'afternoon';
     });
 
-    // 2) PR割り当て（prAssignments）
-    const prSnap = await adminDb
-      .collection('prAssignments')
-      .where('year', '==', year)
-      .where('teamId', '==', teamId)
-      .get();
-    const prAssignments = prSnap.docs.map(d => d.data() as {
-      responseId: string;
-    });
-
     // 3) 回答ドキュメントをまとめて取得
     // 3-1) 通常割り当ては formId があるのでダイレクト参照で取得
     const byForm: Record<string, Set<string>> = {};
@@ -97,33 +87,9 @@ export async function GET(
       }
     }
 
-    // 3-2) PR割り当ては formId が不明の可能性があるため、イベント内の全フォームを対象に探索
-    // イベントIDは既存仕様に合わせて kohdai{year}
-    const eventId = `kohdai${year}`;
-    if (prAssignments.length > 0) {
-      const prIds = Array.from(new Set(prAssignments.map(a => a.responseId).filter(Boolean)));
-      if (prIds.length > 0) {
-        const formsSnap = await adminDb.collection('forms').where('eventId', '==', eventId).get();
-        const formIds = formsSnap.docs.map(d => d.id);
-        // 各フォームに対して、該当 responseId のドキュメントを直接参照で試行
-        for (const formId of formIds) {
-          // 未解決のIDだけを試す
-          const unresolved = prIds.filter(rid => !responseMap[rid]);
-          if (unresolved.length === 0) break;
-          const refs = unresolved.map((rid) => adminDb.collection('forms').doc(formId).collection('responses').doc(rid));
-          const snaps = await getAllChunked(refs);
-          for (const s of snaps) {
-            if (s.exists) {
-              responseMap[s.id] = { formId, data: s.data() };
-            }
-          }
-        }
-      }
-    }
-
     // 4) メンバー配列を構築
     const members: MemberItem[] = [];
-    const pushMember = (a: { responseId: string; formId?: string; timeSlot?: string }, isPR = false) => {
+    const pushMember = (a: { responseId: string; formId?: string; timeSlot?: string }) => {
       const rec = responseMap[a.responseId];
       if (!rec) return;
       const pd = rec.data?.participantData || {};
@@ -132,13 +98,12 @@ export async function GET(
         name: pd.name || '-',
         grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
         section: pd.section || '-',
-        timeSlot: (isPR ? 'pr' : (a.timeSlot as 'morning' | 'afternoon')) || 'pr',
+        timeSlot: a.timeSlot as 'morning' | 'afternoon',
         formId: rec.formId || a.formId || 'unknown',
       });
     };
 
-    normalAssignments.forEach(a => pushMember(a, false));
-    prAssignments.forEach(a => pushMember(a, true));
+    normalAssignments.forEach(a => pushMember(a));
 
     return NextResponse.json({ members });
   } catch (error) {

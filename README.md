@@ -98,7 +98,7 @@
 
 #### チーム管理
 - チーム作成・編集・削除（ログインコード発行）
-- 午前/午後/PR配布の時間帯管理
+- 午前/午後の時間帯管理
 - 担当区域・周辺区域設定
 - チーム別詳細情報と配布実績
 
@@ -113,11 +113,6 @@
 - **年次統計レポート**: チームパフォーマンス分析とランキング
 - **CSVエクスポート**: 統計データの出力
 - **トレンド分析**: 配布推移と累積データ
-
-#### PR配布専用管理
-- PR配布チームの割り当て管理
-- PR系参加者の自動・手動割り当て
-- PR配布実績の個別管理
 
 ---
 
@@ -170,7 +165,6 @@
 | `/admin/event/[year]` | 年度別イベント管理 | 管理者認証 |
 | `/admin/event/[year]/team` | チーム管理 | 管理者認証 |
 | `/admin/event/[year]/team/[teamId]` | チーム詳細管理 | 管理者認証 |
-| `/admin/event/[year]/team/pr` | PR配布割り当て管理 | 管理者認証 |
 | `/admin/event/[year]/form` | アンケートフォーム一覧 | 管理者認証 |
 | `/admin/event/[year]/form/new` | アンケートフォーム作成 | 管理者認証 |
 | `/admin/event/[year]/form/[formId]` | アンケートフォーム編集 | 管理者認証 |
@@ -210,7 +204,7 @@ interface Team {
   teamId: string;           // "AM1-2025"
   teamCode: string;         // "AM1-2025"
   teamName: string;         // "午前1班"
-  timeSlot: "morning" | "afternoon" | "pr" | "both" | "other";
+  timeSlot: "morning" | "afternoon" | "both" | "other";
   assignedArea: string;     // "午前1"
   adjacentAreas: string[];  // ["午前2", "午後1"] 周辺区域
   eventId: string;          // "kohdai2025"
@@ -265,23 +259,11 @@ interface Member {
   name: string;
   section: string;          // 所属セクション
   grade: number;            // 学年
-  availableTime: "morning" | "afternoon" | "both" | "pr" | "other";
+  availableTime: "morning" | "afternoon" | "both" | "other";
   year: number;             // 参加年度
   teamId?: string;          // 割り当て班ID
   source: "csv" | "form" | "manual";   // 登録元
   createdAt: Date;
-}
-```
-
-##### 6. PR配布割り当て (`/prAssignments/{assignmentId}`)
-```typescript
-interface PrAssignment {
-  assignmentId: string;
-  year: number;
-  responseId: string;       // フォーム回答ID
-  teamId: string;           // PR配布チームID
-  assignedAt: Date;
-  assignedBy: "manual" | "auto";
 }
 ```
 
@@ -457,9 +439,6 @@ interface YearlyStats {
 | `DELETE` | `/api/admin/teams/{teamId}` | チーム削除 |
 | `GET` | `/api/admin/teams/{teamId}/stores` | チーム別店舗情報取得 |
 | `GET` | `/api/admin/assignments` | 通常割り当て一覧取得 |
-| `GET` | `/api/admin/pr-assignments` | PR配布割り当て一覧取得 |
-| `POST` | `/api/admin/pr-assignments` | PR配布割り当て作成 |
-| `DELETE` | `/api/admin/pr-assignments` | PR配布割り当て削除 |
 | `GET` | `/api/admin/members` | メンバー一覧取得（年度指定可能） |
 | `POST` | `/api/admin/members` | メンバー作成 |
 | `POST` | `/api/admin/members/import` | CSVインポート |
@@ -514,7 +493,6 @@ interface YearlyStats {
 4. **専門管理画面**
    - **チーム管理** (`/admin/event/[year]/team`) - チーム一覧・作成
    - **チーム詳細** (`/admin/event/[year]/team/[teamId]`) - 個別チーム管理
-   - **PR配布管理** (`/admin/event/[year]/team/pr`) - PR配布専用割り当て
    - **フォーム管理** (`/admin/event/[year]/form`) - アンケート作成・管理
    - **メンバー管理** (`/admin/event/[year]/members`) - CSVインポート・参加者管理
    - **統計レポート** (`/admin/event/[year]/stats`) - 年次統計・チーム分析
@@ -567,5 +545,5 @@ interface YearlyStats {
 ## 文書情報
 
 **最終更新**: 2025年9月23日  
-**作成者**: 工大祭実行委員会 PR系 平田  
+**作成者**: 工大祭実行委員会  
 **文書バージョン**: 1.2  

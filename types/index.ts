@@ -15,7 +15,7 @@ export interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: "morning" | "afternoon" | "both" | "all" | "pr" | "other";
+  timeSlot: "morning" | "afternoon" | "both" | "other";
   assignedArea: string;
   adjacentAreas: string[];
   eventId: string;
@@ -71,7 +71,7 @@ export interface Member {
   section: string;
   department?: string; // 学科
   grade: number;
-  availableTime: "morning" | "afternoon" | "both" | "pr" | "other";
+  availableTime: "morning" | "afternoon" | "both" | "other";
   teamId?: string;
   year?: number; // 年度
   source: "csv" | "form";

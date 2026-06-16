@@ -1,4 +1,4 @@
-export type AvailableTime = 'morning' | 'afternoon' | 'both' | 'pr' | 'other';
+export type AvailableTime = 'morning' | 'afternoon' | 'both' | 'other';
 
 // 安定キーへの正規化関数
 export function normalizeAvailableTime(
@@ -11,7 +11,6 @@ export function normalizeAvailableTime(
     input === 'morning' ||
     input === 'afternoon' ||
     input === 'both' ||
-    input === 'pr' ||
     input === 'other'
   ) {
     return input;
@@ -19,14 +18,12 @@ export function normalizeAvailableTime(
 
   // 2) options と組み合わせてインデックスや厳密一致で判定
   if (options && options.length > 0) {
-    // 数値インデックス指定（0:morning, 1:afternoon, 2:pr, それ以外:other）
+    // 数値インデックス指定（0:morning, 1:afternoon, それ以外:other）
     if (typeof input === 'number' && Number.isInteger(input)) {
       return input === 0
         ? 'morning'
         : input === 1
         ? 'afternoon'
-        : input === 2
-        ? 'pr'
         : 'other';
     }
     // 文字列が options のいずれかと一致する場合、そのインデックスで判定
@@ -37,8 +34,6 @@ export function normalizeAvailableTime(
           ? 'morning'
           : idx === 1
           ? 'afternoon'
-          : idx === 2
-          ? 'pr'
           : 'other';
     }
   }
@@ -49,7 +44,6 @@ export function normalizeAvailableTime(
     // 英語/日本語の代表的な表記をカバー
     if (v.includes('morning') || v.includes('午前')) return 'morning';
     if (v.includes('afternoon') || v.includes('午後')) return 'afternoon';
-    if (v === 'pr' || v.includes('ｐｒ') || v.includes('pr専用') || v.includes('広報')) return 'pr';
     if (v.includes('その他') || v.includes('そのほか') || v.includes('other')) return 'other';
   }
 

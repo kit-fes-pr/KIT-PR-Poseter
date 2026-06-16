@@ -11,7 +11,7 @@ interface Member {
   name: string;
   section: string;
   grade: number;
-  availableTime: 'morning' | 'afternoon' | 'both' | 'pr' | 'other';
+  availableTime: 'morning' | 'afternoon' | 'both' | 'other';
   source: 'csv' | 'form' | 'manual';
   teamId?: string;
   createdAt: Date;
@@ -169,7 +169,6 @@ export default function MembersPage() {
       morning: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: '午前' },
       afternoon: { bg: 'bg-purple-100', text: 'text-purple-800', label: '午後' },
       both: { bg: 'bg-green-100', text: 'text-green-800', label: '両方' },
-      pr: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'PR' },
       other: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'その他' },
     };
     const { bg, text, label } = config[timeSlot as keyof typeof config] || config.other;
