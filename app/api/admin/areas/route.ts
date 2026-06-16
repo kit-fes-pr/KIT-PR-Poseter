@@ -19,12 +19,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'eventIdが必要です' }, { status: 400 });
     }
 
-    const snap = await adminDb.collection('areas').where('eventId', '==', eventId).orderBy('areaCode').get();
-    const areas = snap.docs.map(doc => ({
+    const snap = await adminDb.collection('areas').where('eventId', '==', eventId).get();
+    const areas = snap.docs.map((doc) => ({
       areaId: doc.id,
-      ...doc.data(),
+      ...(doc.data() as { areaCode?: string; areaName?: string; timeSlot?: string; description?: string; eventId?: string; createdAt?: { toDate?: () => Date } | Date }),
       createdAt: doc.data().createdAt?.toDate() || new Date()
-    }));
+    })).sort((a, b) => String(a.areaCode || '').localeCompare(String(b.areaCode || ''), 'ja'));
 
     return NextResponse.json({ areas });
   } catch (error) {

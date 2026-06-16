@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
-import { FastNavButton } from '@/lib/hooks/useFastNavigation';
 import { LoadingScreen, LoadingInline } from '@/components/ui/Loading';
 
 interface FastDashboardProps {
@@ -23,7 +22,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
     error,
     isInitialLoading,
     isLoadingMore,
-    loadingProgress,
     hasMore,
     loadMore
   } = useProgressiveData(year, isAdmin);
@@ -71,57 +69,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 高速ナビゲーションバー */}
-      <nav className="bg-white shadow sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-gray-900">
-                {year} 年度管理
-              </h1>
-
-              {/* パフォーマンス指標 */}
-              {Boolean((data as Record<string, unknown> | undefined)?.performance && typeof (data as Record<string, unknown>)?.performance === 'object' && (data as Record<string, unknown>)?.performance !== null) && (
-                <div className="hidden md:flex items-center space-x-2 text-xs">
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">
-                    ⚡ {String(((data as Record<string, unknown>)?.performance as Record<string, unknown>)?.responseTime) || '0'}ms
-                  </span>
-                  {Boolean((data as Record<string, unknown> | undefined)?.progressive && typeof (data as Record<string, unknown>)?.progressive === 'object' && ((data as Record<string, unknown>)?.progressive as Record<string, unknown>)?.isLoading) && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                      📊 {Math.round(loadingProgress)}%
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-2">
-                <FastNavButton
-                  href="/admin/event"
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
-                >
-                  年度一覧
-              </FastNavButton>
-
-              <FastNavButton
-                href={`/admin/event/${year}/team`}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
-              >
-                チーム管理
-              </FastNavButton>
-
-              <FastNavButton
-                href={`/admin/event/${year}/form`}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
-              >
-                フォーム管理
-              </FastNavButton>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
 
@@ -168,24 +115,38 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 value: data?.stats?.totalTeams || 0,
                 loaded: data?.stats?.loadedTeams || 0,
                 icon: '👥',
-                color: 'blue'
+                color: 'blue',
+                href: `/admin/event/${year}/team`
               },
               {
                 label: '総メンバー数',
                 value: data?.stats?.totalMembers || 0,
                 icon: '🎓',
-                color: 'green'
+                color: 'green',
+                href: `/admin/event/${year}/members`,
               },
               {
                 label: 'エリア数',
                 value: data?.stats?.totalAreas || 0,
                 icon: '📍',
-                color: 'purple'
+                color: 'purple',
+                href: `/admin/event/${year}/areas`
               }
             ].map((stat, index) => (
               <div
                 key={stat.label}
-                className="bg-white overflow-hidden shadow-lg rounded-xl transform transition-all hover:scale-105 border border-gray-100"
+                role={stat.href ? 'button' : undefined}
+                tabIndex={stat.href ? 0 : undefined}
+                onClick={stat.href ? () => navigateWithPreload(stat.href!) : undefined}
+                onKeyDown={stat.href ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigateWithPreload(stat.href!);
+                  }
+                } : undefined}
+                className={`bg-white overflow-hidden shadow-lg rounded-xl transform transition-all border border-gray-100 ${
+                  stat.href ? 'hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500' : 'hover:scale-105'
+                }`}
                 style={{
                   animationDelay: `${index * 100}ms`,
                   animation: 'fadeInUp 0.6s ease-out forwards'

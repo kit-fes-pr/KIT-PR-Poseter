@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useFastDashboard } from '@/lib/hooks/useFastDashboard';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { LoadingInline, LoadingScreen } from '@/components/ui/Loading';
-import { FastNavButton } from '@/lib/hooks/useFastNavigation';
 
 interface SuperFastDashboardProps {
   year: number;
@@ -107,56 +106,6 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ナビゲーションバー（高速化） */}
-      <nav className="bg-white shadow sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                {year} 年度管理
-                {data.performance && (
-                  <span className="ml-2 text-xs text-green-600">
-                    ({data.performance.responseTime}ms)
-                  </span>
-                )}
-              </h1>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              {/* 高速ナビゲーションボタン */}
-              <FastNavButton
-                href="/admin/event"
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
-              >
-                年度一覧
-              </FastNavButton>
-              
-              <FastNavButton
-                href={`/admin/event/${year}/team`}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
-              >
-                チーム管理
-              </FastNavButton>
-              
-              <FastNavButton
-                href={`/admin/event/${year}/form`}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
-              >
-                フォーム管理
-              </FastNavButton>
-              
-              <FastNavButton
-                href={`/admin/event/${year}/members`}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
-              >
-                メンバー管理
-              </FastNavButton>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {/* パフォーマンス統計（開発環境のみ） */}
@@ -225,11 +174,26 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
           {/* 統計サマリー*/}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { label: '総チーム数', value: data.stats?.totalTeams || 0, icon: '👥', color: 'blue' },
-              { label: '総メンバー数', value: data.stats?.totalMembers || 0, icon: '🎓', color: 'green' },
-              { label: 'エリア数', value: Object.keys(data.stats?.byArea || {}).length, icon: '📍', color: 'purple' }
+              { label: '総チーム数', value: data.stats?.totalTeams || 0, icon: '👥', color: 'blue', href: `/admin/event/${year}/team` },
+              { label: '総メンバー数', value: data.stats?.totalMembers || 0, icon: '🎓', color: 'green', href: `/admin/event/${year}/members` },
+              { label: 'エリア数', value: Object.keys(data.stats?.byArea || {}).length, icon: '📍', color: 'purple', href: `/admin/event/${year}/areas` }
             ].map((stat, index) => (
-              <div key={stat.label} className="bg-white overflow-hidden shadow rounded-lg transform transition-all hover:scale-105" style={{ animationDelay: `${index * 100}ms` }}>
+              <div
+                key={stat.label}
+                role={stat.href ? 'button' : undefined}
+                tabIndex={stat.href ? 0 : undefined}
+                onClick={stat.href ? () => navigateWithPreload(stat.href!) : undefined}
+                onKeyDown={stat.href ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigateWithPreload(stat.href!);
+                  }
+                } : undefined}
+                className={`bg-white overflow-hidden shadow rounded-lg transform transition-all ${
+                  stat.href ? 'hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500' : 'hover:scale-105'
+                }`}
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
                 <div className="p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
