@@ -6,6 +6,13 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { SurveyForm, FormField, FormUpdateData } from '@/types/forms';
 import { LoadingInline } from '@/components/ui/Loading';
+import AvailabilityChoiceEditor from '@/components/admin/AvailabilityChoiceEditor';
+import {
+  AvailabilityChoice,
+  buildAvailabilityChoicesFromLabels,
+  createDefaultAvailabilityChoices,
+  serializeAvailabilityChoiceLabels,
+} from '@/lib/utils/availability';
 
 export default function FormEditPage({
   params
@@ -20,8 +27,9 @@ export default function FormEditPage({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(false);
-  const [availabilityOptions, setAvailabilityOptions] = useState(['両時間参加可能', '午前のみ参加可能', '午後のみ参加可能', '参加不可']);
-  const [availabilityText, setAvailabilityText] = useState('両時間参加可能\n午前のみ参加可能\n午後のみ参加可能\n参加不可');
+  const [availabilityChoices, setAvailabilityChoices] = useState<AvailabilityChoice[]>(
+    createDefaultAvailabilityChoices()
+  );
   // プレビュー用の状態
   const [previewGrade, setPreviewGrade] = useState('');
   const [previewAvailability, setPreviewAvailability] = useState('');
@@ -77,8 +85,7 @@ export default function FormEditPage({
           field.label === '参加可能時間帯' || field.fieldId === 'availability'
         );
         if (availabilityField && availabilityField.options) {
-          setAvailabilityOptions(availabilityField.options);
-          setAvailabilityText(availabilityField.options.join('\n'));
+          setAvailabilityChoices(buildAvailabilityChoicesFromLabels(availabilityField.options));
         }
       } else {
         setError(data.error || 'フォームの取得に失敗しました');
@@ -105,6 +112,7 @@ export default function FormEditPage({
         return;
       }
 
+      const availabilityOptions = serializeAvailabilityChoiceLabels(availabilityChoices);
       if (availabilityOptions.length === 0) {
         setError('参加可能時間帯の選択肢を最低1つ設定してください');
         return;
@@ -273,40 +281,10 @@ export default function FormEditPage({
             <h2 className="text-lg font-medium text-gray-900 mb-4">フォーム設定</h2>
             <div className="space-y-6">
               {/* 参加可能時間帯の選択肢設定 */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">参加可能時間帯の選択肢</h3>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  選択肢を設定してください（1行につき1つ）
-                </label>
-                <div className="relative">
-                  <textarea
-                    value={availabilityText}
-                    onChange={(e) => {
-                      const newText = e.target.value;
-                      setAvailabilityText(newText);
-                      // 空白でない行のみを選択肢として保存
-                      const lines = newText.split('\n').filter(line => line.trim() !== '');
-                      setAvailabilityOptions(lines);
-                    }}
-                    onKeyDown={(e) => {
-                      // Enterキーでの改行を許可
-                      if (e.key === 'Enter') {
-                        e.stopPropagation();
-                      }
-                    }}
-                    rows={6}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {!availabilityText.trim() && (
-                    <div className="absolute top-2 left-3 text-gray-400 pointer-events-none whitespace-pre-line">
-                      両時間参加可能{"\n"}午前のみ参加可能{"\n"}午後のみ参加可能{"\n"}参加不可
-                    </div>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  各行が1つの選択肢になります。最低1つの選択肢が必要です。
-                </p>
-              </div>
+              <AvailabilityChoiceEditor
+                choices={availabilityChoices}
+                onChange={setAvailabilityChoices}
+              />
 
               {/* プレビュー */}
               <div>
@@ -356,10 +334,17 @@ export default function FormEditPage({
                     <label htmlFor="participantSection" className="block text-sm font-medium text-gray-700">
                       所属セクション *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    />
+                    >
+                      <option value="">選択してください</option>
+                      <option value="企画系">企画系</option>
+                      <option value="技術系">技術系</option>
+                      <option value="警備系">警備系</option>
+                      <option value="Web系">Web系</option>
+                      <option value="PR系">PR系</option>
+                      <option value="4年">4年</option>
+                    </select>
                   </div>
 
                   {/* 参加可能時間帯フィールドのプレビュー */}
@@ -371,15 +356,15 @@ export default function FormEditPage({
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="">参加可能な時間帯を選択してください</option>
-                      {availabilityOptions.length > 0 ? (
-                        availabilityOptions.map((option, index) => (
+                      {serializeAvailabilityChoiceLabels(availabilityChoices).length > 0 ? (
+                        serializeAvailabilityChoiceLabels(availabilityChoices).map((option, index) => (
                           <option key={index} value={option}>{option}</option>
                         ))
                       ) : (
                         <option disabled className="text-red-500">選択肢が設定されていません</option>
                       )}
                     </select>
-                    {availabilityOptions.length === 0 && (
+                    {serializeAvailabilityChoiceLabels(availabilityChoices).length === 0 && (
                       <p className="mt-1 text-xs text-red-500">少なくとも1つの選択肢を設定してください</p>
                     )}
                     {previewAvailability && (

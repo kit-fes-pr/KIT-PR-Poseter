@@ -1,3 +1,13 @@
+export interface DashboardTeam {
+  teamId: string;
+  teamCode: string;
+  teamName: string;
+  assignedArea: string;
+  memberCount?: number;
+  validStartDate?: string;
+  validEndDate?: string;
+}
+
 export interface ProgressiveDashboardCache {
   minimalData: {
     event: {
@@ -19,14 +29,14 @@ export interface ProgressiveDashboardCache {
       dataFreshnessTime: string;
       isMinimalResponse?: boolean;
     };
-    teams?: unknown[];
+    teams?: DashboardTeam[];
     progressive?: {
       progress: number;
       hasMore: boolean;
       isLoading: boolean;
     };
   } | null;
-  progressiveTeams: unknown[];
+  progressiveTeams: DashboardTeam[];
   loadingProgress: number;
   totalExpected: number;
   hasMore: boolean;

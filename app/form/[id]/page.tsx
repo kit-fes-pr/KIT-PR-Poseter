@@ -416,6 +416,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                     <option value="技術系">技術系</option>
                     <option value="警備系">警備系</option>
                     <option value="Web系">Web系</option>
+                    <option value="PR系">PR系</option>
                     <option value="4年">4年</option>
                   </select>
                   {errors.participantSection && (

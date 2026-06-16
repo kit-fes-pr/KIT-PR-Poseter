@@ -284,8 +284,9 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                             try {
                               const parseDate = (dateStr: string | undefined) =>
                                 dateStr ? new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '';
-                              const start = parseDate(team.validStartDate || (team as Record<string, unknown>).validDate as string);
-                              const end = parseDate(team.validEndDate || (team as Record<string, unknown>).validDate as string);
+                              const legacyValidDate = (team as unknown as { validDate?: string }).validDate;
+                              const start = parseDate(team.validStartDate || legacyValidDate);
+                              const end = parseDate(team.validEndDate || legacyValidDate);
                               if (start && end && start !== end) return `${start}〜${end}`;
                               return start || '-';
                             } catch {

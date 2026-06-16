@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
 import { useErrorRecovery } from '@/lib/utils/error-recovery';
-import { readDashboardCache, writeDashboardCache } from '@/lib/utils/dashboard-cache';
+import { DashboardTeam, readDashboardCache, writeDashboardCache } from '@/lib/utils/dashboard-cache';
 
 interface ProgressiveDataState {
   minimalData: {
@@ -26,15 +26,7 @@ interface ProgressiveDataState {
       isMinimalResponse?: boolean;
     };
   } | null;
-  progressiveTeams: Array<{
-    teamId: string;
-    teamCode: string;
-    teamName: string;
-    assignedArea: string;
-    memberCount?: number;
-    validStartDate?: string;
-    validEndDate?: string;
-  }>;
+  progressiveTeams: DashboardTeam[];
   isLoadingMinimal: boolean;
   isLoadingProgressive: boolean;
   loadingProgress: number;
@@ -170,10 +162,10 @@ export function useProgressiveData(year: number | null, enabled = true) {
 
       if (!response.ok) throw new Error('段階的データ取得に失敗');
 
-      const data = await response.json();
+      const data = await response.json() as { teams?: DashboardTeam[]; pagination: { hasMore: boolean; nextOffset: number } };
       
       setState(prev => {
-        const newTeams = [...prev.progressiveTeams, ...data.teams];
+        const newTeams = [...prev.progressiveTeams, ...(data.teams || [])];
         const progress = Math.min(100, (newTeams.length / prev.totalExpected) * 100);
 
         if (year) {

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
+import { getAvailabilityDisplayLabel, normalizeAvailableTime } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
 
 interface Participant {
@@ -139,6 +139,10 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     return '-';
   };
 
+  const getAvailabilityLabel = (availability: string) => {
+    return getAvailabilityDisplayLabel(availability);
+  };
+
   const loadTeams = async () => {
     if (!resolvedParams || !user) return;
 
@@ -162,9 +166,23 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`/api/forms/${formId}/responses`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      let fetchedAvailabilityOptions: string[] | null = null;
+      const [formRes, res] = await Promise.all([
+        fetch(`/api/forms/${formId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch(`/api/forms/${formId}/responses`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+      ]);
+
+      if (formRes.ok) {
+        const formData = await formRes.json();
+        const availabilityField = formData?.fields?.find((f: { fieldId: string; options?: string[] }) => f.fieldId === 'availability');
+        fetchedAvailabilityOptions = Array.isArray(availabilityField?.options) ? availabilityField.options : null;
+      } else {
+        fetchedAvailabilityOptions = null;
+      }
 
       if (res.ok) {
         const data = await res.json();
@@ -174,10 +192,10 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           answers?: Array<{ fieldId: string; value: string }>;
           submittedAt: string | Date;
         }) => {
-          const raw = response.participantData?.availableTime
-            || response.answers?.find((a) => a.fieldId === 'availability')?.value
+          const raw = response.answers?.find((a) => a.fieldId === 'availability')?.value
+            || response.participantData?.availableTime
             || '';
-          const availability = normalizeAvailableTime(raw, undefined);
+          const availability = normalizeAvailableTime(raw, fetchedAvailabilityOptions);
 
           return {
             responseId: response.responseId,
@@ -188,7 +206,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             submittedAt: new Date(response.submittedAt),
           };
         });
-        setParticipants(participantList);
+        setParticipants(participantList.filter((participant: Participant) => participant.availability !== 'other'));
       }
     } catch (err) {
       setError('参加者データの取得に失敗しました');
@@ -639,7 +657,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {participant.availability}
+                          {getAvailabilityLabel(participant.availability)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(participant.submittedAt)}
@@ -728,15 +746,15 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   </button>
                 </div>
 
-                <div className="mb-4">
-                  <div className="font-medium text-gray-900">{selectedParticipant.name}</div>
-                  <div className="text-sm text-gray-500">
-                    {selectedParticipant.grade}年 - {selectedParticipant.section}
+                  <div className="mb-4">
+                    <div className="font-medium text-gray-900">{selectedParticipant.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {selectedParticipant.grade}年 - {selectedParticipant.section}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      希望時間帯: {getAvailabilityLabel(selectedParticipant.availability)}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    希望時間帯: {selectedParticipant.availability}
-                  </div>
-                </div>
 
                 <div className="space-y-4">
                   <div>

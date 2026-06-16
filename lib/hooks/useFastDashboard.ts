@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { mutate as swrMutate } from 'swr';
-import { writeDashboardCache } from '@/lib/utils/dashboard-cache';
+import { DashboardTeam, writeDashboardCache } from '@/lib/utils/dashboard-cache';
 
 interface DashboardData {
   event: {
@@ -175,8 +175,8 @@ export function preloadDashboard(year: number) {
     }
     if (minimalResult) {
       const totalTeams = Number((minimalResult as { stats?: { totalTeams?: number } }).stats?.totalTeams || 0);
-      const progressiveTeams = Array.isArray((progressiveResult as { teams?: unknown[] } | null)?.teams)
-        ? ((progressiveResult as { teams?: unknown[] } | null)?.teams as unknown[])
+      const progressiveTeams = Array.isArray((progressiveResult as { teams?: DashboardTeam[] } | null)?.teams)
+        ? ((progressiveResult as { teams?: DashboardTeam[] } | null)?.teams as DashboardTeam[])
         : [];
       writeDashboardCache(year, {
         minimalData: minimalResult,
