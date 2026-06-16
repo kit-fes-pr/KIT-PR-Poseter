@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/utils/dateUtils';
 import { LoadingInline } from '@/components/ui/Loading';
 import { SurveyForm, ParticipantSurveyResponse, FormResponse, FormField } from '@/types/forms';
 import { normalizeAvailableTime } from '@/lib/utils/availability';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 
 interface StatOption {
   option: string;
@@ -30,7 +31,6 @@ export default function FormResponsesPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showStatistics, setShowStatistics] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [editingResponse, setEditingResponse] = useState<(FormResponse | ParticipantSurveyResponse) | null>(null);
   const [editFormData, setEditFormData] = useState<{ [key: string]: string | string[] | number }>({});
 
@@ -54,21 +54,6 @@ export default function FormResponsesPage({
     if (!resolvedParams || !user || authLoading) return;
     loadFormAndResponses();
   }, [resolvedParams, user, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // モバイルメニューを外側クリックで閉じる
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showMobileMenu) {
-        const target = event.target as Element;
-        if (!target.closest('.mobile-menu-container')) {
-          setShowMobileMenu(false);
-        }
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showMobileMenu]);
 
   const loadFormAndResponses = async () => {
     if (!resolvedParams || !user) return;
@@ -323,36 +308,17 @@ export default function FormResponsesPage({
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <nav className="flex" aria-label="Breadcrumb">
-                <ol className="flex items-center space-x-4">
-                  <li>
-                    <Link href={`/admin/event/${resolvedParams.year}/form`} className="text-sm font-medium text-gray-500 hover:text-gray-700">
-                      フォーム管理
-                    </Link>
-                  </li>
-                  <li>
-                    <div className="flex items-center">
-                      <svg className="flex-shrink-0 h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-                      </svg>
-                      <span className="ml-4 text-sm font-medium text-gray-500">回答一覧</span>
-                    </div>
-                  </li>
-                </ol>
-              </nav>
-              <h1 className="mt-2 text-xl font-bold text-gray-900">
-                {form?.title} - 回答一覧
-              </h1>
-              <p className="mt-1 text-sm text-gray-600">
-                回答数: {responses.length}件
-              </p>
-            </div>
-            {/* デスクトップ用ボタン */}
-            <div className="hidden md:flex items-center space-x-3">
+        <YearPageSectionHeader
+          title={`${form?.title} - 回答一覧`}
+          description={`回答数: ${responses.length}件`}
+          actions={(
+            <>
+              <Link
+                href={`/admin/event/${resolvedParams.year}/form`}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                フォーム管理へ
+              </Link>
               <button
                 onClick={exportToCsv}
                 disabled={responses.length === 0}
@@ -374,61 +340,9 @@ export default function FormResponsesPage({
                 </svg>
                 フォームを開く
               </a>
-            </div>
-
-            {/* モバイル用ハンバーガーメニュー */}
-            <div className="md:hidden relative mobile-menu-container">
-              <button
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg
-                  className={`h-6 w-6 transition-transform duration-200 ${showMobileMenu ? 'rotate-90' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-
-              {/* ドロップダウンメニュー */}
-              {showMobileMenu && (
-                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
-                  <div className="py-1" role="menu">
-                    <button
-                      onClick={() => {
-                        exportToCsv();
-                        setShowMobileMenu(false);
-                      }}
-                      disabled={responses.length === 0}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                      role="menuitem"
-                    >
-                      <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      CSVダウンロード
-                    </button>
-                    <a
-                      href={`/form/${resolvedParams?.formId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setShowMobileMenu(false)}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      role="menuitem"
-                    >
-                      <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                      フォームを開く
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        />
 
         {/* エラー表示 */}
         {error && (

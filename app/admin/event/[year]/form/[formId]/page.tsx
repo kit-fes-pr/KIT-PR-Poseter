@@ -7,6 +7,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { SurveyForm, FormField, FormUpdateData } from '@/types/forms';
 import { LoadingInline } from '@/components/ui/Loading';
 import AvailabilityChoiceEditor from '@/components/admin/AvailabilityChoiceEditor';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import {
   AvailabilityChoice,
   buildAvailabilityChoicesFromLabels,
@@ -212,14 +213,10 @@ export default function FormEditPage({
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">
-            フォームを編集 ({resolvedParams.year}年度)
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {form.title} の設定を変更できます（参加者情報フィールドは自動的に追加されます）
-          </p>
-        </div>
+        <YearPageSectionHeader
+          title={`フォームを編集 (${resolvedParams.year}年度)`}
+          description={`${form.title} の設定を変更できます（参加者情報フィールドは自動的に追加されます）`}
+        />
 
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">

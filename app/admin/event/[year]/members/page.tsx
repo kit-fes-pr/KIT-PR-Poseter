@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 
 interface Member {
   memberId: string;
@@ -32,11 +33,6 @@ export default function MembersPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
-  type ImportResults = { success: number; failed: number; errors: string[] };
-  const [importResults, setImportResults] = useState<ImportResults | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   // Firebase認証状態を監視
   useEffect(() => {
@@ -83,87 +79,6 @@ export default function MembersPage() {
     init();
   }, [router, year, loadMembers]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      localStorage.removeItem('authToken');
-      router.push('/admin');
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
-      localStorage.removeItem('authToken');
-      router.push('/admin');
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type === 'text/csv') {
-      setCsvFile(file);
-      setImportResults(null);
-    } else {
-      alert('CSVファイルを選択してください');
-    }
-  };
-
-  const parseCSV = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim());
-    const headers = lines[0].split(',').map(h => h.trim());
-    
-    return lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim());
-      const row: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index] || '';
-      });
-      return {
-        name: row['名前'] || row['name'] || '',
-        section: row['所属セクション'] || row['section'] || '',
-        availableTime: row['参加可能時間帯'] || row['availableTime'] || '',
-        grade: parseInt(row['学年'] || row['grade'] || '0')
-      };
-    });
-  };
-
-  const handleImport = async () => {
-    if (!csvFile) {
-      alert('CSVファイルを選択してください');
-      return;
-    }
-
-    setImporting(true);
-    try {
-      const text = await csvFile.text();
-      const csvData = parseCSV(text);
-      
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('/api/admin/members/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ csvData, year })
-      });
-
-      const result = await response.json();
-      if (response.ok) {
-        setImportResults(result.results);
-        await loadMembers();
-        setCsvFile(null);
-        // ファイル入力をリセット
-        const fileInput = document.getElementById('csvFile') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-      } else {
-        alert(result.error || 'インポートに失敗しました');
-      }
-    } catch (error) {
-      console.error('インポートエラー:', error);
-      alert('インポートに失敗しました');
-    } finally {
-      setImporting(false);
-    }
-  };
-
   const getTimeSlotBadge = (timeSlot: string) => {
     const config = {
       morning: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: '午前' },
@@ -205,95 +120,27 @@ export default function MembersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold">{year} 年度 メンバー管理</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button onClick={() => router.push('/admin/event')} className="px-3 py-2 border rounded-md text-sm sm:block hidden">年度一覧</button>
-              <button onClick={() => router.push(`/admin/event/${year}`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">イベント管理</button>
-              <button onClick={() => router.push(`/admin/event/${year}/form`)} className="px-3 py-2 border rounded-md text-sm sm:block hidden">フォーム管理</button>
-              <div className="relative">
-                <button className="px-3 py-2 border rounded-md text-sm" onClick={() => setMenuOpen(!menuOpen)}>≡</button>
-                {menuOpen && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded shadow-md z-10">
-                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push('/admin/event')}>年度一覧</button>
-                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${year}`)}>イベント管理</button>
-                    <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 sm:hidden" onClick={() => router.push(`/admin/event/${year}/form`)}>フォーム管理</button>
-                  </div>
-                )}
-              </div>
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 space-y-6">
+        <YearPageSectionHeader
+          title={`${year} 年度 メンバー一覧`}
+          description="参加メンバー全体の確認を行います。"
+          actions={(
+            <>
               <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
+                onClick={() => router.push(`/admin/event/${year}`)}
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M13 3a1 1 0 011 1v4a1 1 0 11-2 0V5H7a1 1 0 00-1 1v12a1 1 0 001 1h5v-3a1 1 0 112 0v4a1 1 0 01-1 1H7a3 3 0 01-3-3V6a3 3 0 013-3h6z" />
-                  <path d="M16.293 8.293a1 1 0 011.414 0L21 11.586a2 2 0 010 2.828l-3.293 3.293a1 1 0 11-1.414-1.414L17.586 14H11a1 1 0 110-2h6.586l-1.293-1.293a1 1 0 010-1.414z" />
-                </svg>
+                イベント管理へ戻る
               </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {/* CSVインポートセクション */}
-        <div className="bg-white shadow rounded-lg mb-6 p-6">
-          <h2 className="text-lg font-medium mb-4">CSVインポート</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                CSVファイル形式例:
-              </label>
-              <div className="bg-gray-50 p-3 rounded text-sm">
-                <code>名前,所属セクション,参加可能時間帯,学年</code><br/>
-                <code>田中太郎,企画部,午前,3</code><br/>
-                <code>佐藤花子,広報部,午後,2</code><br/>
-                <code>山田次郎,総務部,両方,4</code>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <input
-                id="csvFile"
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-              />
               <button
-                onClick={handleImport}
-                disabled={!csvFile || importing}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => router.push(`/admin/event/${year}/team`)}
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
               >
-                {importing ? 'インポート中...' : 'インポート'}
+                チーム管理へ
               </button>
-            </div>
-
-            {importResults && (
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                <h3 className="text-sm font-medium text-blue-800">インポート結果</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>成功: {importResults.success}件</p>
-                  <p>失敗: {importResults.failed}件</p>
-                  {importResults.errors.length > 0 && (
-                    <div className="mt-2">
-                      <p className="font-medium">エラー詳細:</p>
-                      <ul className="list-disc list-inside space-y-1">
-                        {importResults.errors.map((error: string, index: number) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+            </>
+          )}
+        />
 
         {/* メンバー一覧 */}
         <div className="bg-white shadow rounded-lg">

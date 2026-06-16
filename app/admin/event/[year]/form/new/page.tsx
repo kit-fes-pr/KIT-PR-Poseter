@@ -7,6 +7,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { FormCreateData } from '@/types/forms';
 import { LoadingInline } from '@/components/ui/Loading';
 import AvailabilityChoiceEditor from '@/components/admin/AvailabilityChoiceEditor';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import {
   AvailabilityChoice,
   createDefaultAvailabilityChoices,
@@ -142,14 +143,10 @@ export default function FormCreatePage({ params }: { params: Promise<{ year: str
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">
-            新しいフォームを作成 ({resolvedParams.year}年度)
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            参加者情報（名前・学年・セクション）と参加可能時間帯・時間帯を収集するアンケートフォームを作成します
-          </p>
-        </div>
+        <YearPageSectionHeader
+          title={`新しいフォームを作成 (${resolvedParams.year}年度)`}
+          description="参加者情報（名前・学年・セクション）と参加可能時間帯・時間帯を収集するアンケートフォームを作成します。"
+        />
 
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">

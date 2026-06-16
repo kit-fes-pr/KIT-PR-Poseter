@@ -7,6 +7,7 @@ import { LoadingInline } from '@/components/ui/Loading';
 import { Team, Store } from '@/types';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -160,20 +161,26 @@ export default function TeamDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold">{y} 年度 チーム詳細</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => router.push(`/admin/event/${y}`)} className="px-3 py-2 border rounded-md text-sm">戻る</button>
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 space-y-6">
+        <YearPageSectionHeader
+          title={`${y} 年度 チーム詳細`}
+          description="チーム情報の確認と編集を行います。"
+          actions={(
+            <>
+              <button
+                onClick={() => router.push(`/admin/event/${y}/team`)}
+                className="px-4 py-2 border rounded-md text-sm bg-white text-gray-700 hover:bg-gray-50"
+              >
+                チーム管理へ戻る
+              </button>
               <button
                 onClick={() => setIsBasicEditOpen(true)}
-                className="px-3 py-2 border rounded-md text-sm"
-              >編集</button>
+                className="px-4 py-2 border rounded-md text-sm bg-white text-gray-700 hover:bg-gray-50"
+              >
+                編集
+              </button>
               <button
-                className="px-3 py-2 border border-red-300 text-red-700 rounded-md text-sm"
+                className="px-4 py-2 border border-red-300 text-red-700 rounded-md text-sm bg-white hover:bg-red-50"
                 onClick={async () => {
                   if (!confirm('このチームを削除しますか？配布記録がある場合は削除できません。')) return;
                   try {
@@ -181,20 +188,21 @@ export default function TeamDetailPage() {
                     const res = await fetch(`/api/admin/teams/${teamId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '削除に失敗しました');
-                    router.push(`/admin/event/${y}`);
+                    router.push(`/admin/event/${y}/team`);
                   } catch (error: unknown) {
                     const message = error instanceof Error ? error.message : '削除に失敗しました';
                     alert(message);
                   }
                 }}
-              >削除</button>
-            </div>
-          </div>
-        </div>
-      </nav>
+              >
+                削除
+              </button>
+            </>
+          )}
+        />
 
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow lg:col-span-3">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow lg:col-span-3">
           <h2 className="text-lg font-medium">{team?.teamName}（{team?.teamCode}）</h2>
           <p className="text-sm text-gray-600 mt-1">担当区域: {team?.assignedArea || '-'}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -416,6 +424,7 @@ export default function TeamDetailPage() {
               </table>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

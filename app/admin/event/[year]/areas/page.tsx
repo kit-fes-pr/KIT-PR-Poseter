@@ -7,6 +7,7 @@ import { auth } from '@/lib/firebase';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Area } from '@/types';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 
 export default function AreasPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
@@ -145,30 +146,26 @@ export default function AreasPage({ params }: { params: Promise<{ year: string }
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="space-y-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              配布区域管理 ({resolvedParams?.year}年度)
-            </h1>
-            <p className="mt-1 text-sm text-gray-600">
-              配布区域の追加と一覧確認を行います。
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => navigateWithPreload(`/admin/event/${resolvedParams?.year}`)}
-              className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
-            >
-              イベント管理へ戻る
-            </button>
-            <button
-              onClick={() => navigateWithPreload(`/admin/event/${resolvedParams?.year}/team`)}
-              className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
-            >
-              チーム管理へ
-            </button>
-          </div>
-        </div>
+        <YearPageSectionHeader
+          title={`配布区域管理 (${resolvedParams?.year}年度)`}
+          description="配布区域の追加と一覧確認を行います。"
+          actions={(
+            <>
+              <button
+                onClick={() => navigateWithPreload(`/admin/event/${resolvedParams?.year}`)}
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
+              >
+                イベント管理へ戻る
+              </button>
+              <button
+                onClick={() => navigateWithPreload(`/admin/event/${resolvedParams?.year}/team`)}
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
+              >
+                チーム管理へ
+              </button>
+            </>
+          )}
+        />
 
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">

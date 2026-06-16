@@ -25,20 +25,6 @@ export const Skeleton: React.FC<{
  */
 export const DashboardSkeleton: React.FC = () => (
   <div className="space-y-6">
-    {/* ナビゲーションバー */}
-    <nav className="bg-white shadow">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          <Skeleton className="h-6 w-48" />
-          <div className="flex space-x-2">
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-8 w-28" />
-          </div>
-        </div>
-      </div>
-    </nav>
-
     {/* メインコンテンツエリア */}
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       {/* イベント情報カード */}
@@ -111,15 +97,6 @@ export const DashboardSkeleton: React.FC = () => (
  */
 export const TeamDetailSkeleton: React.FC = () => (
   <div className="min-h-screen bg-gray-50">
-    <nav className="bg-white shadow">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-8 w-20" />
-        </div>
-      </div>
-    </nav>
-
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* チーム情報 */}
       <div className="bg-white shadow rounded-lg p-6 space-y-4">

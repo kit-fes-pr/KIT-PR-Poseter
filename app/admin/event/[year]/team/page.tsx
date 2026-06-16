@@ -8,6 +8,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
 import { getAvailabilityDisplayLabel, normalizeAvailableTime } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 
 interface Participant {
   responseId: string;
@@ -400,27 +401,18 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                チーム割り当て管理 ({resolvedParams?.year}年度)
-              </h1>
-              <p className="mt-1 text-sm text-gray-600">
-                アンケート結果を基に参加者を配布区域チームに自動割り当てします
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/admin/event/${resolvedParams?.year}`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                イベント管理に戻る
-              </Link>
-            </div>
-          </div>
-        </div>
+        <YearPageSectionHeader
+          title={`チーム割り当て管理 (${resolvedParams?.year}年度)`}
+          description="アンケート結果を基に参加者を配布区域チームに自動割り当てします。"
+          actions={(
+            <Link
+              href={`/admin/event/${resolvedParams?.year}`}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              イベント管理へ戻る
+            </Link>
+          )}
+        />
 
         {/* エラー表示 */}
         {error && (
