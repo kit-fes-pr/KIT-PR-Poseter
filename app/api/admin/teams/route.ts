@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { Team } from '@/types';
 
+const VALID_TIME_SLOTS = ['morning', 'afternoon', 'both', 'other'] as const;
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
     const teamData: Omit<Team, 'teamId'> = {
       teamCode,
       teamName,
-      timeSlot: timeSlot || 'both', // フォームからの値を使用、未設定時は両方対応
+      timeSlot: VALID_TIME_SLOTS.includes(timeSlot) ? timeSlot : 'both',
       assignedArea,
       adjacentAreas: adjacentAreas || [],
       eventId,

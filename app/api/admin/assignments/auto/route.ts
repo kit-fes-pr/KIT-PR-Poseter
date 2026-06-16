@@ -13,7 +13,7 @@ interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: 'morning' | 'afternoon' | 'both' | 'all' | 'pr' | 'other';
+  timeSlot: 'morning' | 'afternoon' | 'both' | 'other';
   assignedArea: string;
   adjacentAreas?: string[];
   maxMembers?: number;
@@ -26,14 +26,6 @@ interface Assignment {
   assignedAt: Date;
   assignedBy: 'auto' | 'manual';
   timeSlot: 'morning' | 'afternoon';
-}
-
-interface PRAssignmentChoice {
-  responseId: string;
-  name: string;
-  section: string;
-  availability: string;
-  choice?: 'morning' | 'afternoon' | 'none';
 }
 
 export async function POST(request: NextRequest) {
@@ -57,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { year, formId, participants, teams, prChoices, includeOther } = await request.json();
+    const { year, formId, participants, teams, includeOther } = await request.json();
 
     if (!year || !formId || !participants || !teams) {
       return NextResponse.json(
@@ -66,10 +58,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // PR割り当ては本アルゴリズムの対象外（UIの選択も無視）
-
     // 自動割り当てアルゴリズムを実行
-    const assignments = performAutoAssignment(participants, teams, prChoices || [], Boolean(includeOther));
+    const assignments = performAutoAssignment(participants, teams, Boolean(includeOther));
 
     // 割り当て結果をFirestoreに保存
     const batch = adminDb.batch();
@@ -107,16 +97,15 @@ export async function POST(request: NextRequest) {
 function performAutoAssignment(
   participants: Participant[], 
   teams: Team[], 
-  prChoices: PRAssignmentChoice[],
   includeOther: boolean
 ): Assignment[] {
   const assignments: Assignment[] = [];
   const usedParticipants = new Set<string>();
   
-  // チーム分け（pr/other は除外）
+  // チーム分け（other は除外）
   const morningTeams = teams.filter(t => t.timeSlot === 'morning');
   const afternoonTeams = teams.filter(t => t.timeSlot === 'afternoon');
-  const allDayTeams = teams.filter(t => t.timeSlot === 'both' || t.timeSlot === 'all');
+  const allDayTeams = teams.filter(t => t.timeSlot === 'both');
   const otherTeams = includeOther ? teams.filter(t => t.timeSlot === 'other') : [];
 
   // チーム毎の現在の割り当て数を追跡
@@ -161,9 +150,7 @@ function performAutoAssignment(
   for (const participant of sortedParticipants) {
     if (usedParticipants.has(participant.responseId)) continue;
 
-  const targetTimeSlot: 'morning' | 'afternoon' | 'both' = participant.availability as 'morning' | 'afternoon' | 'both';
-
-    // PRは別アルゴリズムで扱うため、特別扱いなし
+    const targetTimeSlot: 'morning' | 'afternoon' | 'both' = participant.availability as 'morning' | 'afternoon' | 'both';
 
     // セクション情報を初期化
     if (!sectionTimeSlots[participant.section]) {
@@ -184,19 +171,24 @@ function performAutoAssignment(
       // セクションの重複を避けるため、より少ない時間帯を選択
       const sectionCount = sectionTimeSlots[participant.section];
       
-      if (sectionCount.morning <= sectionCount.afternoon) {
+      if (sectionCount.morning < sectionCount.afternoon) {
         assignmentTimeSlot = 'morning';
         candidateTeams = [...morningTeams, ...allDayTeams, ...otherTeams];
-      } else {
+      } else if (sectionCount.afternoon < sectionCount.morning) {
         assignmentTimeSlot = 'afternoon';
         candidateTeams = [...afternoonTeams, ...allDayTeams, ...otherTeams];
+      } else {
+        const hash = Array.from(participant.responseId).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+        assignmentTimeSlot = hash % 2 === 0 ? 'morning' : 'afternoon';
+        candidateTeams = assignmentTimeSlot === 'morning'
+          ? [...morningTeams, ...allDayTeams, ...otherTeams]
+          : [...afternoonTeams, ...allDayTeams, ...otherTeams];
       }
     } else {
       continue; // 無効な可用性
     }
-    // 候補がゼロの場合は割り当てなし（PR専用や不一致など）
+    // 候補がゼロの場合は割り当てなし
     if (candidateTeams.length === 0) continue;
-    // PR関連の制約は適用しない
 
     // 学年や定員を考慮してチームを選択
   const bestTeam = selectBalancedBestTeam(

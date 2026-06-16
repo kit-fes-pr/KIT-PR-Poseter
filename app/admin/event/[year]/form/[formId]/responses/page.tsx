@@ -565,8 +565,8 @@ export default function FormResponsesPage({
                       <div className="space-y-1">
                         {[1, 2, 3, 4].map(grade => {
                           const count = responses.filter(r => {
-                            const pr = r as ParticipantSurveyResponse;
-                            return pr.participantData?.grade === grade;
+                            const participantResponse = r as ParticipantSurveyResponse;
+                            return participantResponse.participantData?.grade === grade;
                           }).length;
                           const percentage = ((count / responses.length) * 100).toFixed(1);
                           

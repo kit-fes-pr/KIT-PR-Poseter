@@ -12,8 +12,9 @@ interface SuperFastDashboardProps {
 }
 
 export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboardProps) {
-  const [showDetailedView, setShowDetailedView] = useState(false);
   const [optimisticUpdate, setOptimisticUpdate] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   
   const { navigateWithPreload, isNavigating } = useFastPageTransition();
   
@@ -25,6 +26,12 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
     mutate 
   } = useFastDashboard(year, isAdmin);
 
+  const teams = data?.sortedTeams || [];
+  const totalPages = Math.max(1, Math.ceil(teams.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const visibleTeams = teams.slice(startIndex, startIndex + pageSize);
+
   // 最初のマウント時に楽観的UI表示
   useEffect(() => {
     if (isAdmin && !data && !error) {
@@ -33,6 +40,10 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
       return () => clearTimeout(timer);
     }
   }, [isAdmin, data, error]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPages));
+  }, [totalPages]);
 
   // 全画面遷移ローダー
   if (isNavigating) {
@@ -193,10 +204,18 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
                 </div>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setShowDetailedView(!showDetailedView)}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safeCurrentPage <= 1}
                     className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
                   >
-                    {showDetailedView ? '簡単表示' : '詳細表示'}
+                    前へ
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                    disabled={safeCurrentPage >= totalPages}
+                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    次へ
                   </button>
                 </div>
               </div>
@@ -236,14 +255,14 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-4 py-5 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
-                チーム一覧 ({data.sortedTeams?.length || 0}件)
+                チーム一覧 ({teams.length || 0}件)
               </h3>
               {loadingStage === 'loading' && (
                 <LoadingInline size="sm" message="更新中" />
               )}
             </div>
             
-            {data.sortedTeams?.length === 0 ? (
+            {teams.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-4xl mb-2">📋</div>
                 チームが登録されていません
@@ -261,7 +280,7 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {(data.sortedTeams || []).slice(0, showDetailedView ? undefined : 10).map((team, index) => (
+                    {visibleTeams.map((team, index) => (
                       <tr 
                         key={team.teamId} 
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -302,17 +321,15 @@ export default function SuperFastDashboard({ year, isAdmin }: SuperFastDashboard
                     ))}
                   </tbody>
                 </table>
-                
-                {!showDetailedView && (data.sortedTeams || []).length > 10 && (
-                  <div className="bg-gray-50 px-6 py-3 text-center">
-                    <button
-                      onClick={() => setShowDetailedView(true)}
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      他 {(data.sortedTeams || []).length - 10} チームを表示
-                    </button>
-                  </div>
-                )}
+
+                <div className="bg-gray-50 px-6 py-3 flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    {safeCurrentPage} / {totalPages} ページ
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {startIndex + 1}-{Math.min(startIndex + pageSize, teams.length)} / {teams.length} 件
+                  </p>
+                </div>
               </div>
             )}
           </div>

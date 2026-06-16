@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
 import { useErrorRecovery } from '@/lib/utils/error-recovery';
+import { readDashboardCache, writeDashboardCache } from '@/lib/utils/dashboard-cache';
 
 interface ProgressiveDataState {
   minimalData: {
@@ -46,15 +47,31 @@ interface ProgressiveDataState {
  * 段階的データ読み込みHook - 超高速初期表示
  */
 export function useProgressiveData(year: number | null, enabled = true) {
-  const [state, setState] = useState<ProgressiveDataState>({
-    minimalData: null,
-    progressiveTeams: [],
-    isLoadingMinimal: true,
-    isLoadingProgressive: false,
-    loadingProgress: 0,
-    totalExpected: 0,
-    error: null,
-    hasMore: false
+  const [state, setState] = useState<ProgressiveDataState>(() => {
+    if (!year || typeof window === 'undefined') {
+      return {
+        minimalData: null,
+        progressiveTeams: [],
+        isLoadingMinimal: true,
+        isLoadingProgressive: false,
+        loadingProgress: 0,
+        totalExpected: 0,
+        error: null,
+        hasMore: false
+      };
+    }
+
+    const cached = readDashboardCache(year);
+    return {
+      minimalData: cached?.minimalData || null,
+      progressiveTeams: cached?.progressiveTeams || [],
+      isLoadingMinimal: !cached?.minimalData,
+      isLoadingProgressive: false,
+      loadingProgress: cached?.loadingProgress || 0,
+      totalExpected: cached?.totalExpected || 0,
+      error: null,
+      hasMore: cached?.hasMore || false
+    };
   });
 
   const { createRobustFetcher } = useErrorRecovery();
@@ -97,8 +114,36 @@ export function useProgressiveData(year: number | null, enabled = true) {
           totalExpected: (data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0,
           hasMore: ((data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0) > 0
         }));
+
+        if (year) {
+          const current = readDashboardCache(year);
+          writeDashboardCache(year, {
+            minimalData: data as ProgressiveDataState['minimalData'],
+            progressiveTeams: current?.progressiveTeams || [],
+            loadingProgress: current?.loadingProgress || 0,
+            totalExpected: (data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0,
+            hasMore: ((data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0) > 0
+          });
+        }
       },
       onError: (error) => {
+        if (year) {
+          const cached = readDashboardCache(year);
+          if (cached?.minimalData) {
+            setState(prev => ({
+              ...prev,
+              minimalData: cached.minimalData,
+              progressiveTeams: cached.progressiveTeams,
+              isLoadingMinimal: false,
+              isLoadingProgressive: false,
+              loadingProgress: cached.loadingProgress,
+              totalExpected: cached.totalExpected,
+              hasMore: cached.hasMore,
+              error: null
+            }));
+            return;
+          }
+        }
         setState(prev => ({
           ...prev,
           error,
@@ -130,6 +175,16 @@ export function useProgressiveData(year: number | null, enabled = true) {
       setState(prev => {
         const newTeams = [...prev.progressiveTeams, ...data.teams];
         const progress = Math.min(100, (newTeams.length / prev.totalExpected) * 100);
+
+        if (year) {
+          writeDashboardCache(year, {
+            minimalData: prev.minimalData,
+            progressiveTeams: newTeams,
+            loadingProgress: progress,
+            totalExpected: prev.totalExpected,
+            hasMore: data.pagination.hasMore
+          });
+        }
         
         return {
           ...prev,

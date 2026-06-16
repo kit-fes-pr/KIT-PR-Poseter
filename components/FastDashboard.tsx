@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { FastNavButton } from '@/lib/hooks/useFastNavigation';
-import { LoadingScreen, LoadingInline, LoadingButtonLabel } from '@/components/ui/Loading';
+import { LoadingScreen, LoadingInline } from '@/components/ui/Loading';
 
 interface FastDashboardProps {
   year: number;
@@ -12,7 +12,8 @@ interface FastDashboardProps {
 }
 
 export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
-  const [showDetailedView, setShowDetailedView] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const { navigateWithPreload } = useFastPageTransition();
 
@@ -26,6 +27,16 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
     hasMore,
     loadMore
   } = useProgressiveData(year, isAdmin);
+
+  const teams = data?.teams || [];
+  const totalPages = Math.max(1, Math.ceil(teams.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const visibleTeams = teams.slice(startIndex, startIndex + pageSize);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPages));
+  }, [totalPages]);
 
 
   // 初期読み込み中のスケルトン表示
@@ -144,12 +155,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 {isLoadingMore && (
                     <LoadingInline size="sm" />
                   )}
-                  <button
-                    onClick={() => setShowDetailedView(!showDetailedView)}
-                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    {showDetailedView ? '簡単表示' : '詳細表示'}
-                  </button>
                 </div>
               </div>
             </div>
@@ -223,12 +228,12 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                   <LoadingInline size="sm" />
                 )}
                 <span className="text-sm text-gray-500">
-                  {(data?.teams || []).length} / {data?.stats?.totalTeams || 0} 件
+                  {teams.length} / {data?.stats?.totalTeams || 0} 件
                 </span>
               </div>
             </div>
 
-            {(data?.teams || []).length === 0 ? (
+            {teams.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-4xl mb-2">📋</div>
                 チームが登録されていません
@@ -246,7 +251,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {(data?.teams || []).slice(0, showDetailedView ? undefined : 15).map((team, index) => (
+                    {visibleTeams.map((team, index) => (
                       <tr
                         key={team.teamId}
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -293,29 +298,32 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                   </tbody>
                 </table>
 
-                {/* 追加読み込みボタン */}
-                {!showDetailedView && (data?.teams || []).length > 15 && (
-                  <div className="bg-gray-50 px-6 py-4 text-center">
+                <div className="bg-gray-50 px-6 py-4 flex items-center justify-between gap-3">
+                  <p className="text-sm text-gray-600">
+                    {safeCurrentPage} / {totalPages} ページ
+                  </p>
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setShowDetailedView(true)}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safeCurrentPage <= 1}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      他 {(data?.teams || []).length - 15} チームを表示
+                      前へ
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (hasMore && !isLoadingMore) {
+                          loadMore();
+                        }
+                        setCurrentPage((p) => p + 1);
+                      }}
+                      disabled={safeCurrentPage >= totalPages && !hasMore}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      次へ
                     </button>
                   </div>
-                )}
-
-                {hasMore && (
-                  <div className="bg-gray-50 px-6 py-4 text-center">
-                  <button
-                    onClick={loadMore}
-                    disabled={isLoadingMore}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                  >
-                      {isLoadingMore ? <LoadingButtonLabel /> : 'さらに読み込む'}
-                  </button>
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </div>

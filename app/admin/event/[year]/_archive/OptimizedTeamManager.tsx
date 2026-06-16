@@ -54,12 +54,11 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
       const codeA = String(a.teamCode || '').toLowerCase();
       const codeB = String(b.teamCode || '').toLowerCase();
       
-      // PR、AM、PMの順序を定義
+      // AM、PMの順序を定義
       const getOrderPriority = (code: string) => {
-        if (code.includes('pr')) return 1;
-        if (code.includes('am')) return 2;
-        if (code.includes('pm')) return 3;
-        return 4;
+        if (code.includes('am')) return 1;
+        if (code.includes('pm')) return 2;
+        return 3;
       };
       
       const priorityA = getOrderPriority(codeA);

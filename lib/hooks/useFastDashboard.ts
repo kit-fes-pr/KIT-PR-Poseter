@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
+import { mutate as swrMutate } from 'swr';
+import { writeDashboardCache } from '@/lib/utils/dashboard-cache';
 
 interface DashboardData {
   event: {
@@ -110,10 +112,9 @@ export function useFastDashboard(year: number | null, enabled = true) {
       const codeB = String(b.teamCode || '').toLowerCase();
       
       const getOrderPriority = (code: string) => {
-        if (code.includes('pr')) return 1;
-        if (code.includes('am')) return 2;
-        if (code.includes('pm')) return 3;
-        return 4;
+        if (code.includes('am')) return 1;
+        if (code.includes('pm')) return 2;
+        return 3;
       };
       
       const priorityA = getOrderPriority(codeA);
@@ -146,10 +147,45 @@ export function preloadDashboard(year: number) {
   const token = localStorage.getItem('authToken');
   if (!token || !year) return;
   
+  const minimalKey = `/api/admin/dashboard/${year}/minimal`;
+  const fullKey = `/api/admin/dashboard/${year}`;
+  const progressiveKey = `/api/admin/dashboard/${year}/progressive?offset=0&limit=10&includeMembers=true`;
+
   // バックグラウンドでデータを取得してキャッシュ
-  fetch(`/api/admin/dashboard/${year}`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  }).then(res => res.json()).then(() => {
+  Promise.allSettled([
+    fetch(minimalKey, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(res => res.ok ? res.json() : null),
+    fetch(fullKey, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(res => res.ok ? res.json() : null),
+    fetch(progressiveKey, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(res => res.ok ? res.json() : null)
+  ]).then((results) => {
+    const minimalResult = results[0].status === 'fulfilled' ? results[0].value : null;
+    const fullResult = results[1].status === 'fulfilled' ? results[1].value : null;
+    const progressiveResult = results[2].status === 'fulfilled' ? results[2].value : null;
+
+    if (minimalResult) {
+      swrMutate(minimalKey, minimalResult, false);
+    }
+    if (fullResult) {
+      swrMutate(fullKey, fullResult, false);
+    }
+    if (minimalResult) {
+      const totalTeams = Number((minimalResult as { stats?: { totalTeams?: number } }).stats?.totalTeams || 0);
+      const progressiveTeams = Array.isArray((progressiveResult as { teams?: unknown[] } | null)?.teams)
+        ? ((progressiveResult as { teams?: unknown[] } | null)?.teams as unknown[])
+        : [];
+      writeDashboardCache(year, {
+        minimalData: minimalResult,
+        progressiveTeams,
+        loadingProgress: totalTeams > 0 ? Math.min(100, (progressiveTeams.length / totalTeams) * 100) : 0,
+        totalExpected: totalTeams,
+        hasMore: Boolean((progressiveResult as { pagination?: { hasMore?: boolean } } | null)?.pagination?.hasMore)
+      });
+    }
     console.log(`📦 年度${year}のダッシュボードデータをプリロードしました`);
   }).catch(err => {
     console.warn('プリロード失敗:', err);

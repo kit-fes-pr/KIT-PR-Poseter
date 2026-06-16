@@ -31,7 +31,7 @@ export default function TeamDetailPage() {
   const [isBasicEditOpen, setIsBasicEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<{ teamName: string; timeSlot: string; assignedArea: string; adjacentAreas: string; validDate: string }>({ teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '', validDate: '' });
   const [memberLoading, setMemberLoading] = useState(false);
-  const [assignedMembers, setAssignedMembers] = useState<Array<{ responseId: string; name: string; grade: number; section: string; timeSlot: 'morning' | 'afternoon' | 'pr'; formId: string }>>([]);
+  const [assignedMembers, setAssignedMembers] = useState<Array<{ responseId: string; name: string; grade: number; section: string; timeSlot: 'morning' | 'afternoon'; formId: string }>>([]);
 
   // Firebase認証状態を監視
   useEffect(() => {
@@ -248,7 +248,6 @@ export default function TeamDetailPage() {
                       <option value="morning">午前</option>
                       <option value="afternoon">午後</option>
                       <option value="both">全日</option>
-                      <option value="pr">PR配布日</option>
                       <option value="other">その他</option>
                     </select>
                   </div>
@@ -339,8 +338,7 @@ export default function TeamDetailPage() {
               <p><span className="text-gray-600">時間帯:</span> <span className="ml-2">{
                 team?.timeSlot === 'morning' ? '午前' :
                 team?.timeSlot === 'afternoon' ? '午後' :
-                team?.timeSlot === 'both' || team?.timeSlot === 'all' ? '全日' :
-                team?.timeSlot === 'pr' ? 'PR配布日' :
+                team?.timeSlot === 'both' ? '全日' :
                 team?.timeSlot === 'other' ? 'その他' : '-'
               }</span></p>
               <p><span className="text-gray-600">担当区域:</span> <span className="ml-2">{team?.assignedArea || '-'}</span></p>
@@ -407,9 +405,9 @@ export default function TeamDetailPage() {
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                             m.timeSlot === 'morning' ? 'bg-yellow-100 text-yellow-800' : 
                             m.timeSlot === 'afternoon' ? 'bg-purple-100 text-purple-800' : 
-                            'bg-blue-100 text-blue-800'
+                            'bg-gray-100 text-gray-800'
                           }`}>
-                            {m.timeSlot === 'morning' ? '午前' : m.timeSlot === 'afternoon' ? '午後' : 'PR配布'}
+                            {m.timeSlot === 'morning' ? '午前' : '午後'}
                           </span>
                         </td>
                       </tr>
