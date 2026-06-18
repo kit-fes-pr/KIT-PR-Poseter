@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { Team } from '@/types';
 
+const VALID_TIME_SLOTS = ['morning', 'afternoon', 'both', 'other'] as const;
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
     const teamData: Omit<Team, 'teamId'> = {
       teamCode,
       teamName,
-      timeSlot: timeSlot || 'both', // フォームからの値を使用、未設定時は両方対応
+      timeSlot: VALID_TIME_SLOTS.includes(timeSlot) ? timeSlot : 'both',
       assignedArea,
       adjacentAreas: adjacentAreas || [],
       eventId,
@@ -116,6 +118,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const eventIdParam = searchParams.get('eventId');
     const yearParam = searchParams.get('year');
+    const scope = searchParams.get('scope');
+
+    if (scope === 'all') {
+      const teamsSnapshot = await adminDb.collection('teams')
+        .where('isActive', '==', true)
+        .get();
+
+      const teams = teamsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      return NextResponse.json({ teams });
+    }
 
     let targetEventId = eventIdParam || 'kohdai2025';
     if (!eventIdParam && yearParam) {

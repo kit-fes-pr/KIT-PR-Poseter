@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
-import { FastNavButton } from '@/lib/hooks/useFastNavigation';
-import { LoadingScreen, LoadingInline, LoadingButtonLabel } from '@/components/ui/Loading';
+import { LoadingScreen, LoadingInline } from '@/components/ui/Loading';
 
 interface FastDashboardProps {
   year: number;
@@ -12,7 +11,8 @@ interface FastDashboardProps {
 }
 
 export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
-  const [showDetailedView, setShowDetailedView] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const { navigateWithPreload } = useFastPageTransition();
 
@@ -22,10 +22,19 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
     error,
     isInitialLoading,
     isLoadingMore,
-    loadingProgress,
     hasMore,
     loadMore
   } = useProgressiveData(year, isAdmin);
+
+  const teams = data?.teams || [];
+  const totalPages = Math.max(1, Math.ceil(teams.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const visibleTeams = teams.slice(startIndex, startIndex + pageSize);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPages));
+  }, [totalPages]);
 
 
   // 初期読み込み中のスケルトン表示
@@ -60,57 +69,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 高速ナビゲーションバー */}
-      <nav className="bg-white shadow sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-gray-900">
-                {year} 年度管理
-              </h1>
-
-              {/* パフォーマンス指標 */}
-              {Boolean((data as Record<string, unknown> | undefined)?.performance && typeof (data as Record<string, unknown>)?.performance === 'object' && (data as Record<string, unknown>)?.performance !== null) && (
-                <div className="hidden md:flex items-center space-x-2 text-xs">
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">
-                    ⚡ {String(((data as Record<string, unknown>)?.performance as Record<string, unknown>)?.responseTime) || '0'}ms
-                  </span>
-                  {Boolean((data as Record<string, unknown> | undefined)?.progressive && typeof (data as Record<string, unknown>)?.progressive === 'object' && ((data as Record<string, unknown>)?.progressive as Record<string, unknown>)?.isLoading) && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                      📊 {Math.round(loadingProgress)}%
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-2">
-                <FastNavButton
-                  href="/admin/event"
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
-                >
-                  年度一覧
-              </FastNavButton>
-
-              <FastNavButton
-                href={`/admin/event/${year}/team`}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
-              >
-                チーム管理
-              </FastNavButton>
-
-              <FastNavButton
-                href={`/admin/event/${year}/form`}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-all"
-              >
-                フォーム管理
-              </FastNavButton>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
 
@@ -144,12 +102,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 {isLoadingMore && (
                     <LoadingInline size="sm" />
                   )}
-                  <button
-                    onClick={() => setShowDetailedView(!showDetailedView)}
-                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    {showDetailedView ? '簡単表示' : '詳細表示'}
-                  </button>
                 </div>
               </div>
             </div>
@@ -163,24 +115,38 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 value: data?.stats?.totalTeams || 0,
                 loaded: data?.stats?.loadedTeams || 0,
                 icon: '👥',
-                color: 'blue'
+                color: 'blue',
+                href: `/admin/event/${year}/team`
               },
               {
                 label: '総メンバー数',
                 value: data?.stats?.totalMembers || 0,
                 icon: '🎓',
-                color: 'green'
+                color: 'green',
+                href: `/admin/event/${year}/members`,
               },
               {
                 label: 'エリア数',
                 value: data?.stats?.totalAreas || 0,
                 icon: '📍',
-                color: 'purple'
+                color: 'purple',
+                href: `/admin/event/areas`
               }
             ].map((stat, index) => (
               <div
                 key={stat.label}
-                className="bg-white overflow-hidden shadow-lg rounded-xl transform transition-all hover:scale-105 border border-gray-100"
+                role={stat.href ? 'button' : undefined}
+                tabIndex={stat.href ? 0 : undefined}
+                onClick={stat.href ? () => navigateWithPreload(stat.href!) : undefined}
+                onKeyDown={stat.href ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigateWithPreload(stat.href!);
+                  }
+                } : undefined}
+                className={`bg-white overflow-hidden shadow-lg rounded-xl transform transition-all border border-gray-100 ${
+                  stat.href ? 'hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500' : 'hover:scale-105'
+                }`}
                 style={{
                   animationDelay: `${index * 100}ms`,
                   animation: 'fadeInUp 0.6s ease-out forwards'
@@ -223,12 +189,12 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                   <LoadingInline size="sm" />
                 )}
                 <span className="text-sm text-gray-500">
-                  {(data?.teams || []).length} / {data?.stats?.totalTeams || 0} 件
+                  {teams.length} / {data?.stats?.totalTeams || 0} 件
                 </span>
               </div>
             </div>
 
-            {(data?.teams || []).length === 0 ? (
+            {teams.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-4xl mb-2">📋</div>
                 チームが登録されていません
@@ -246,7 +212,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {(data?.teams || []).slice(0, showDetailedView ? undefined : 15).map((team, index) => (
+                    {visibleTeams.map((team, index) => (
                       <tr
                         key={team.teamId}
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -279,8 +245,9 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                             try {
                               const parseDate = (dateStr: string | undefined) =>
                                 dateStr ? new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '';
-                              const start = parseDate(team.validStartDate || (team as Record<string, unknown>).validDate as string);
-                              const end = parseDate(team.validEndDate || (team as Record<string, unknown>).validDate as string);
+                              const legacyValidDate = (team as unknown as { validDate?: string }).validDate;
+                              const start = parseDate(team.validStartDate || legacyValidDate);
+                              const end = parseDate(team.validEndDate || legacyValidDate);
                               if (start && end && start !== end) return `${start}〜${end}`;
                               return start || '-';
                             } catch {
@@ -293,29 +260,32 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                   </tbody>
                 </table>
 
-                {/* 追加読み込みボタン */}
-                {!showDetailedView && (data?.teams || []).length > 15 && (
-                  <div className="bg-gray-50 px-6 py-4 text-center">
+                <div className="bg-gray-50 px-6 py-4 flex items-center justify-between gap-3">
+                  <p className="text-sm text-gray-600">
+                    {safeCurrentPage} / {totalPages} ページ
+                  </p>
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setShowDetailedView(true)}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safeCurrentPage <= 1}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      他 {(data?.teams || []).length - 15} チームを表示
+                      前へ
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (hasMore && !isLoadingMore) {
+                          loadMore();
+                        }
+                        setCurrentPage((p) => p + 1);
+                      }}
+                      disabled={safeCurrentPage >= totalPages && !hasMore}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      次へ
                     </button>
                   </div>
-                )}
-
-                {hasMore && (
-                  <div className="bg-gray-50 px-6 py-4 text-center">
-                  <button
-                    onClick={loadMore}
-                    disabled={isLoadingMore}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                  >
-                      {isLoadingMore ? <LoadingButtonLabel /> : 'さらに読み込む'}
-                  </button>
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </div>

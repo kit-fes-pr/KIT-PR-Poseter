@@ -8,7 +8,7 @@ type Member = {
   name: string;
   section: string;
   grade: number;
-  availableTime: 'morning' | 'afternoon' | 'both' | 'pr' | 'other';
+  availableTime: 'morning' | 'afternoon' | 'both' | 'other';
   source: 'form';
   teamId?: string;
   createdAt: Date;
@@ -45,16 +45,6 @@ export async function GET(request: NextRequest) {
       timeSlot: 'morning' | 'afternoon';
     });
 
-    // PR割り当て（teamIdのみ、formIdは不明）
-    const prSnap = await adminDb
-      .collection('prAssignments')
-      .where('year', '==', year)
-      .get();
-    const prAssignments = prSnap.docs.map(d => d.data() as {
-      responseId: string;
-      teamId: string;
-    });
-
     // formIdごとに responseId をまとめて responses をバルク取得
     const byForm: Record<string, Set<string>> = {};
     for (const a of assignments) {
@@ -85,21 +75,6 @@ export async function GET(request: NextRequest) {
       for (const s of snaps) if (s.exists) responseMap[s.id] = { formId, data: s.data() };
     }
 
-    // PR側の responseId を解決（eventId のフォームを横断し、未解決のIDだけを直接参照）
-    const unresolved = Array.from(new Set(prAssignments.map(a => a.responseId).filter(rid => !responseMap[rid])));
-    if (unresolved.length > 0) {
-      const eventId = `kohdai${year}`;
-      const formsSnap = await adminDb.collection('forms').where('eventId', '==', eventId).get();
-      const formIds = formsSnap.docs.map(d => d.id);
-      for (const formId of formIds) {
-        const still = unresolved.filter(rid => !responseMap[rid]);
-        if (still.length === 0) break;
-        const refs = still.map((rid) => adminDb.collection('forms').doc(formId).collection('responses').doc(rid));
-        const snaps = await getAllChunked(refs);
-        for (const s of snaps) if (s.exists) responseMap[s.id] = { formId, data: s.data() };
-      }
-    }
-
     // レコード生成（responseIdベースで重複排除）
     const memberMap = new Map<string, Member>();
 
@@ -115,26 +90,6 @@ export async function GET(request: NextRequest) {
         section: pd.section || '-',
         grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
         availableTime: normalizeAvailableTime(pd.availableTime, undefined),
-        source: 'form',
-        teamId: a.teamId,
-        createdAt: submittedAt,
-      });
-    }
-
-    // PR割り当て（未登録の responseId のみ追加）
-    for (const a of prAssignments) {
-      if (memberMap.has(a.responseId)) continue;
-      const rec = responseMap[a.responseId];
-      if (!rec) continue;
-      const pd = rec.data?.participantData || {};
-      const submittedAt = rec.data?.submittedAt?.toDate ? rec.data.submittedAt.toDate() : (rec.data?.submittedAt ? new Date(rec.data.submittedAt) : new Date());
-      memberMap.set(a.responseId, {
-        memberId: a.responseId,
-        name: pd.name || '-',
-        section: pd.section || '-',
-        grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
-        // PRは時間帯がないため 'pr' を既定に（pd.availableTime があれば正規化）
-        availableTime: normalizeAvailableTime(pd.availableTime, undefined, 'pr'),
         source: 'form',
         teamId: a.teamId,
         createdAt: submittedAt,

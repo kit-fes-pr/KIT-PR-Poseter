@@ -13,18 +13,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const eventId = searchParams.get('eventId');
-    if (!eventId) {
-      return NextResponse.json({ error: 'eventIdが必要です' }, { status: 400 });
-    }
-
-    const snap = await adminDb.collection('areas').where('eventId', '==', eventId).orderBy('areaCode').get();
-    const areas = snap.docs.map(doc => ({
+    const snap = await adminDb.collection('areas').get();
+    const areas = snap.docs.map((doc) => ({
       areaId: doc.id,
-      ...doc.data(),
+      ...(doc.data() as { areaCode?: string; areaName?: string; timeSlot?: string; description?: string; eventId?: string; createdAt?: { toDate?: () => Date } | Date }),
       createdAt: doc.data().createdAt?.toDate() || new Date()
-    }));
+    })).sort((a, b) => String(a.areaCode || '').localeCompare(String(b.areaCode || ''), 'ja'));
 
     return NextResponse.json({ areas });
   } catch (error) {
@@ -47,9 +41,9 @@ export async function POST(request: NextRequest) {
 
     const { areaCode, areaName, timeSlot, description, eventId } = await request.json();
 
-    if (!areaCode || !areaName || !timeSlot || !eventId) {
+    if (!areaCode || !areaName || !timeSlot) {
       return NextResponse.json({ 
-        error: 'areaCode, areaName, timeSlot, eventId は必須です' 
+        error: 'areaCode, areaName, timeSlot は必須です' 
       }, { status: 400 });
     }
 
@@ -61,7 +55,6 @@ export async function POST(request: NextRequest) {
 
     // 同じeventId内でareaCodeが重複していないかチェック
     const existingSnap = await adminDb.collection('areas')
-      .where('eventId', '==', eventId)
       .where('areaCode', '==', areaCode)
       .get();
 
@@ -76,7 +69,7 @@ export async function POST(request: NextRequest) {
       areaName,
       timeSlot,
       description: description || '',
-      eventId,
+      eventId: eventId || 'common',
       createdAt: new Date()
     };
 

@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
+import { getAvailabilityDisplayLabel, normalizeAvailableTime } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
+import { Area } from '@/types';
 
 interface Participant {
   responseId: string;
@@ -22,7 +24,8 @@ interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: 'morning' | 'afternoon' | 'both' | 'all' | 'pr' | 'other';
+  timeSlot: 'morning' | 'afternoon' | 'both' | 'other';
+  areaId?: string;
   assignedArea: string;
   adjacentAreas?: string[];
   maxMembers: number;
@@ -39,14 +42,6 @@ interface Assignment {
   timeSlot: 'morning' | 'afternoon';
 }
 
-interface PRAssignmentChoice {
-  responseId: string;
-  name: string;
-  section: string;
-  availability: string;
-  choice?: 'none';
-}
-
 export default function TeamAssignmentPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
@@ -54,6 +49,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   const [authLoading, setAuthLoading] = useState(true);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,15 +60,23 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     title: string;
     responseCount: number;
   }>>([]);
-  const [showPRModal, setShowPRModal] = useState(false);
-  const [prParticipants, setPrParticipants] = useState<PRAssignmentChoice[]>([]);
-  const [prChoices, setPrChoices] = useState<Record<string, 'none' | undefined>>({});
   const [showManualModal, setShowManualModal] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [manualAssignTeamId, setManualAssignTeamId] = useState<string>('');
   const [manualAssignLoading, setManualAssignLoading] = useState<boolean>(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('');
   const [includeOtherTeams, setIncludeOtherTeams] = useState<boolean>(false);
+  const [showCreateTeamForm, setShowCreateTeamForm] = useState(false);
+  const [createTeamSubmitting, setCreateTeamSubmitting] = useState(false);
+  const [createTeamForm, setCreateTeamForm] = useState({
+    teamCode: '',
+    teamName: '',
+    areaId: '',
+    timeSlot: 'both' as 'morning' | 'afternoon' | 'both' | 'other',
+    adjacentAreas: '',
+    validStartDate: '',
+    validEndDate: '',
+  });
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -116,6 +120,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
       // チーム一覧を取得
       await loadTeams();
+      await loadAreas();
 
       // 既存の割り当てを取得
       await loadAssignments();
@@ -150,10 +155,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     return '-';
   };
 
-  const isPRSection = (section: string) => {
-    if (!section) return false;
-    const s = section.toLowerCase();
-    return s.includes('pr') || section.includes('PR系') || section.includes('ピーアール');
+  const getAvailabilityLabel = (availability: string) => {
+    return getAvailabilityDisplayLabel(availability);
   };
 
   const loadTeams = async () => {
@@ -167,12 +170,93 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
       if (res.ok) {
         const data: { teams: Team[] } = await res.json();
-        // PRチームはこの画面では非表示
-        const onlyNonPR = (data.teams || []).filter((t: Team) => t.timeSlot !== 'pr');
-        setTeams(onlyNonPR);
+        setTeams(data.teams || []);
       }
     } catch (err) {
       console.error('チーム取得エラー:', err);
+    }
+  };
+
+  const loadAreas = async () => {
+    if (!resolvedParams || !user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/areas', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data: { areas: Area[] } = await res.json();
+        setAreas(data.areas || []);
+      }
+    } catch (err) {
+      console.error('配布区域取得エラー:', err);
+    }
+  };
+
+  const getAreaLabel = (area?: Area | null) => {
+    if (!area) return '-';
+    return `${area.areaName}（${area.areaCode}）`;
+  };
+
+  const getTeamAreaLabel = (team?: Team | null) => {
+    if (!team) return '-';
+    const matched = areas.find((area) => area.areaId === team.areaId || area.areaCode === team.assignedArea);
+    if (matched) return getAreaLabel(matched);
+    return team.assignedArea || '-';
+  };
+
+  const createTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resolvedParams || !user) return;
+    if (!createTeamForm.teamCode || !createTeamForm.teamName || !createTeamForm.areaId) {
+      setError('チームコード、チーム名、配布区域は必須です');
+      return;
+    }
+
+    try {
+      setCreateTeamSubmitting(true);
+      setError('');
+      const token = await user.getIdToken();
+      const selectedArea = areas.find((area) => area.areaId === createTeamForm.areaId);
+      const res = await fetch('/api/admin/teams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          teamCode: createTeamForm.teamCode,
+          teamName: createTeamForm.teamName,
+          timeSlot: createTeamForm.timeSlot,
+          areaId: createTeamForm.areaId,
+          assignedArea: selectedArea?.areaCode || '',
+          adjacentAreas: createTeamForm.adjacentAreas,
+          eventId: `kohdai${resolvedParams.year}`,
+          validStartDate: createTeamForm.validStartDate || undefined,
+          validEndDate: createTeamForm.validEndDate || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'チームの作成に失敗しました');
+
+      await loadTeams();
+      setCreateTeamForm({
+        teamCode: '',
+        teamName: '',
+        areaId: '',
+        timeSlot: 'both',
+        adjacentAreas: '',
+        validStartDate: '',
+        validEndDate: '',
+      });
+      setShowCreateTeamForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'チームの作成に失敗しました');
+    } finally {
+      setCreateTeamSubmitting(false);
     }
   };
 
@@ -181,22 +265,36 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`/api/forms/${formId}/responses`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      let fetchedAvailabilityOptions: string[] | null = null;
+      const [formRes, res] = await Promise.all([
+        fetch(`/api/forms/${formId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+        fetch(`/api/forms/${formId}/responses`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        }),
+      ]);
+
+      if (formRes.ok) {
+        const formData = await formRes.json();
+        const availabilityField = formData?.fields?.find((f: { fieldId: string; options?: string[] }) => f.fieldId === 'availability');
+        fetchedAvailabilityOptions = Array.isArray(availabilityField?.options) ? availabilityField.options : null;
+      } else {
+        fetchedAvailabilityOptions = null;
+      }
 
       if (res.ok) {
         const data = await res.json();
         const participantList = data.responses.map((response: {
           responseId: string;
-          participantData?: { name: string; grade: number; section: string; availableTime?: 'morning' | 'afternoon' | 'both' | 'pr' | 'other' };
+          participantData?: { name: string; grade: number; section: string; availableTime?: 'morning' | 'afternoon' | 'both' | 'other' };
           answers?: Array<{ fieldId: string; value: string }>;
           submittedAt: string | Date;
         }) => {
-          const raw = response.participantData?.availableTime
-            || response.answers?.find((a) => a.fieldId === 'availability')?.value
+          const raw = response.answers?.find((a) => a.fieldId === 'availability')?.value
+            || response.participantData?.availableTime
             || '';
-          const availability = normalizeAvailableTime(raw, undefined);
+          const availability = normalizeAvailableTime(raw, fetchedAvailabilityOptions);
 
           return {
             responseId: response.responseId,
@@ -207,7 +305,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             submittedAt: new Date(response.submittedAt),
           };
         });
-        setParticipants(participantList);
+        setParticipants(participantList.filter((participant: Participant) => participant.availability !== 'other'));
       }
     } catch (err) {
       setError('参加者データの取得に失敗しました');
@@ -246,30 +344,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       }
       const token = await user.getIdToken();
 
-      // PR系の選択を事前に確認（初回は全PR対象者を選択対象にする）
-      const prTargets = participants
-        .filter(p => isPRSection(p.section))
-        .map(p => ({ responseId: p.responseId, name: p.name, section: p.section, availability: p.availability }));
-
-      const needChoice = prTargets.filter(p => prChoices[p.responseId] !== 'none');
-      if (prTargets.length > 0 && needChoice.length > 0) {
-        setPrParticipants(prTargets);
-        setShowPRModal(true);
-        return;
-      }
-
-      // PR選択がある場合はそれを含める
-      const prChoicesList = Object.entries(prChoices).map(([responseId, choice]) => ({ responseId, choice }));
-
-      // PR選択結果を反映して送信データを作成
-      const participantsToAssign = participants
-        .filter(p => {
-          if (!isPRSection(p.section)) return true;
-          const c = prChoices[p.responseId];
-          if (c === 'none') return false; // 本部待機
-          return true;
-        });
-
       const res = await fetch('/api/admin/assignments/auto', {
         method: 'POST',
         headers: {
@@ -279,9 +353,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         body: JSON.stringify({
           year: resolvedParams?.year,
           formId: selectedForm,
-          participants: participantsToAssign,
+          participants,
           teams,
-          prChoices: prChoicesList,
           includeOther: includeOtherTeams,
         }),
       });
@@ -289,17 +362,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       if (res.ok) {
         const data = await res.json();
 
-        // PR選択が必要な場合
-        if (data.requiresPRChoice) {
-          setPrParticipants(data.prParticipants);
-          setShowPRModal(true);
-          return;
-        }
-
         setAssignments(data.assignments);
         setError('');
-        setShowPRModal(false);
-        setPrChoices({});
       } else {
         const errorData = await res.json();
         setError(errorData.error || '自動割り当てに失敗しました');
@@ -308,21 +372,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       setError('自動割り当てに失敗しました');
       console.error(err);
     }
-  };
-
-  const handlePRChoiceSubmit = () => {
-    // 全てのPR参加者が選択済みかチェック
-    const allChosen = prParticipants.every(p => prChoices[p.responseId]);
-
-    if (!allChosen) {
-      setError('全てのPR関連参加者の時間帯を選択してください');
-      return;
-    }
-
-    setShowPRModal(false);
-    setError('');
-    // 選択完了後、再度自動割り当てを実行
-    performAutoAssignment();
   };
 
   const clearAssignments = async () => {
@@ -450,33 +499,18 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                チーム割り当て管理 ({resolvedParams?.year}年度)
-              </h1>
-              <p className="mt-1 text-sm text-gray-600">
-                アンケート結果を基に参加者を配布区域チームに自動割り当てします
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/admin/event/${resolvedParams?.year}/team/pr`}
-                className="inline-flex items-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50"
-              >
-                PR配布日タブへ
-              </Link>
-              <Link
-                href={`/admin/event/${resolvedParams?.year}`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                イベント管理に戻る
-              </Link>
-            </div>
-          </div>
-        </div>
+        <YearPageSectionHeader
+          title={`チーム割り当て管理 (${resolvedParams?.year}年度)`}
+          description="アンケート結果を基に参加者を配布区域チームに自動割り当てします。"
+          actions={(
+            <Link
+              href={`/admin/event/${resolvedParams?.year}`}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              イベント管理へ戻る
+            </Link>
+          )}
+        />
 
         {/* エラー表示 */}
         {error && (
@@ -484,6 +518,112 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
+
+        {/* チーム作成 */}
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900">チーム作成</h2>
+              <p className="text-sm text-gray-500">配布区域を選んで、その区域へ配布するチームを作成します。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateTeamForm((prev) => !prev)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              {showCreateTeamForm ? 'フォームを閉じる' : 'チームを作成'}
+            </button>
+          </div>
+
+          {showCreateTeamForm && (
+            <form onSubmit={createTeam} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">チームコード *</label>
+                <input
+                  value={createTeamForm.teamCode}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, teamCode: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="A-01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">チーム名 *</label>
+                <input
+                  value={createTeamForm.teamName}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, teamName: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="本館前A班"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">配布区域 *</label>
+                <select
+                  value={createTeamForm.areaId}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, areaId: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">配布区域を選択</option>
+                  {areas.map((area) => (
+                    <option key={area.areaId} value={area.areaId}>
+                      {getAreaLabel(area)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">時間帯</label>
+                <select
+                  value={createTeamForm.timeSlot}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, timeSlot: e.target.value as 'morning' | 'afternoon' | 'both' | 'other' })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="morning">午前</option>
+                  <option value="afternoon">午後</option>
+                  <option value="both">両方</option>
+                  <option value="other">その他</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
+                <input
+                  value={createTeamForm.adjacentAreas}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, adjacentAreas: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="A-02, A-03"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">開始日</label>
+                  <input
+                    type="date"
+                    value={createTeamForm.validStartDate}
+                    onChange={(e) => setCreateTeamForm({ ...createTeamForm, validStartDate: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">終了日</label>
+                  <input
+                    type="date"
+                    value={createTeamForm.validEndDate}
+                    onChange={(e) => setCreateTeamForm({ ...createTeamForm, validEndDate: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={createTeamSubmitting || areas.length === 0}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {createTeamSubmitting ? '作成中...' : 'チームを作成'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
 
         {/* 設定セクション */}
         <div className="bg-white shadow rounded-lg p-6 mb-6">
@@ -667,9 +807,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       onChange={(e) => setSelectedTeamFilter(e.target.value)}
                       className="block w-48 px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
-                      <option value="">全ての班</option>
+                    <option value="">全ての班</option>
                       {teams.map((t) => (
-                        <option key={t.teamId} value={t.teamId}>{t.teamName || t.assignedArea}</option>
+                        <option key={t.teamId} value={t.teamId}>{t.teamName || getTeamAreaLabel(t)}</option>
                       ))}
                     </select>
                   </div>
@@ -713,7 +853,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {participant.availability}
+                          {getAvailabilityLabel(participant.availability)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(participant.submittedAt)}
@@ -722,7 +862,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           {assignment && team ? (
                             <div className="text-sm">
                               <div className="font-medium text-gray-900">{team.teamName}</div>
-                              <div className="text-gray-500">{team.assignedArea}</div>
+                              <div className="text-gray-500">{getTeamAreaLabel(team)}</div>
                               <div className="text-gray-400 text-xs">アクセス可能日: {formatTeamPeriod(team)}</div>
                               <div className="flex space-x-2 mt-1">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.assignedBy === 'auto'
@@ -780,75 +920,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           </div>
         )}
 
-        {/* PR選択モーダル */}
-        {showPRModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    PR関連参加者の時間帯選択
-                  </h3>
-                  <button
-                    onClick={() => setShowPRModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                <p className="text-sm text-gray-600 mb-4">
-                  PR関連セクションの参加者は重複を避けるため、担当する時間帯を選択してください。
-                </p>
-
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {prParticipants.map(participant => (
-                    <div key={participant.responseId} className="border rounded-lg p-4">
-                      <div className="mb-3">
-                        <div className="font-medium text-gray-900">{participant.name}</div>
-                        <div className="text-sm text-gray-500">{participant.section}</div>
-                      </div>
-
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name={`pr-choice-${participant.responseId}`}
-                  checked={prChoices[participant.responseId] === 'none'}
-                  onChange={(e) => setPrChoices(prev => ({
-                    ...prev,
-                    [participant.responseId]: e.target.checked ? 'none' : undefined
-                  }))}
-                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">本部待機（配布担当なし）にする</span>
-              </label>
-            </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    onClick={() => setShowPRModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={handlePRChoiceSubmit}
-                    className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-                  >
-                    選択を確定して割り当て実行
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* 手動割り当てモーダル */}
         {showManualModal && selectedParticipant && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -871,15 +942,15 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   </button>
                 </div>
 
-                <div className="mb-4">
-                  <div className="font-medium text-gray-900">{selectedParticipant.name}</div>
-                  <div className="text-sm text-gray-500">
-                    {selectedParticipant.grade}年 - {selectedParticipant.section}
+                  <div className="mb-4">
+                    <div className="font-medium text-gray-900">{selectedParticipant.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {selectedParticipant.grade}年 - {selectedParticipant.section}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      希望時間帯: {getAvailabilityLabel(selectedParticipant.availability)}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    希望時間帯: {selectedParticipant.availability}
-                  </div>
-                </div>
 
                 <div className="space-y-4">
                   <div>
@@ -890,7 +961,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       <option value="">チームを選択</option>
                       {teams.map(team => (
                         <option key={team.teamId} value={team.teamId}>
-                          {team.teamName} - {team.assignedArea}（{formatTeamPeriod(team)}）(最大{team.maxMembers || 10}人)
+                          {team.teamName} - {getTeamAreaLabel(team)}（{formatTeamPeriod(team)}）(最大{team.maxMembers || 10}人)
                         </option>
                       ))}
                     </select>
@@ -917,12 +988,19 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         const token = await user!.getIdToken();
                         // 時間帯の自動決定
                         const team = teams.find(t => t.teamId === manualAssignTeamId);
+                        const teamAssignments = assignments.filter(a => a.teamId === manualAssignTeamId);
+                        const teamMorningCount = teamAssignments.filter(a => a.timeSlot === 'morning').length;
+                        const teamAfternoonCount = teamAssignments.filter(a => a.timeSlot === 'afternoon').length;
+                        const hash = Array.from(selectedParticipant.responseId).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
                         let ts: 'morning' | 'afternoon' = 'morning';
                         if (team?.timeSlot === 'morning') ts = 'morning';
                         else if (team?.timeSlot === 'afternoon') ts = 'afternoon';
+                        else if (selectedParticipant.availability === 'morning') ts = 'morning';
+                        else if (selectedParticipant.availability === 'afternoon') ts = 'afternoon';
+                        else if (teamMorningCount < teamAfternoonCount) ts = 'morning';
+                        else if (teamAfternoonCount < teamMorningCount) ts = 'afternoon';
                         else {
-                          // both/all or other -> 参加者の希望に合わせる（午後希望優先）
-                          ts = (selectedParticipant.availability === 'afternoon') ? 'afternoon' : 'morning';
+                          ts = hash % 2 === 0 ? 'morning' : 'afternoon';
                         }
                         const res = await fetch('/api/admin/assignments', {
                           method: 'POST',

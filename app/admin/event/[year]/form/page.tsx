@@ -8,6 +8,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { SurveyForm } from '@/types/forms';
 import { formatDateOnly } from '@/lib/utils/dateUtils';
 import { LoadingInline } from '@/components/ui/Loading';
+import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 
 interface FormWithStats extends SurveyForm {
   responseCount: number;
@@ -146,31 +147,26 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between sm:flex-row flex-col space-y-2">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                フォーム管理 ({resolvedParams?.year}年度)
-              </h1>
-              <p className="mt-1 text-sm text-gray-600">
-                アンケートフォームの作成・編集・管理を行います
-              </p>
-            </div>
-            <Link
-              href={`/admin/event/${resolvedParams?.year}`}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              イベント管理に戻る
-            </Link>
-            <Link
-              href={`/admin/event/${resolvedParams?.year}/form/new`}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              新しいフォームを作成
-            </Link>
-          </div>
-        </div>
+        <YearPageSectionHeader
+          title={`フォーム管理 (${resolvedParams?.year}年度)`}
+          description="アンケートフォームの作成・編集・管理を行います"
+          actions={(
+            <>
+              <Link
+                href={`/admin/event/${resolvedParams?.year}`}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                イベント管理に戻る
+              </Link>
+              <Link
+                href={`/admin/event/${resolvedParams?.year}/form/new`}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                新しいフォームを作成
+              </Link>
+            </>
+          )}
+        />
 
         {/* エラー表示 */}
         {error && (

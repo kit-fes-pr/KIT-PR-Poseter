@@ -125,6 +125,11 @@ export async function GET(
       };
     });
 
+    const areasCountSnapshot = await adminDb.collection('areas')
+      .count()
+      .get()
+      .then(snapshot => snapshot.data().count);
+
     // エリア別統計
     const areaStats = teams.reduce((acc, team) => {
       const area = String((team as Record<string, unknown>).assignedArea || '未設定');
@@ -147,6 +152,7 @@ export async function GET(
       stats: {
         totalTeams: teams.length,
         totalMembers: memberStats.totalMembers,
+        totalAreas: areasCountSnapshot,
         byArea: areaStats,
         teamStats: teamStats
       },

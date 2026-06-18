@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
+const VALID_TIME_SLOTS = ['morning', 'afternoon', 'both', 'other'] as const;
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ teamId: string }> }
@@ -87,7 +89,15 @@ export async function PATCH(
     if (typeof body.teamName === 'string') update.teamName = body.teamName;
     if (typeof body.teamCode === 'string') update.teamCode = body.teamCode;
     if (typeof body.assignedArea === 'string') update.assignedArea = body.assignedArea;
-    if (typeof body.timeSlot === 'string') update.timeSlot = body.timeSlot;
+    if (typeof body.timeSlot === 'string') {
+      if (!VALID_TIME_SLOTS.includes(body.timeSlot)) {
+        return NextResponse.json(
+          { error: 'timeSlot は morning/afternoon/both/other のいずれかです' },
+          { status: 400 }
+        );
+      }
+      update.timeSlot = body.timeSlot;
+    }
     if (typeof body.isActive === 'boolean') update.isActive = body.isActive;
     if (Array.isArray(body.adjacentAreas)) update.adjacentAreas = body.adjacentAreas;
     if (typeof body.adjacentAreas === 'string') update.adjacentAreas = body.adjacentAreas.split(',').map((s: string) => s.trim());
