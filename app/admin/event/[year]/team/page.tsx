@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/utils/dateUtils';
 import { getAvailabilityDisplayLabel, normalizeAvailableTime } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
+import { Area } from '@/types';
 
 interface Participant {
   responseId: string;
@@ -24,6 +25,7 @@ interface Team {
   teamCode: string;
   teamName: string;
   timeSlot: 'morning' | 'afternoon' | 'both' | 'other';
+  areaId?: string;
   assignedArea: string;
   adjacentAreas?: string[];
   maxMembers: number;
@@ -47,6 +49,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   const [authLoading, setAuthLoading] = useState(true);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -63,6 +66,17 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   const [manualAssignLoading, setManualAssignLoading] = useState<boolean>(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('');
   const [includeOtherTeams, setIncludeOtherTeams] = useState<boolean>(false);
+  const [showCreateTeamForm, setShowCreateTeamForm] = useState(false);
+  const [createTeamSubmitting, setCreateTeamSubmitting] = useState(false);
+  const [createTeamForm, setCreateTeamForm] = useState({
+    teamCode: '',
+    teamName: '',
+    areaId: '',
+    timeSlot: 'both' as 'morning' | 'afternoon' | 'both' | 'other',
+    adjacentAreas: '',
+    validStartDate: '',
+    validEndDate: '',
+  });
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -106,6 +120,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
       // チーム一覧を取得
       await loadTeams();
+      await loadAreas();
 
       // 既存の割り当てを取得
       await loadAssignments();
@@ -159,6 +174,89 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       }
     } catch (err) {
       console.error('チーム取得エラー:', err);
+    }
+  };
+
+  const loadAreas = async () => {
+    if (!resolvedParams || !user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/areas', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data: { areas: Area[] } = await res.json();
+        setAreas(data.areas || []);
+      }
+    } catch (err) {
+      console.error('配布区域取得エラー:', err);
+    }
+  };
+
+  const getAreaLabel = (area?: Area | null) => {
+    if (!area) return '-';
+    return `${area.areaName}（${area.areaCode}）`;
+  };
+
+  const getTeamAreaLabel = (team?: Team | null) => {
+    if (!team) return '-';
+    const matched = areas.find((area) => area.areaId === team.areaId || area.areaCode === team.assignedArea);
+    if (matched) return getAreaLabel(matched);
+    return team.assignedArea || '-';
+  };
+
+  const createTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resolvedParams || !user) return;
+    if (!createTeamForm.teamCode || !createTeamForm.teamName || !createTeamForm.areaId) {
+      setError('チームコード、チーム名、配布区域は必須です');
+      return;
+    }
+
+    try {
+      setCreateTeamSubmitting(true);
+      setError('');
+      const token = await user.getIdToken();
+      const selectedArea = areas.find((area) => area.areaId === createTeamForm.areaId);
+      const res = await fetch('/api/admin/teams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          teamCode: createTeamForm.teamCode,
+          teamName: createTeamForm.teamName,
+          timeSlot: createTeamForm.timeSlot,
+          areaId: createTeamForm.areaId,
+          assignedArea: selectedArea?.areaCode || '',
+          adjacentAreas: createTeamForm.adjacentAreas,
+          eventId: `kohdai${resolvedParams.year}`,
+          validStartDate: createTeamForm.validStartDate || undefined,
+          validEndDate: createTeamForm.validEndDate || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'チームの作成に失敗しました');
+
+      await loadTeams();
+      setCreateTeamForm({
+        teamCode: '',
+        teamName: '',
+        areaId: '',
+        timeSlot: 'both',
+        adjacentAreas: '',
+        validStartDate: '',
+        validEndDate: '',
+      });
+      setShowCreateTeamForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'チームの作成に失敗しました');
+    } finally {
+      setCreateTeamSubmitting(false);
     }
   };
 
@@ -421,6 +519,112 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           </div>
         )}
 
+        {/* チーム作成 */}
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900">チーム作成</h2>
+              <p className="text-sm text-gray-500">配布区域を選んで、その区域へ配布するチームを作成します。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateTeamForm((prev) => !prev)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              {showCreateTeamForm ? 'フォームを閉じる' : 'チームを作成'}
+            </button>
+          </div>
+
+          {showCreateTeamForm && (
+            <form onSubmit={createTeam} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">チームコード *</label>
+                <input
+                  value={createTeamForm.teamCode}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, teamCode: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="A-01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">チーム名 *</label>
+                <input
+                  value={createTeamForm.teamName}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, teamName: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="本館前A班"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">配布区域 *</label>
+                <select
+                  value={createTeamForm.areaId}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, areaId: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">配布区域を選択</option>
+                  {areas.map((area) => (
+                    <option key={area.areaId} value={area.areaId}>
+                      {getAreaLabel(area)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">時間帯</label>
+                <select
+                  value={createTeamForm.timeSlot}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, timeSlot: e.target.value as 'morning' | 'afternoon' | 'both' | 'other' })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="morning">午前</option>
+                  <option value="afternoon">午後</option>
+                  <option value="both">両方</option>
+                  <option value="other">その他</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
+                <input
+                  value={createTeamForm.adjacentAreas}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, adjacentAreas: e.target.value })}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="A-02, A-03"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">開始日</label>
+                  <input
+                    type="date"
+                    value={createTeamForm.validStartDate}
+                    onChange={(e) => setCreateTeamForm({ ...createTeamForm, validStartDate: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">終了日</label>
+                  <input
+                    type="date"
+                    value={createTeamForm.validEndDate}
+                    onChange={(e) => setCreateTeamForm({ ...createTeamForm, validEndDate: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={createTeamSubmitting || areas.length === 0}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {createTeamSubmitting ? '作成中...' : 'チームを作成'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
         {/* 設定セクション */}
         <div className="bg-white shadow rounded-lg p-6 mb-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">割り当て設定</h2>
@@ -603,9 +807,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       onChange={(e) => setSelectedTeamFilter(e.target.value)}
                       className="block w-48 px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
-                      <option value="">全ての班</option>
+                    <option value="">全ての班</option>
                       {teams.map((t) => (
-                        <option key={t.teamId} value={t.teamId}>{t.teamName || t.assignedArea}</option>
+                        <option key={t.teamId} value={t.teamId}>{t.teamName || getTeamAreaLabel(t)}</option>
                       ))}
                     </select>
                   </div>
@@ -658,7 +862,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           {assignment && team ? (
                             <div className="text-sm">
                               <div className="font-medium text-gray-900">{team.teamName}</div>
-                              <div className="text-gray-500">{team.assignedArea}</div>
+                              <div className="text-gray-500">{getTeamAreaLabel(team)}</div>
                               <div className="text-gray-400 text-xs">アクセス可能日: {formatTeamPeriod(team)}</div>
                               <div className="flex space-x-2 mt-1">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.assignedBy === 'auto'
@@ -757,7 +961,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       <option value="">チームを選択</option>
                       {teams.map(team => (
                         <option key={team.teamId} value={team.teamId}>
-                          {team.teamName} - {team.assignedArea}（{formatTeamPeriod(team)}）(最大{team.maxMembers || 10}人)
+                          {team.teamName} - {getTeamAreaLabel(team)}（{formatTeamPeriod(team)}）(最大{team.maxMembers || 10}人)
                         </option>
                       ))}
                     </select>

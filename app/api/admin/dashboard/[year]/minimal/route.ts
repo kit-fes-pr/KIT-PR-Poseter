@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { FirestoreCache } from '@/lib/utils/server-cache';
+import { FirestoreCache, ServerCache } from '@/lib/utils/server-cache';
 import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
 
-/**
- * 超軽量ダッシュボードAPI - 最小限データで超高速初期表示
- * 目標: 200ms以下でレスポンス
- */
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ year: string }> }
@@ -43,7 +39,7 @@ export async function GET(
     // キャッシュされた最小限データを取得
     const minimalData = await FirestoreCache.getCachedMinimalData(yearNum, async () => {
       // 超並列クエリ（カウントのみで高速化）
-      const [eventSnapshot, teamsCountSnapshot, membersCountSnapshot] = await Promise.all([
+      const [eventSnapshot, teamsCountSnapshot, membersCountSnapshot, areasCountSnapshot] = await Promise.all([
         // イベント情報（1件のみ）
         adminDb.collection('distributionEvents')
           .where('year', '==', yearNum)
@@ -66,6 +62,15 @@ export async function GET(
             .count()
             .get()
             .then(snapshot => snapshot.data().count)
+        ),
+
+        // 配布区域数（共通）
+        ServerCache.getOrSet('firestore:areas:global:count', () =>
+          adminDb.collection('areas')
+            .count()
+            .get()
+            .then(snapshot => snapshot.data().count),
+          5 * 60 * 1000
         )
       ]);
 
@@ -85,17 +90,18 @@ export async function GET(
       return {
         event,
         totalTeams: teamsCountSnapshot,
-        totalMembers: membersCountSnapshot
+        totalMembers: membersCountSnapshot,
+        totalAreas: areasCountSnapshot
       };
     });
 
-    const { event, totalTeams, totalMembers } = minimalData as { event: unknown; totalTeams: number; totalMembers: number };
+    const { event, totalTeams, totalMembers, totalAreas } = minimalData as { event: unknown; totalTeams: number; totalMembers: number; totalAreas: number };
 
     // 最小限の統計
     const minimalStats = {
       totalTeams,
       totalMembers,
-      totalAreas: 0, // 後で更新
+      totalAreas,
       isMinimal: true // 最小限データであることを示す
     };
 

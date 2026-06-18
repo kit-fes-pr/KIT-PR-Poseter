@@ -17,9 +17,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { areaId } = resolvedParams;
     const { areaCode, areaName, timeSlot, description, eventId } = await request.json();
 
-    if (!areaCode || !areaName || !timeSlot || !eventId) {
+    if (!areaCode || !areaName || !timeSlot) {
       return NextResponse.json({ 
-        error: 'areaCode, areaName, timeSlot, eventId は必須です' 
+        error: 'areaCode, areaName, timeSlot は必須です' 
       }, { status: 400 });
     }
 
@@ -35,10 +35,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!areaDoc.exists) {
       return NextResponse.json({ error: '指定された配布区域が見つかりません' }, { status: 404 });
     }
+    const currentArea = areaDoc.data() as Record<string, unknown>;
 
-    // 同じeventId内で他の区域がareaCodeを使用していないかチェック
+    // 区域コードは全体で一意にする
     const existingSnap = await adminDb.collection('areas')
-      .where('eventId', '==', eventId)
       .where('areaCode', '==', areaCode)
       .get();
 
@@ -54,11 +54,32 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       areaName,
       timeSlot,
       description: description || '',
-      eventId,
+      eventId: eventId || 'common',
       updatedAt: new Date()
     };
 
     await areaRef.update(updateData);
+
+    const previousAreaCode = String(currentArea.areaCode || '');
+    if (previousAreaCode !== areaCode) {
+      const teamsSnap = await adminDb.collection('teams').get();
+      const batch = adminDb.batch();
+      let touched = 0;
+      teamsSnap.docs.forEach((teamDoc) => {
+        const teamData = teamDoc.data() as Record<string, unknown>;
+        if (String(teamData.areaId || '') === areaId || String(teamData.assignedArea || '') === previousAreaCode) {
+          batch.update(teamDoc.ref, {
+            areaId,
+            assignedArea: areaCode,
+            updatedAt: new Date(),
+          });
+          touched++;
+        }
+      });
+      if (touched > 0) {
+        await batch.commit();
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -89,8 +110,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: '指定された配布区域が見つかりません' }, { status: 404 });
     }
 
-    // TODO: 将来的に、この区域に関連する店舗やチームがある場合の確認を追加
-
+    const currentArea = areaDoc.data() as Record<string, unknown>;
+    const teamsSnap = await adminDb.collection('teams').get();
+    const linkedTeams = teamsSnap.docs.filter((teamDoc) => {
+      const teamData = teamDoc.data() as Record<string, unknown>;
+      return String(teamData.areaId || '') === areaId || String(teamData.assignedArea || '') === String(currentArea.areaCode || '');
+    });
+    if (linkedTeams.length > 0) {
+      return NextResponse.json({ error: 'この配布区域に紐づくチームがあるため削除できません' }, { status: 400 });
+    }
     await areaRef.delete();
 
     return NextResponse.json({ success: true });

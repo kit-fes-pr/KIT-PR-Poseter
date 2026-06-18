@@ -130,7 +130,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 value: data?.stats?.totalAreas || 0,
                 icon: '📍',
                 color: 'purple',
-                href: `/admin/event/${year}/areas`
+                href: `/admin/event/areas`
               }
             ].map((stat, index) => (
               <div

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
 
 const fetcher = async (url: string) => {
@@ -16,6 +16,7 @@ const fetcher = async (url: string) => {
 export default function AdminEventIndex() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [events, setEvents] = useState<Record<string, unknown>[]>([]);
   const [latest, setLatest] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +57,7 @@ export default function AdminEventIndex() {
   // Firebase認証状態を監視
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
       if (!user) {
         // ログアウト状態の場合はadminページにリダイレクト
         localStorage.removeItem('authToken');
@@ -68,19 +70,34 @@ export default function AdminEventIndex() {
 
   useEffect(() => {
     const init = async () => {
-      const token = localStorage.getItem('authToken');
-      if (!token) return router.push('/admin');
+      if (!currentUser) return;
       try {
+        const token = await currentUser.getIdToken();
         const v = await fetch('/api/auth/verify', { headers: { Authorization: `Bearer ${token}` } });
-        if (!v.ok) throw new Error('unauthorized');
+        if (!v.ok) {
+          localStorage.removeItem('authToken');
+          router.push('/admin');
+          return;
+        }
         const data = await v.json();
-        if (!data?.user?.isAdmin) throw new Error('forbidden');
+        if (!data?.user?.isAdmin) {
+          localStorage.removeItem('authToken');
+          router.push('/admin');
+          return;
+        }
         setIsAdmin(true);
-        const { events, latest } = await fetcher('/api/admin/events');
+        localStorage.setItem('authToken', token);
+        const { events, latest } = await fetch('/api/admin/events', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(async (res) => {
+          if (!res.ok) {
+            throw new Error('認証が必要です');
+          }
+          return res.json();
+        });
         setEvents(events || []);
         setLatest(latest || null);
-      } catch (error) {
-        console.error('エラー内容:', error);
+      } catch {
         localStorage.removeItem('authToken');
         router.push('/admin');
       } finally {
@@ -88,7 +105,7 @@ export default function AdminEventIndex() {
       }
     };
     init();
-  }, [router]);
+  }, [currentUser, router]);
 
   if (!isAdmin) return null;
 
@@ -101,6 +118,12 @@ export default function AdminEventIndex() {
               <h1 className="text-xl font-semibold">学外配布年度管理</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.push('/admin/event/areas')}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
+              >
+                配布区域管理
+              </button>
               <button
                 onClick={() => setIsCreating(true)}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
@@ -176,6 +199,7 @@ export default function AdminEventIndex() {
                         {menuEventId === ev.id && (
                           <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-md z-10">
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push(`/admin/event/${ev.year}`); setMenuEventId(null); }}>開く</button>
+                            <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push('/admin/event/areas'); setMenuEventId(null); }}>配布区域</button>
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
                               setEditTarget(ev);
                               const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);

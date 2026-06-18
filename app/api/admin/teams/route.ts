@@ -118,6 +118,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const eventIdParam = searchParams.get('eventId');
     const yearParam = searchParams.get('year');
+    const scope = searchParams.get('scope');
+
+    if (scope === 'all') {
+      const teamsSnapshot = await adminDb.collection('teams')
+        .where('isActive', '==', true)
+        .get();
+
+      const teams = teamsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      return NextResponse.json({ teams });
+    }
 
     let targetEventId = eventIdParam || 'kohdai2025';
     if (!eventIdParam && yearParam) {
