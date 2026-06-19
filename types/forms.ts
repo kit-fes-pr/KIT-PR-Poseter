@@ -73,6 +73,7 @@ export interface ParticipantSurveyResponse extends FormResponse {
     section: string;  // 所属セクション
     grade: number;    // 学年
     availableTime: 'morning' | 'afternoon' | 'both' | 'other';  // 参加可能時間帯
+    availableSlots?: string[];  // 参加可能日時の複数選択
   };
 }
 

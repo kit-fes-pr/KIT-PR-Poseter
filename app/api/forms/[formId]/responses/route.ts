@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
+import {
+  deriveLegacyAvailableTimeFromSlots,
+  normalizeAvailabilitySlots,
+  validateAvailabilitySelection,
+} from '@/lib/utils/availability';
 
 export async function GET(
   request: NextRequest,
@@ -122,9 +126,24 @@ export async function POST(
       if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
       }
+
+      if (gradeNum === 4 && participantData.section !== '4年') {
+        participantValidationErrors.push('4年生の場合、所属セクションは4年である必要があります');
+      }
+
+      if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
+        participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
+      }
       
-      if (!participantData.availableTime || !['morning', 'afternoon', 'both', 'other'].includes(participantData.availableTime)) {
-        participantValidationErrors.push('参加可能時間帯は必須です');
+      const availableSlots = normalizeAvailabilitySlots(participantData.availableSlots ?? participantData.availableTime);
+      if (availableSlots.length === 0) {
+        participantValidationErrors.push('参加可能日時は一つ以上選択してください');
+      }
+      const availabilitySelectionError = validateAvailabilitySelection(
+        participantData.availableSlots ?? participantData.availableTime
+      );
+      if (availabilitySelectionError) {
+        participantValidationErrors.push(availabilitySelectionError);
       }
       
       if (participantValidationErrors.length > 0) {
@@ -225,13 +244,22 @@ export async function POST(
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
     
     if (participantData) {
-      // 安定キーに正規化（クライアントからの値がラベルでも崩れないように）
-      const availabilityField = formData.fields.find((f) => f.fieldId === 'availability');
-      const normalized = normalizeAvailableTime(
-        participantData.availableTime ||
-          (answers.find((a: FormAnswer) => a.fieldId === 'availability')?.value as unknown),
-        availabilityField?.options
+      const availableSlots = normalizeAvailabilitySlots(
+        participantData.availableSlots ?? participantData.availableTime ??
+          (answers.find((a: FormAnswer) => a.fieldId === 'availability')?.value as unknown)
       );
+      const availabilitySelectionError = validateAvailabilitySelection(
+        participantData.availableSlots ??
+          participantData.availableTime ??
+          (answers.find((a: FormAnswer) => a.fieldId === 'availability')?.value as unknown)
+      );
+      if (availabilitySelectionError) {
+        return NextResponse.json(
+          { error: '参加者情報の入力エラーがあります', details: [availabilitySelectionError] },
+          { status: 400 }
+        );
+      }
+      const normalized = deriveLegacyAvailableTimeFromSlots(availableSlots);
       responseData = {
         formId: resolvedParams.formId,
         answers: answers.map((answer: FormAnswer) => ({
@@ -245,6 +273,7 @@ export async function POST(
           section: participantData.section,
           grade: parseInt(participantData.grade),
           availableTime: normalized,
+          availableSlots,
         },
       } as Omit<ParticipantSurveyResponse, 'responseId'>;
     } else {

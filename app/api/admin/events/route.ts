@@ -1,5 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { DEFAULT_TIME_ZONE } from '@/lib/utils/dateUtils';
+
+function formatDateOnlyInTimeZone(value: Date, timeZone = DEFAULT_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+
+  const year = parts.find((part) => part.type === 'year')?.value || '';
+  const month = parts.find((part) => part.type === 'month')?.value || '';
+  const day = parts.find((part) => part.type === 'day')?.value || '';
+  return `${year}-${month}-${day}`;
+}
+
+function serializeDateOnlyValue(value: unknown, timeZone = DEFAULT_TIME_ZONE): string | unknown {
+  if (!value) return value;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return formatDateOnlyInTimeZone(value, timeZone);
+  if (typeof value === 'number') return formatDateOnlyInTimeZone(new Date(value), timeZone);
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return formatDateOnlyInTimeZone((value as { toDate: () => Date }).toDate(), timeZone);
+  }
+  return value;
+}
+
+function serializeEventDoc(id: string, data: Record<string, unknown>) {
+  const timeZone = (data.distributionTimeZone as string) || DEFAULT_TIME_ZONE;
+  const createdAt = data.createdAt instanceof Date
+    ? data.createdAt.toISOString()
+    : serializeDateOnlyValue(data.createdAt, timeZone);
+  const updatedAt = data.updatedAt instanceof Date
+    ? data.updatedAt.toISOString()
+    : serializeDateOnlyValue(data.updatedAt, timeZone);
+  return {
+    id,
+    ...data,
+    distributionTimeZone: timeZone,
+    createdAt,
+    updatedAt,
+    distributionDate: serializeDateOnlyValue(data.distributionDate, timeZone),
+    distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
+    distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,14 +72,14 @@ export async function GET(request: NextRequest) {
         .get();
       if (snap.empty) return NextResponse.json({ data: null });
       const d = snap.docs[0];
-      return NextResponse.json({ data: { id: d.id, ...(d.data() as Record<string, unknown>) } });
+      return NextResponse.json({ data: serializeEventDoc(d.id, d.data() as Record<string, unknown>) });
     }
 
     const snap = await adminDb
       .collection('distributionEvents')
       .orderBy('year', 'desc')
       .get();
-    const events = snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
+    const events = snap.docs.map(d => serializeEventDoc(d.id, d.data() as Record<string, unknown>));
     const latest = events[0] || null;
     return NextResponse.json({ events, latest });
   } catch (error) {
@@ -55,7 +101,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { year, eventName, distributionDate, distributionStartDate, distributionEndDate, eventId } = await request.json();
+    const { year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, eventId } = await request.json();
 
     if (!year || (!distributionDate && !distributionStartDate)) {
       return NextResponse.json({ error: '年度と配布日（開始日）を入力してください' }, { status: 400 });
@@ -79,20 +125,22 @@ export async function POST(request: NextRequest) {
     const id = eventId || `kohdai${y}`;
     const docRef = adminDb.collection('distributionEvents').doc(id);
 
-    const startDateStr = distributionStartDate || distributionDate;
-    const endDateStr = distributionEndDate || distributionDate || distributionStartDate;
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    const timeZone = typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
+      ? distributionTimeZone.trim()
+      : DEFAULT_TIME_ZONE;
+    const startDateStr = String(distributionStartDate || distributionDate || '').trim();
+    const endDateStr = String(distributionEndDate || distributionDate || distributionStartDate || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
       return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
     }
 
     const payload = {
       eventId: id,
       eventName: eventName || `工大祭${y}`,
-      distributionDate: start, // 後方互換
-      distributionStartDate: start,
-      distributionEndDate: end,
+      distributionDate: startDateStr, // 後方互換
+      distributionStartDate: startDateStr,
+      distributionEndDate: endDateStr,
+      distributionTimeZone: timeZone,
       year: y,
       isActive: true,
       createdAt: new Date(),
@@ -100,7 +148,15 @@ export async function POST(request: NextRequest) {
     };
 
     await docRef.set(payload, { merge: false });
-    return NextResponse.json({ success: true, data: { id, ...payload } });
+    return NextResponse.json({
+      success: true,
+      data: {
+        id,
+        ...payload,
+        createdAt: payload.createdAt.toISOString(),
+        updatedAt: payload.updatedAt.toISOString(),
+      }
+    });
   } catch (error) {
     console.error('Create event error:', error);
     return NextResponse.json({ error: 'イベントの作成に失敗しました' }, { status: 500 });
@@ -119,7 +175,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { id, year, eventName, distributionDate, distributionStartDate, distributionEndDate, isActive } = await request.json();
+    const { id, year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, isActive } = await request.json();
     if (!id && !year) {
       return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
     }
@@ -134,21 +190,27 @@ export async function PATCH(request: NextRequest) {
       docRef = snap.docs[0].ref;
     }
 
-    const update: Record<string, unknown> = { updatedAt: new Date() };
+    const timeZone = typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
+      ? distributionTimeZone.trim()
+      : DEFAULT_TIME_ZONE;
+    const update: Record<string, unknown> = { updatedAt: new Date(), distributionTimeZone: timeZone };
     if (typeof eventName === 'string') update.eventName = eventName;
     if (typeof isActive === 'boolean') update.isActive = isActive;
     // 単日（distributionDate）と期間（distributionStartDate, distributionEndDate）の両対応
     if (distributionStartDate || distributionEndDate || distributionDate) {
-      const startDateStr = distributionStartDate || distributionDate;
-      const endDateStr = distributionEndDate || distributionDate || distributionStartDate;
-      if (startDateStr) update.distributionStartDate = new Date(startDateStr);
-      if (endDateStr) update.distributionEndDate = new Date(endDateStr);
-      if (startDateStr) update.distributionDate = new Date(startDateStr); // 後方互換
+      const startDateStr = String(distributionStartDate || distributionDate || '').trim();
+      const endDateStr = String(distributionEndDate || distributionDate || distributionStartDate || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
+        return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
+      }
+      update.distributionStartDate = startDateStr;
+      update.distributionEndDate = endDateStr;
+      update.distributionDate = startDateStr; // 後方互換
     }
 
     await docRef.update(update);
     const doc = await docRef.get();
-    return NextResponse.json({ success: true, data: { id: doc.id, ...(doc.data() as Record<string, unknown>) } });
+    return NextResponse.json({ success: true, data: serializeEventDoc(doc.id, doc.data() as Record<string, unknown>) });
   } catch (error) {
     console.error('Update event error:', error);
     return NextResponse.json({ error: 'イベントの更新に失敗しました' }, { status: 500 });

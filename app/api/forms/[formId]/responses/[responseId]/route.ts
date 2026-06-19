@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
+import {
+  deriveLegacyAvailableTimeFromSlots,
+  normalizeAvailabilitySlots,
+  validateAvailabilitySelection,
+} from '@/lib/utils/availability';
 
 export async function PATCH(
   request: NextRequest,
@@ -84,9 +89,24 @@ export async function PATCH(
       if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
       }
+
+      if (gradeNum === 4 && participantData.section !== '4年') {
+        participantValidationErrors.push('4年生の場合、所属セクションは4年である必要があります');
+      }
+
+      if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
+        participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
+      }
       
-      if (!participantData.availableTime || !['morning', 'afternoon', 'both', 'other'].includes(participantData.availableTime)) {
-        participantValidationErrors.push('参加可能時間帯は必須です');
+      const availableSlots = normalizeAvailabilitySlots(participantData.availableSlots ?? participantData.availableTime);
+      if (availableSlots.length === 0) {
+        participantValidationErrors.push('参加可能日時は一つ以上選択してください');
+      }
+      const availabilitySelectionError = validateAvailabilitySelection(
+        participantData.availableSlots ?? participantData.availableTime
+      );
+      if (availabilitySelectionError) {
+        participantValidationErrors.push(availabilitySelectionError);
       }
       
       if (participantValidationErrors.length > 0) {
@@ -187,6 +207,18 @@ export async function PATCH(
     let updateData: { [key: string]: any };
     
     if (participantData) {
+      const availableSlots = normalizeAvailabilitySlots(
+        participantData.availableSlots ?? participantData.availableTime
+      );
+      const availabilitySelectionError = validateAvailabilitySelection(
+        participantData.availableSlots ?? participantData.availableTime
+      );
+      if (availabilitySelectionError) {
+        return NextResponse.json(
+          { error: '参加者情報の入力エラーがあります', details: [availabilitySelectionError] },
+          { status: 400 }
+        );
+      }
       updateData = {
         answers: answers.map((answer: FormAnswer) => ({
           fieldId: answer.fieldId,
@@ -197,7 +229,8 @@ export async function PATCH(
           name: participantData.name,
           section: participantData.section,
           grade: parseInt(participantData.grade),
-          availableTime: participantData.availableTime,
+          availableTime: deriveLegacyAvailableTimeFromSlots(availableSlots),
+          availableSlots,
         },
       };
     } else {

@@ -3,6 +3,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SurveyForm, FormCreateData } from '@/types/forms';
 
+function serializeDate(value: unknown): string | unknown {
+  if (!value) return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}
+
+function toMillis(value: unknown): number {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    const date = (value as { toDate: () => Date }).toDate();
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  return 0;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -54,16 +78,16 @@ export async function GET(request: NextRequest) {
         ...formData,
         formId: doc.id,
         responseCount: formData.responseCount || 0,
-        lastResponseAt,
-        createdAt,
-        updatedAt,
+        lastResponseAt: serializeDate(lastResponseAt),
+        createdAt: serializeDate(createdAt),
+        updatedAt: serializeDate(updatedAt),
       };
     });
 
     // createdAtでソート（新しい順）
     forms.sort((a, b) => {
-      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
-      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+      const aTime = toMillis(a.createdAt);
+      const bTime = toMillis(b.createdAt);
       return bTime - aTime;
     });
 
@@ -168,6 +192,8 @@ export async function POST(request: NextRequest) {
       form: {
         ...formData,
         formId: docRef.id,
+        createdAt: serializeDate(formData.createdAt),
+        updatedAt: serializeDate(formData.updatedAt),
       },
     });
   } catch (error) {

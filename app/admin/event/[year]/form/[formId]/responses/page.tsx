@@ -8,7 +8,13 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
 import { LoadingInline } from '@/components/ui/Loading';
 import { SurveyForm, ParticipantSurveyResponse, FormResponse, FormField } from '@/types/forms';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
+import {
+  deriveLegacyAvailableTimeFromSlots,
+  formatAvailabilitySlotLabel,
+  getAvailabilityDateSlotKeys,
+  normalizeAvailabilitySlots,
+  toggleAvailabilitySelection,
+} from '@/lib/utils/availability';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 
 interface StatOption {
@@ -103,7 +109,7 @@ export default function FormResponsesPage({
       '名前',
       '学年', 
       '所属セクション',
-      '参加可能時間帯',
+      '参加可能日時',
       ...form.fields.map(field => field.label)
     ];
 
@@ -116,7 +122,9 @@ export default function FormResponsesPage({
         participantResponse.participantData?.name || '',
         participantResponse.participantData?.grade || '',
         participantResponse.participantData?.section || '',
-        participantResponse.participantData?.availableTime || '',
+        (participantResponse.participantData?.availableSlots || [participantResponse.participantData?.availableTime || ''])
+          .map((value) => formatAvailabilitySlotLabel(value))
+          .join(' / '),
       ];
 
       // フィールドの回答を追加
@@ -125,9 +133,9 @@ export default function FormResponsesPage({
         const value = answer?.value;
         
         if (Array.isArray(value)) {
-          row.push(value.join(', '));
+          row.push(field.fieldId === 'availability' ? value.map((item) => formatAvailabilitySlotLabel(item)).join(', ') : value.join(', '));
         } else {
-          row.push(value || '');
+          row.push(value ? (field.fieldId === 'availability' ? formatAvailabilitySlotLabel(value) : value) : '');
         }
       });
 
@@ -151,11 +159,13 @@ export default function FormResponsesPage({
     document.body.removeChild(link);
   };
 
-  const renderAnswerValue = (value: string | string[]) => {
+  const renderAnswerValue = (field: FormField, value: string | string[]) => {
+    const isAvailabilityField = field.fieldId === 'availability';
+    const formatValue = (item: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(item) : item);
     if (Array.isArray(value)) {
-      return value.join(', ');
+      return value.map((item) => formatValue(item)).join(', ');
     }
-    return value || '-';
+    return value ? formatValue(value) : '-';
   };
 
 
@@ -254,9 +264,8 @@ export default function FormResponsesPage({
       })) || [];
 
       // 参加可能時間帯フィールドの値を取得して安定キーに正規化
-      const availabilityValue = editFormData.availability as unknown;
-      const availabilityOptions = form?.fields.find((f) => f.fieldId === 'availability')?.options || [];
-      const availableTime = normalizeAvailableTime(availabilityValue, availabilityOptions);
+      const availableSlots = normalizeAvailabilitySlots(editFormData.availability);
+      const availableTime = deriveLegacyAvailableTimeFromSlots(availableSlots);
 
       const updateData = {
         answers,
@@ -265,6 +274,7 @@ export default function FormResponsesPage({
           section: editFormData.participantSection as string,
           grade: parseInt(editFormData.participantGrade as string),
           availableTime: availableTime,
+          availableSlots,
         },
       };
 
@@ -425,7 +435,7 @@ export default function FormResponsesPage({
                           return (
                             <td key={field.fieldId} className="px-6 py-4 text-sm text-gray-900">
                               <div className="max-w-xs truncate">
-                                {renderAnswerValue(answer?.value || '')}
+                                {renderAnswerValue(field, answer?.value || '')}
                               </div>
                             </td>
                           );
@@ -507,13 +517,13 @@ export default function FormResponsesPage({
                           <div className="space-y-1">
                             {fieldStats.type === 'options' && fieldStats.stats?.map((stat: StatOption) => (
                               <div key={stat.option} className="flex justify-between text-sm">
-                                <span className="truncate mr-2">{stat.option}</span>
+                                <span className="truncate mr-2">{formatAvailabilitySlotLabel(stat.option)}</span>
                                 <span className="whitespace-nowrap">{stat.count}件 ({stat.percentage}%)</span>
                               </div>
                             ))}
                             {fieldStats.type === 'checkbox' && fieldStats.stats?.map((stat: StatOption) => (
                               <div key={stat.option} className="flex justify-between text-sm">
-                                <span className="truncate mr-2">{stat.option}</span>
+                                <span className="truncate mr-2">{formatAvailabilitySlotLabel(stat.option)}</span>
                                 <span className="whitespace-nowrap">{stat.count}件 ({stat.percentage}%)</span>
                               </div>
                             ))}
@@ -599,6 +609,11 @@ export default function FormResponsesPage({
                   {/* フォームフィールド */}
                   {form.fields.map(field => (
                     <div key={field.fieldId}>
+                      {(() => {
+                        const isAvailabilityField = field.fieldId === 'availability';
+                        const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
+                        return (
+                          <>
                       <label className="block text-sm font-medium text-gray-700">
                         {field.label} {field.required && '*'}
                       </label>
@@ -624,7 +639,7 @@ export default function FormResponsesPage({
                         >
                           <option value="">選択してください</option>
                           {field.options?.map((option, index) => (
-                            <option key={index} value={option}>{option}</option>
+                            <option key={index} value={option}>{optionLabel(option)}</option>
                           ))}
                         </select>
                       ) : field.type === 'radio' ? (
@@ -639,33 +654,42 @@ export default function FormResponsesPage({
                                 onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
                                 className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                               />
-                              <span className="ml-2 text-sm text-gray-700">{option}</span>
+                              <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
                             </label>
                           ))}
                         </div>
                       ) : field.type === 'checkbox' ? (
                         <div className="mt-1 space-y-2">
-                          {field.options?.map((option, index) => (
-                            <label key={index} className="flex items-center">
-                              <input
-                                type="checkbox"
-                                value={option}
-                                checked={Array.isArray(editFormData[field.fieldId]) ? (editFormData[field.fieldId] as string[]).includes(option) : false}
-                                onChange={(e) => {
-                                  const currentValues = Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId] as string[] : [];
-                                  if (e.target.checked) {
-                                    setEditFormData({...editFormData, [field.fieldId]: [...currentValues, option]});
-                                  } else {
-                                    setEditFormData({...editFormData, [field.fieldId]: currentValues.filter((v: string) => v !== option)});
-                                  }
-                                }}
-                                className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                              />
-                              <span className="ml-2 text-sm text-gray-700">{option}</span>
-                            </label>
-                          ))}
+                          {(() => {
+                            const allDateSlotKeys = getAvailabilityDateSlotKeys(
+                              (field.options || []).map((option) => ({
+                                key: option,
+                                label: option,
+                              }))
+                            );
+
+                            return field.options?.map((option, index) => (
+                              <label key={index} className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  value={option}
+                                  checked={Array.isArray(editFormData[field.fieldId]) ? (editFormData[field.fieldId] as string[]).includes(option) : false}
+                                  onChange={() => {
+                                    const currentValues = Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId] as string[] : [];
+                                    const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+                                    setEditFormData({ ...editFormData, [field.fieldId]: nextValues });
+                                  }}
+                                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
+                              </label>
+                            ));
+                          })()}
                         </div>
                       ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                   ))}
                 </form>

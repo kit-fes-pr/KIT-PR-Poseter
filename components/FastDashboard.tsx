@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { LoadingScreen, LoadingInline } from '@/components/ui/Loading';
+import { formatDateOnly } from '@/lib/utils/dateUtils';
 
 interface FastDashboardProps {
   year: number;
@@ -82,18 +83,12 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                   </h2>
                   <p className="text-sm text-gray-600 mt-2">
                     配布期間: {(() => {
-                      try {
-                        const eventData = (data as Record<string, unknown>)?.event as Record<string, unknown>;
-                        const start = eventData?.distributionStartDate ?
-                          new Date(String(eventData.distributionStartDate)).toLocaleDateString('ja-JP') : '';
-                        const end = eventData?.distributionEndDate ?
-                          new Date(String(eventData.distributionEndDate)).toLocaleDateString('ja-JP') : '';
+                      const eventData = (data as Record<string, unknown>)?.event as Record<string, unknown>;
+                      const start = formatDateOnly(eventData?.distributionStartDate as string | number | Date | null | undefined);
+                      const end = formatDateOnly(eventData?.distributionEndDate as string | number | Date | null | undefined);
 
-                        if (start && end && start !== end) return `${start} 〜 ${end}`;
-                        return start || '未設定';
-                      } catch {
-                        return '未設定';
-                      }
+                      if (start !== '-' && end !== '-' && start !== end) return `${start} 〜 ${end}`;
+                      return start !== '-' ? start : '未設定';
                     })()}
                   </p>
                 </div>
@@ -242,17 +237,11 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {(() => {
-                            try {
-                              const parseDate = (dateStr: string | undefined) =>
-                                dateStr ? new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '';
-                              const legacyValidDate = (team as unknown as { validDate?: string }).validDate;
-                              const start = parseDate(team.validStartDate || legacyValidDate);
-                              const end = parseDate(team.validEndDate || legacyValidDate);
-                              if (start && end && start !== end) return `${start}〜${end}`;
-                              return start || '-';
-                            } catch {
-                              return '-';
-                            }
+                            const legacyValidDate = (team as unknown as { validDate?: unknown }).validDate;
+                            const start = formatDateOnly((team.validStartDate || legacyValidDate) as string | number | Date | null | undefined);
+                            const end = formatDateOnly((team.validEndDate || legacyValidDate) as string | number | Date | null | undefined);
+                            if (start !== '-' && end !== '-' && start !== end) return `${start}〜${end}`;
+                            return start !== '-' ? start : '-';
                           })()}
                         </td>
                       </tr>

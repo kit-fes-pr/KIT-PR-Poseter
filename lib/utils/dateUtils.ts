@@ -2,6 +2,8 @@
  * Firestore Timestamp型やDate、文字列、数値を統一的にフォーマットするユーティリティ
  */
 
+export const DEFAULT_TIME_ZONE = 'Asia/Tokyo';
+
 // Firestore Timestampライクなオブジェクトの型定義
 interface FirestoreTimestamp {
   toDate: () => Date;
@@ -22,6 +24,7 @@ export function formatDate(
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    timeZone: DEFAULT_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit'
   }
@@ -71,7 +74,8 @@ export function formatDateOnly(dateValue: DateValue): string {
   return formatDate(dateValue, {
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
+    day: '2-digit',
+    timeZone: DEFAULT_TIME_ZONE
   });
 }
 
@@ -80,6 +84,7 @@ export function formatDateOnly(dateValue: DateValue): string {
  */
 export function formatTimeOnly(dateValue: DateValue): string {
   return formatDate(dateValue, {
+    timeZone: DEFAULT_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit'
   });

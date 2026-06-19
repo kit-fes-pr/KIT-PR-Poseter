@@ -1,7 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SurveyForm, FormUpdateData } from '@/types/forms';
+
+function serializeDate(value: unknown): string | unknown {
+  if (!value) return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}
 
 export async function GET(
   request: NextRequest,
@@ -47,8 +57,8 @@ export async function GET(
     return NextResponse.json({
       ...formData,
       formId: formDoc.id,
-      createdAt: (formData.createdAt as any)?.toDate ? (formData.createdAt as any).toDate() : formData.createdAt,
-      updatedAt: (formData.updatedAt as any)?.toDate ? (formData.updatedAt as any).toDate() : formData.updatedAt,
+      createdAt: serializeDate(formData.createdAt),
+      updatedAt: serializeDate(formData.updatedAt),
     });
   } catch (error) {
     console.error('フォーム取得エラー:', error);
@@ -158,6 +168,8 @@ export async function PATCH(
       form: {
         ...updatedFormData,
         formId: updatedFormDoc.id,
+        createdAt: serializeDate(updatedFormData.createdAt),
+        updatedAt: serializeDate(updatedFormData.updatedAt),
       },
     });
   } catch (error) {

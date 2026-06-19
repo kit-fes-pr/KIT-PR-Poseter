@@ -5,6 +5,7 @@ export interface DistributionEvent {
   distributionStartDate?: Date | string;
   distributionEndDate?: Date | string;
   distributionDate?: Date | string; // 後方互換
+  distributionTimeZone?: string;
   year: number;
   isActive: boolean;
   createdAt: Date | string;

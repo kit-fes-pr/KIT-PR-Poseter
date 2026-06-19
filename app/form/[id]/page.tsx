@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
 import { SurveyForm, FormAnswer } from '@/types/forms';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
+import {
+  deriveLegacyAvailableTimeFromSlots,
+  getAvailabilityDateSlotKeys,
+  formatAvailabilitySlotLabel,
+  normalizeAvailabilitySlots,
+  toggleAvailabilitySelection,
+} from '@/lib/utils/availability';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -22,7 +28,27 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
+  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues } = useForm<FormData>();
+  const participantGrade = watch('participantGrade');
+
+  useEffect(() => {
+    if (participantGrade === '4') {
+      setValue('participantSection', '4年', {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      return;
+    }
+
+    if (getValues('participantSection') === '4年') {
+      setValue('participantSection', '', {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
+  }, [participantGrade, setValue, getValues]);
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -66,10 +92,13 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         value: data[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
       }));
 
-      // 参加可能時間帯フィールドの値を取得し、安定キーに正規化
-      const availabilityValue = data.availability as unknown;
-      const availabilityOptions = form?.fields.find(f => f.fieldId === 'availability')?.options || [];
-      const availableTime = normalizeAvailableTime(availabilityValue, availabilityOptions);
+      const availableSlots = normalizeAvailabilitySlots(data.availability);
+      if (availableSlots.length === 0) {
+        setError('参加可能日時は一つ以上選択してください');
+        return;
+      }
+
+      const availableTime = deriveLegacyAvailableTimeFromSlots(availableSlots);
 
       const res = await fetch(`/api/forms/${resolvedParams.id}/responses`, {
         method: 'POST',
@@ -83,6 +112,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             section: data.participantSection,
             grade: data.participantGrade,
             availableTime: availableTime,
+            availableSlots,
           },
           submitterInfo: {
             submittedAt: new Date().toISOString(),
@@ -112,6 +142,8 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
     const fieldId = field.fieldId;
     const isRequired = field.required;
     const label = field.label + (isRequired ? ' *' : '');
+    const isAvailabilityField = fieldId === 'availability';
+    const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
 
     switch (field.type) {
       case 'text':
@@ -220,7 +252,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             >
               <option value="">選択してください</option>
               {field.options?.map((option: string, index: number) => (
-                <option key={index} value={option}>{option}</option>
+                <option key={index} value={option}>{optionLabel(option)}</option>
               ))}
             </select>
             {errors[fieldId] && (
@@ -245,7 +277,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                       })}
                       className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                     />
-                    <span className="ml-2 text-sm text-gray-700">{option}</span>
+                    <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
                   </label>
                 ))}
               </div>
@@ -262,19 +294,44 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             <fieldset>
               <legend className="block text-sm font-medium text-gray-700 mb-2">{label}</legend>
               <div className="space-y-2">
-                {field.options?.map((option: string, index: number) => (
-                  <label key={index} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      value={option}
-                      {...register(fieldId, {
-                        required: isRequired ? `${field.label}は必須です` : false,
-                      })}
-                      className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">{option}</span>
-                  </label>
-                ))}
+                {(() => {
+                  const selectedValues = (watch(fieldId) as string[]) || [];
+                  const allDateSlotKeys = getAvailabilityDateSlotKeys(
+                    (field.options || []).map((option) => ({
+                      key: option,
+                      label: option,
+                    }))
+                  );
+                  const checkboxRegistration = register(fieldId, {
+                    validate: (value) => {
+                      if (!isRequired) return true;
+                      if (Array.isArray(value)) return value.length > 0 || '一つ以上選択してください';
+                      return value ? true : '一つ以上選択してください';
+                    },
+                  });
+
+                  return field.options?.map((option: string, index: number) => (
+                    <label key={index} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        value={option}
+                        checked={selectedValues.includes(option)}
+                        {...checkboxRegistration}
+                        onChange={() => {
+                          const currentValues = (getValues(fieldId) as string[]) || [];
+                          const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+                          setValue(fieldId as never, nextValues as never, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                            shouldValidate: true,
+                          });
+                        }}
+                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
+                    </label>
+                  ));
+                })()}
               </div>
             </fieldset>
             {errors[fieldId] && (
@@ -406,18 +463,19 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                   </label>
                   <select
                     id="participantSection"
+                    disabled={participantGrade === '4'}
                     {...register('participantSection', {
                       required: '所属セクションは必須です',
                     })}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="">選択してください</option>
-                    <option value="企画系">企画系</option>
-                    <option value="技術系">技術系</option>
-                    <option value="警備系">警備系</option>
-                    <option value="Web系">Web系</option>
-                    <option value="PR系">PR系</option>
-                    <option value="4年">4年</option>
+                    {(participantGrade === '4'
+                      ? ['4年']
+                      : ['企画系', '技術系', '警備系', 'Web系', 'PR系']
+                    ).map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
                   </select>
                   {errors.participantSection && (
                     <p className="mt-1 text-sm text-red-600">{errors.participantSection.message}</p>

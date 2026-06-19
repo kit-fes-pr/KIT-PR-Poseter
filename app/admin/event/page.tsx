@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
+import { DEFAULT_TIME_ZONE, formatDateOnly } from '@/lib/utils/dateUtils';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -178,12 +179,11 @@ export default function AdminEventIndex() {
                         <p className="text-sm text-gray-500">
                           {String(ev.eventName) || '学外配布'} / {
                             (() => {
-                              const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
-                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
-                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              const s = ev.distributionStartDate || ev.distributionDate;
+                              const e = ev.distributionEndDate || ev.distributionDate;
                               if (!s || !e) return '-';
-                              const sd = s.toLocaleDateString('ja-JP');
-                              const ed = e.toLocaleDateString('ja-JP');
+                              const sd = formatDateOnly(s as string | Date);
+                              const ed = formatDateOnly(e as string | Date);
                               return sd === ed ? sd : `${sd} 〜 ${ed}`;
                             })()
                           }
@@ -200,7 +200,7 @@ export default function AdminEventIndex() {
                           <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-md z-10">
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push(`/admin/event/${ev.year}`); setMenuEventId(null); }}>開く</button>
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push('/admin/event/areas'); setMenuEventId(null); }}>配布区域</button>
-                            <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
+                      <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
                               setEditTarget(ev);
                               const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
                               const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
@@ -286,7 +286,7 @@ export default function AdminEventIndex() {
                     const res = await fetch('/api/admin/events', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                      body: JSON.stringify({ year: Number(form.year), eventName: form.eventName, distributionStartDate: form.distributionStartDate, distributionEndDate: form.distributionEndDate || form.distributionStartDate }),
+                      body: JSON.stringify({ year: Number(form.year), eventName: form.eventName, distributionStartDate: form.distributionStartDate, distributionEndDate: form.distributionEndDate || form.distributionStartDate, distributionTimeZone: DEFAULT_TIME_ZONE }),
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '作成に失敗しました');
@@ -335,7 +335,7 @@ export default function AdminEventIndex() {
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem('authToken');
-                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate }) });
+                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate, distributionTimeZone: DEFAULT_TIME_ZONE }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     const { events, latest } = await fetcher('/api/admin/events');
