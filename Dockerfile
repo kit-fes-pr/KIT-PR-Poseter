@@ -30,6 +30,7 @@ ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+RUN npm prune --omit=dev
 
 FROM base AS runner
 ENV NODE_ENV=production
