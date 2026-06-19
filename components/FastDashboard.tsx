@@ -126,6 +126,13 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 icon: '📍',
                 color: 'purple',
                 href: `/admin/event/areas`
+              },
+              {
+                label: '配布日時設定',
+                value: 1,
+                icon: '⏰',
+                color: 'indigo',
+                href: `/admin/event/${year}/distribution`
               }
             ].map((stat, index) => (
               <div
@@ -237,9 +244,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {(() => {
-                            const legacyValidDate = (team as unknown as { validDate?: unknown }).validDate;
-                            const start = formatDateOnly((team.validStartDate || legacyValidDate) as string | number | Date | null | undefined);
-                            const end = formatDateOnly((team.validEndDate || legacyValidDate) as string | number | Date | null | undefined);
+                            const start = formatDateOnly(team.validStartDate as string | number | Date | null | undefined);
+                            const end = formatDateOnly(team.validEndDate as string | number | Date | null | undefined);
                             if (start !== '-' && end !== '-' && start !== end) return `${start}〜${end}`;
                             return start !== '-' ? start : '-';
                           })()}

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
-import { getAvailabilityDisplayLabel, normalizeAvailableTime } from '@/lib/utils/availability';
+import { getAvailabilityDisplayLabel, summarizeAvailabilitySlots } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { Area } from '@/types';
@@ -16,7 +16,7 @@ interface Participant {
   name: string;
   grade: number;
   section: string;
-  availability: string;
+  availability: 'morning' | 'afternoon' | 'both' | 'other';
   submittedAt: Date;
 }
 
@@ -265,36 +265,26 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
     try {
       const token = await user.getIdToken();
-      let fetchedAvailabilityOptions: string[] | null = null;
-      const [formRes, res] = await Promise.all([
-        fetch(`/api/forms/${formId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-        fetch(`/api/forms/${formId}/responses`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-      ]);
-
-      if (formRes.ok) {
-        const formData = await formRes.json();
-        const availabilityField = formData?.fields?.find((f: { fieldId: string; options?: string[] }) => f.fieldId === 'availability');
-        fetchedAvailabilityOptions = Array.isArray(availabilityField?.options) ? availabilityField.options : null;
-      } else {
-        fetchedAvailabilityOptions = null;
-      }
+      const res = await fetch(`/api/forms/${formId}/responses`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
 
       if (res.ok) {
         const data = await res.json();
         const participantList = data.responses.map((response: {
           responseId: string;
-          participantData?: { name: string; grade: number; section: string; availableTime?: 'morning' | 'afternoon' | 'both' | 'other' };
-          answers?: Array<{ fieldId: string; value: string }>;
+          participantData?: { name: string; grade: number; section: string; availableSlots?: string[] };
+          answers?: Array<{ fieldId: string; value: string | string[] }>;
           submittedAt: string | Date;
         }) => {
-          const raw = response.answers?.find((a) => a.fieldId === 'availability')?.value
-            || response.participantData?.availableTime
-            || '';
-          const availability = normalizeAvailableTime(raw, fetchedAvailabilityOptions);
+          const raw = response.answers?.find((a) => a.fieldId === 'availability')?.value;
+          const availability = summarizeAvailabilitySlots(
+            Array.isArray(raw)
+              ? raw
+              : typeof raw === 'string'
+                ? [raw]
+                : response.participantData?.availableSlots || []
+          );
 
           return {
             responseId: response.responseId,

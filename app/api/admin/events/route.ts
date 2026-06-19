@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { DEFAULT_TIME_ZONE } from '@/lib/utils/dateUtils';
+import { buildAvailabilitySlotChoices } from '@/lib/utils/availability';
 
 function formatDateOnlyInTimeZone(value: Date, timeZone = DEFAULT_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -44,6 +45,7 @@ function serializeEventDoc(id: string, data: Record<string, unknown>) {
     distributionDate: serializeDateOnlyValue(data.distributionDate, timeZone),
     distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
     distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
+    distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots) ? data.distributionAvailabilitySlots : undefined,
   };
 }
 
@@ -101,7 +103,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, eventId } = await request.json();
+    const { year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, eventId } = await request.json();
 
     if (!year || (!distributionDate && !distributionStartDate)) {
       return NextResponse.json({ error: '年度と配布日（開始日）を入力してください' }, { status: 400 });
@@ -140,6 +142,9 @@ export async function POST(request: NextRequest) {
       distributionDate: startDateStr, // 後方互換
       distributionStartDate: startDateStr,
       distributionEndDate: endDateStr,
+      distributionAvailabilitySlots: Array.isArray(distributionAvailabilitySlots) && distributionAvailabilitySlots.length > 0
+        ? distributionAvailabilitySlots
+        : buildAvailabilitySlotChoices(startDateStr, endDateStr).map((choice) => choice.key),
       distributionTimeZone: timeZone,
       year: y,
       isActive: true,
@@ -175,7 +180,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { id, year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, isActive } = await request.json();
+    const { id, year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, isActive } = await request.json();
     if (!id && !year) {
       return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
     }
@@ -206,6 +211,9 @@ export async function PATCH(request: NextRequest) {
       update.distributionStartDate = startDateStr;
       update.distributionEndDate = endDateStr;
       update.distributionDate = startDateStr; // 後方互換
+    }
+    if (Array.isArray(distributionAvailabilitySlots)) {
+      update.distributionAvailabilitySlots = distributionAvailabilitySlots.filter((slot) => typeof slot === 'string');
     }
 
     await docRef.update(update);
