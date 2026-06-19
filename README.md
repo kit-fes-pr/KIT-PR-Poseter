@@ -21,6 +21,13 @@
 - Docker Desktop
 - リポジトリ直下の `.env`
 
+### `.env` の準備
+1. `.env.example` をコピーして `.env` を作成します。
+```bash
+cp .env.example .env
+```
+2. `.env` の値を実際の Firebase 設定に合わせて編集します。
+
 ### ローカル起動
 1. 依存関係をインストールします。
 ```bash

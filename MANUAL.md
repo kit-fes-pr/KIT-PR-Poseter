@@ -27,16 +27,20 @@
 ## 🚀 起動方法
 
 ### ローカルで起動する
-1. リポジトリ直下に `.env` を用意します。
-2. 依存関係をインストールします。
+1. `.env.example` をコピーして `.env` を作成します。
+```bash
+cp .env.example .env
+```
+2. `.env` の中身を Firebase の設定に合わせて編集します。
+3. 依存関係をインストールします。
 ```bash
 npm install
 ```
-3. 開発サーバーを起動します。
+4. 開発サーバーを起動します。
 ```bash
 npm run dev
 ```
-4. `http://localhost:3000` を開きます。
+5. `http://localhost:3000` を開きます。
 
 ### Docker で起動する
 1. Docker Desktop を起動します。
