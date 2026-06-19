@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
 import { SurveyForm, FormAnswer } from '@/types/forms';
 import {
-  deriveLegacyAvailableTimeFromSlots,
   getAvailabilityDateSlotKeys,
   formatAvailabilitySlotLabel,
   normalizeAvailabilitySlots,
@@ -86,6 +85,30 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       setSubmitting(true);
       setError('');
 
+      for (const field of form.fields) {
+        const rawValue = data[field.fieldId];
+
+        if (field.type === 'select' || field.type === 'radio') {
+          if (typeof rawValue === 'string' && rawValue && !field.options?.includes(rawValue)) {
+            setError(`${field.label}の選択肢が正しくありません`);
+            return;
+          }
+        }
+
+        if (field.type === 'checkbox') {
+          if (!Array.isArray(rawValue)) {
+            setError(`${field.label}は配列で送信してください`);
+            return;
+          }
+
+          const invalidValue = rawValue.find((value) => !field.options?.includes(value));
+          if (invalidValue) {
+            setError(`${field.label}の選択肢が正しくありません`);
+            return;
+          }
+        }
+      }
+
       // フォームデータを変換
       const answers: FormAnswer[] = form.fields.map(field => ({
         fieldId: field.fieldId,
@@ -98,8 +121,6 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         return;
       }
 
-      const availableTime = deriveLegacyAvailableTimeFromSlots(availableSlots);
-
       const res = await fetch(`/api/forms/${resolvedParams.id}/responses`, {
         method: 'POST',
         headers: {
@@ -111,7 +132,6 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             name: data.participantName,
             section: data.participantSection,
             grade: data.participantGrade,
-            availableTime: availableTime,
             availableSlots,
           },
           submitterInfo: {

@@ -1,38 +1,124 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { auth } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { SurveyForm } from '@/types/forms';
-import { formatDateOnly } from '@/lib/utils/dateUtils';
-import { LoadingInline } from '@/components/ui/Loading';
+import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
+import { LoadingInline } from '@/components/ui/Loading';
+import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
+import {
+  buildAvailabilitySlotChoices,
+  formatAvailabilitySlotLabel,
+  SPECIAL_AVAILABILITY_SLOT_CHOICES,
+} from '@/lib/utils/availability';
+import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
+import type { AvailabilitySlotChoice } from '@/lib/utils/availability';
 
-interface FormWithStats extends SurveyForm {
+type AdminTab = 'content' | 'overview';
+
+type FormRecord = SurveyForm & {
   responseCount: number;
-  lastResponseAt?: Date;
+  lastResponseAt?: string | Date;
+};
+
+type EventSummary = {
+  distributionStartDate?: string | Date;
+  distributionEndDate?: string | Date;
+  distributionAvailabilitySlots?: string[];
+  eventName?: string;
+};
+
+const DEFAULT_TITLE = '学外配布参加可否登録';
+const DEFAULT_DESCRIPTION = '⚪︎月⚪︎日に実施する学外配布への参加可能日時を選択をお願いします。';
+
+function toDateDisplay(value: Parameters<typeof formatDateOnly>[0]): string {
+  return formatDateOnly(value);
 }
 
-export default function FormListPage({ params }: { params: Promise<{ year: string }> }) {
+function buildAvailabilityChoices(eventData: EventSummary | null, form: FormRecord | null): AvailabilitySlotChoice[] {
+  if (eventData?.distributionStartDate && eventData?.distributionEndDate) {
+    const allChoices = buildAvailabilitySlotChoices(eventData.distributionStartDate, eventData.distributionEndDate);
+    const selectedKeys = Array.isArray(eventData.distributionAvailabilitySlots) && eventData.distributionAvailabilitySlots.length > 0
+      ? eventData.distributionAvailabilitySlots
+      : allChoices.map((choice) => choice.key);
+    return [
+      ...allChoices.filter((choice) => selectedKeys.includes(choice.key)),
+      ...SPECIAL_AVAILABILITY_SLOT_CHOICES,
+    ];
+  }
+
+  const existingOptions = form?.fields.find((field) => field.fieldId === 'availability')?.options || [];
+  return existingOptions.map((option) => ({
+    key: option as AvailabilitySlotChoice['key'],
+    label: formatAvailabilitySlotLabel(option),
+    period: 'special' as const,
+  }));
+}
+
+function buildFixedFields(availabilityOptions: string[]): FormField[] {
+  return [
+    {
+      fieldId: 'availability',
+      type: 'checkbox',
+      label: '参加可能日時',
+      placeholder: '参加可能な日時を選択してください',
+      required: true,
+      options: availabilityOptions,
+      order: 0,
+    },
+    {
+      fieldId: 'remarks',
+      type: 'textarea',
+      label: '備考',
+      placeholder: 'その他連絡事項があればご記入ください',
+      required: false,
+      order: 1,
+    },
+  ];
+}
+
+function renderResponseValue(field: FormField, value: string | string[] | undefined): string {
+  if (value === undefined || value === null) return '-';
+  const values = Array.isArray(value) ? value : [value];
+  if (values.length === 0) return '-';
+  if (field.fieldId === 'availability') {
+    return values.map((item) => formatAvailabilitySlotLabel(item)).join(' / ');
+  }
+  return values.join(' / ');
+}
+
+export default function FormDashboardPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [forms, setForms] = useState<FormWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [eventData, setEventData] = useState<EventSummary | null>(null);
+  const [forms, setForms] = useState<FormRecord[]>([]);
+  const [responses, setResponses] = useState<(FormResponse | ParticipantSurveyResponse)[]>([]);
+  const [activeTab, setActiveTab] = useState<AdminTab>('content');
+  const [draftTitle, setDraftTitle] = useState(DEFAULT_TITLE);
+  const [draftDescription, setDraftDescription] = useState(DEFAULT_DESCRIPTION);
+  const [draftIsActive, setDraftIsActive] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const hasLoadedFormRef = useRef(false);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const responsesCardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     params.then(setResolvedParams);
   }, [params]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
       setAuthLoading(false);
-      if (!user) {
+      if (!nextUser) {
         router.push('/admin');
       }
     });
@@ -40,252 +126,781 @@ export default function FormListPage({ params }: { params: Promise<{ year: strin
     return () => unsubscribe();
   }, [router]);
 
-  const loadForms = useCallback(async () => {
+  const currentForm = forms[0] ?? null;
+  const allAvailabilityChoices = useMemo(() => buildAvailabilityChoices(eventData, currentForm), [eventData, currentForm]);
+  const latestResponse = useMemo(
+    () => [...responses].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0] || null,
+    [responses]
+  );
+  const sortedResponses = useMemo(
+    () => [...responses].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()),
+    [responses]
+  );
+  useEffect(() => {
+    if (currentForm) {
+      setDraftTitle(currentForm.title);
+      setDraftDescription(currentForm.description || '');
+      setDraftIsActive(currentForm.isActive);
+      hasLoadedFormRef.current = true;
+    } else {
+      setDraftTitle(DEFAULT_TITLE);
+      setDraftDescription(DEFAULT_DESCRIPTION);
+      setDraftIsActive(true);
+      hasLoadedFormRef.current = true;
+    }
+  }, [currentForm]);
+
+  const loadDashboard = async () => {
     if (!resolvedParams || !user) return;
 
     try {
       setLoading(true);
+      setError('');
+
       const token = await user.getIdToken();
       const eventId = `kohdai${resolvedParams.year}`;
 
-      const res = await fetch(`/api/forms?eventId=${eventId}`, {
+      const [formsRes, eventRes] = await Promise.all([
+        fetch(`/api/forms?eventId=${eventId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        fetch(`/api/admin/events?year=${resolvedParams.year}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ]);
+
+      const formsData = await formsRes.json().catch(() => null);
+      const eventJson = await eventRes.json().catch(() => null);
+
+      if (!formsRes.ok) {
+        setForms([]);
+        setResponses([]);
+        setError(formsData?.error || 'フォーム情報の取得に失敗しました');
+        return;
+      }
+
+      if (eventRes.ok && eventJson?.data) {
+        setEventData(eventJson.data);
+      } else {
+        setEventData(null);
+      }
+
+      const loadedForms = (formsData?.forms || []) as FormRecord[];
+      setForms(loadedForms);
+
+      const nextForm = loadedForms[0] ?? null;
+      if (!nextForm) {
+        setResponses([]);
+        return;
+      }
+
+      const responsesRes = await fetch(`/api/forms/${nextForm.formId}/responses`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
+      const responsesData = await responsesRes.json().catch(() => null);
 
-      const data = await res.json();
-
-      if (res.ok) {
-        setForms(data.forms || []);
+      if (responsesRes.ok) {
+        setResponses((responsesData?.responses || []) as (FormResponse | ParticipantSurveyResponse)[]);
       } else {
-        setError(data.error || 'フォーム一覧の取得に失敗しました');
+        setResponses([]);
+        setError(responsesData?.error || '回答情報の取得に失敗しました');
       }
     } catch (err) {
-      setError('フォーム一覧の取得に失敗しました');
       console.error(err);
+      setError('フォーム管理画面の読み込みに失敗しました');
     } finally {
       setLoading(false);
     }
-  }, [resolvedParams, user]);
+  };
 
   useEffect(() => {
     if (!resolvedParams || !user || authLoading) return;
-    loadForms();
-  }, [resolvedParams, user, authLoading, loadForms]);
+    loadDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedParams, user, authLoading]);
 
-  const toggleFormStatus = async (formId: string, isActive: boolean) => {
+  const createForm = async () => {
+    if (!resolvedParams || !user) return;
+
     try {
-      if (!user) return;
+      setSaving(true);
+      setError('');
+
+      if (!draftTitle.trim()) {
+        setError('フォームタイトルを入力してください');
+        return;
+      }
+
+      if (!eventData?.distributionStartDate || !eventData?.distributionEndDate) {
+        setError('配布期間が取得できないため、フォームを作成できません');
+        return;
+      }
+
+      const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
+      if (availabilityOptions.length === 0) {
+        setError('参加可能日時を一つ以上選択してください');
+        return;
+      }
 
       const token = await user.getIdToken();
-
-      const res = await fetch(`/api/forms/${formId}`, {
-        method: 'PATCH',
+      const res = await fetch('/api/forms', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ isActive: !isActive }),
+        body: JSON.stringify({
+          title: draftTitle.trim(),
+          description: draftDescription.trim(),
+          fields: buildFixedFields(availabilityOptions),
+          eventId: `kohdai${resolvedParams.year}`,
+          year: Number(resolvedParams.year),
+        }),
       });
 
-      if (res.ok) {
-        await loadForms();
-      } else {
-        const data = await res.json();
-        setError(data.error || 'ステータスの更新に失敗しました');
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setError(data?.error || 'フォームの作成に失敗しました');
+        return;
       }
+
+      setForms([data.form as FormRecord]);
+      setResponses([]);
+      setActiveTab('content');
     } catch (err) {
-      setError('ステータスの更新に失敗しました');
       console.error(err);
+      setError('フォームの作成に失敗しました');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const deleteForm = async (formId: string) => {
-    if (!confirm('このフォームを削除しますか？回答データも全て削除されます。')) {
+  const persistFormSettings = async (silent = false) => {
+    if (!resolvedParams || !user || !currentForm) return;
+
+    try {
+      setSaving(true);
+      if (!silent) {
+        setError('');
+      }
+      setSaveStatus('saving');
+
+      if (!draftTitle.trim()) {
+        setError('フォームタイトルを入力してください');
+        return;
+      }
+
+      const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
+      if (availabilityOptions.length === 0) {
+        setError('参加可能日時を一つ以上選択してください');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/forms/${currentForm.formId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: draftTitle.trim(),
+          description: draftDescription.trim(),
+          isActive: draftIsActive,
+          fields: buildFixedFields(availabilityOptions),
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setError(data?.error || 'フォームの更新に失敗しました');
+        setSaveStatus('error');
+        return;
+      }
+
+      const nextForm = data.form as FormRecord;
+      setForms([nextForm]);
+      setSaveStatus('saved');
+    } catch (err) {
+      console.error(err);
+      setError('フォームの更新に失敗しました');
+      setSaveStatus('error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentForm || !hasLoadedFormRef.current) return;
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      void persistFormSettings(true);
+    }, 700);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftTitle, draftDescription, draftIsActive, currentForm?.formId]);
+
+  const deleteForm = async () => {
+    if (!resolvedParams || !user || !currentForm) return;
+
+    if (!confirm('このフォームを削除しますか？回答データも含めて削除されます。')) {
       return;
     }
 
     try {
-      if (!user) return;
+      setDeleting(true);
+      setError('');
 
       const token = await user.getIdToken();
-
-      const res = await fetch(`/api/forms/${formId}`, {
+      const res = await fetch(`/api/forms/${currentForm.formId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
-      if (res.ok) {
-        await loadForms();
-      } else {
-        const data = await res.json();
-        setError(data.error || 'フォームの削除に失敗しました');
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setError(data?.error || 'フォームの削除に失敗しました');
+        return;
       }
+
+      setForms([]);
+      setResponses([]);
+      setActiveTab('content');
+      setDraftTitle(DEFAULT_TITLE);
+      setDraftDescription(DEFAULT_DESCRIPTION);
+      setDraftIsActive(true);
     } catch (err) {
-      setError('フォームの削除に失敗しました');
       console.error(err);
+      setError('フォームの削除に失敗しました');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const renderFieldPreview = (field: FormField) => {
+    if (field.fieldId === 'availability') {
+      return (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {allAvailabilityChoices.length > 0 ? (
+            allAvailabilityChoices.map((choice) => (
+              <label
+                key={choice.key}
+                className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
+              >
+                <input type="checkbox" disabled className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600" />
+                <span className="text-sm text-gray-700">{choice.label}</span>
+              </label>
+            ))
+          ) : (
+            <p className="text-sm text-red-600">配布期間から選択肢を生成できませんでした</p>
+          )}
+        </div>
+      );
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <textarea
+          disabled
+          rows={4}
+          placeholder={field.placeholder || ''}
+          className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+        />
+      );
+    }
+
+    if (field.type === 'select' || field.type === 'radio') {
+      return (
+        <div className="space-y-2">
+          {(field.options || []).map((option) => (
+            <div key={option} className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+              {option}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <input
+        disabled
+        type={field.type === 'number' ? 'number' : 'text'}
+        placeholder={field.placeholder || ''}
+        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+      />
+    );
   };
 
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <LoadingInline size="lg" />
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
+
+  if (!user || !resolvedParams) {
+    return null;
+  }
+
+  const headerActions = currentForm ? (
+    <>
+      <Link
+        href={`/admin/event/${resolvedParams.year}`}
+        className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+      >
+        イベント管理に戻る
+      </Link>
+      <a
+        href={`/form/${currentForm.formId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+      >
+        公開フォームを開く
+      </a>
+      <label className="inline-flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700">
+        <input
+          type="checkbox"
+          checked={draftIsActive}
+          onChange={(e) => setDraftIsActive(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        フォームを公開する
+      </label>
+    </>
+  ) : (
+    <Link
+      href={`/admin/event/${resolvedParams.year}`}
+      className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+    >
+      イベント管理に戻る
+    </Link>
+  );
+
+  if (!currentForm) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <YearPageSectionHeader
+            title={`フォーム管理 (${resolvedParams.year}年度)`}
+            description="この年度にはフォームがまだありません。ここから作成します。"
+            actions={headerActions}
+          />
+
+          {error && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">基本設定</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                      フォームタイトル *
+                    </label>
+                    <input
+                      id="title"
+                      value={draftTitle}
+                      onChange={(e) => setDraftTitle(e.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
+                      placeholder="例: 工大祭準備に関するアンケート"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                      説明文
+                    </label>
+                    <textarea
+                      id="description"
+                      rows={4}
+                      value={draftDescription}
+                      onChange={(e) => setDraftDescription(e.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
+                      placeholder="フォームの目的や注意事項を記載してください"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">配布日時の設定</h3>
+                    </div>
+                    <Link
+                      href={`/admin/event/${resolvedParams.year}/distribution`}
+                      className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      設定を開く
+                    </Link>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {allAvailabilityChoices.length > 0 ? (
+                      allAvailabilityChoices.map((choice) => (
+                        <span key={choice.key} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                          {choice.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-red-600">配布日時が未設定です</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <Link
+                    href={`/admin/event/${resolvedParams.year}`}
+                    className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    キャンセル
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={createForm}
+                    disabled={saving}
+                    className="inline-flex items-center rounded-lg border border-transparent bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {saving ? '作成中...' : 'フォームを作成'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-3xl border border-gray-200 bg-gray-100 p-4">
+              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">プレビュー</p>
+                <h3 className="mt-2 text-2xl font-semibold text-gray-900">{draftTitle || DEFAULT_TITLE}</h3>
+                {draftDescription && <p className="mt-3 text-sm leading-6 text-gray-600">{draftDescription}</p>}
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">参加可能日時 *</p>
+                      <p className="text-xs text-gray-500">複数選択可</p>
+                    </div>
+                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">checkbox</span>
+                  </div>
+                  {renderFieldPreview({
+                    fieldId: 'availability',
+                    type: 'checkbox',
+                    label: '参加可能日時',
+                    required: true,
+                    options: allAvailabilityChoices.map((choice) => choice.key),
+                    order: 0,
+                  })}
+                </div>
+
+                <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">備考</p>
+                      <p className="text-xs text-gray-500">自由記述</p>
+                    </div>
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">textarea</span>
+                  </div>
+                  <textarea
+                    disabled
+                    rows={4}
+                    placeholder="その他連絡事項があればご記入ください"
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <YearPageSectionHeader
-          title={`フォーム管理 (${resolvedParams?.year}年度)`}
-          description="アンケートフォームの作成・編集・管理を行います"
-          actions={(
-            <>
-              <Link
-                href={`/admin/event/${resolvedParams?.year}`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                イベント管理に戻る
-              </Link>
-              <Link
-                href={`/admin/event/${resolvedParams?.year}/form/new`}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                新しいフォームを作成
-              </Link>
-            </>
-          )}
+          title={`フォーム管理 (${resolvedParams.year}年度)`}
+          description="フォーム内容と回答・各種設定を1画面で管理します。"
+          actions={headerActions}
         />
 
-        {/* エラー表示 */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        {/* フォーム一覧 */}
-        {forms.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-24 h-24 mx-auto mb-4 text-gray-400">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+        <div className="rounded-3xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-200 px-6 pt-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold text-gray-900">{draftTitle || currentForm.title}</h1>
+                  <span
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${draftIsActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                      }`}
+                  >
+                    {draftIsActive ? '公開中' : '非公開'}
+                  </span>
+                </div>
+                {draftDescription && <p className="max-w-3xl text-sm leading-6 text-gray-600">{draftDescription}</p>}
+                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                  <span>回答数: {responses.length}</span>
+                  <span>最終回答: {latestResponse ? formatDate(latestResponse.submittedAt) : '-'}</span>
+                  <span>配布期間: {eventData?.distributionStartDate && eventData?.distributionEndDate ? `${toDateDisplay(eventData.distributionStartDate)} 〜 ${toDateDisplay(eventData.distributionEndDate)}` : '未設定'}</span>
+                  <span>
+                    自動保存:{' '}
+                    {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('content')}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'content'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                  フォーム内容
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('overview');
+                    responsesCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'overview'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                  回答・各種設定
+                </button>
+              </div>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">フォームがありません</h3>
-            <p className="text-gray-600 mb-6">新しいアンケートフォームを作成してください。</p>
-            <Link
-              href={`/admin/event/${resolvedParams?.year}/form/new`}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              フォームを作成
-            </Link>
           </div>
-        ) : (
-          <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <ul className="divide-y divide-gray-200">
-              {forms.map((form) => (
-                <li key={form.formId}>
-                  <div className="px-6 py-4">
+
+          <div className="p-6">
+            {activeTab === 'content' && (
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900">フォーム内容</h3>
+                  <div className="mt-5 space-y-4">
                     <div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center">
-                          <h3 className="text-lg font-medium text-gray-900 truncate">
-                            {form.title}
-                          </h3>
-                          <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${form.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                            }`}>
-                            {form.isActive ? '公開中' : '非公開'}
-                          </span>
-                        </div>
-                        {form.description && (
-                          <p className="mt-1 text-sm text-gray-600 truncate">
-                            {form.description}
+                      <label htmlFor="content-title" className="block text-sm font-medium text-gray-700">
+                        フォームタイトル *
+                      </label>
+                      <input
+                        id="content-title"
+                        value={draftTitle}
+                        onChange={(e) => setDraftTitle(e.target.value)}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="content-description" className="block text-sm font-medium text-gray-700">
+                        説明文
+                      </label>
+                      <textarea
+                        id="content-description"
+                        rows={4}
+                        value={draftDescription}
+                        onChange={(e) => setDraftDescription(e.target.value)}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {currentForm.fields.map((field) => (
+                    <div key={field.fieldId} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
+                          <p className="text-xs text-gray-500">
+                            {field.type}
+                            {field.required ? ' ・ 必須' : ' ・ 任意'}
                           </p>
+                        </div>
+                        {field.fieldId === 'availability' && (
+                          <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">複数選択</span>
                         )}
-                        <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
-                          <span>回答数: {form.responseCount}</span>
-                          {form.lastResponseAt && (
-                            <span>最終回答: {formatDateOnly(form.lastResponseAt)}</span>
-                          )}
-                        </div>
                       </div>
-                      <div className="flex items-end justify-end">
-                        <div className="flex items-center space-x-2 sm:flex-row flex-col space-y-2 w-full sm:w-auto">
-                          {/* フォームリンク */}
-                          <a
-                            href={`/form/${form.formId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                            プレビュー
-                          </a>
+                      {renderFieldPreview(field)}
+                    </div>
+                  ))}
+                </div>
 
-                          {/* 回答一覧ボタン */}
-                          <Link
-                            href={`/admin/event/${resolvedParams?.year}/form/${form.formId}/responses`}
-                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            回答一覧 ({form.responseCount})
-                          </Link>
+              </div>
+            )}
 
-                          {/* 編集ボタン */}
-                          <Link
-                            href={`/admin/event/${resolvedParams?.year}/form/${form.formId}`}
-                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                          >
-                            編集
-                          </Link>
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">選択肢設定</h3>
+                    </div>
+                    <Link
+                      href={`/admin/event/${resolvedParams.year}/distribution`}
+                      className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      配布日時設定へ
+                    </Link>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {allAvailabilityChoices.length > 0 ? (
+                      allAvailabilityChoices.map((choice) => (
+                        <span key={choice.key} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                          {choice.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-red-600">配布日時が未設定です</span>
+                    )}
+                  </div>
+                </div>
 
-                          {/* 公開/非公開トグル */}
-                          <button
-                            onClick={() => toggleFormStatus(form.formId, form.isActive)}
-                            className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${form.isActive
-                              ? 'text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:ring-yellow-500'
-                              : 'text-green-700 bg-green-100 hover:bg-green-200 focus:ring-green-500'
-                              }`}
-                          >
-                            {form.isActive ? '非公開にする' : '公開する'}
-                          </button>
-
-                          {/* 削除ボタン */}
-                          <button
-                            onClick={() => deleteForm(form.formId)}
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                          >
-                            削除
-                          </button>
-                        </div>
+                <div ref={responsesCardRef} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">回答</h3>
+                      <p className="mt-2 text-sm text-gray-500">
+                        このカード内で回答一覧を確認できます。
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-gray-50 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">回答数</p>
+                        <p className="mt-1 text-2xl font-semibold text-gray-900">{responses.length}</p>
+                      </div>
+                      <div className="rounded-2xl bg-gray-50 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">最新回答</p>
+                        <p className="mt-1 text-sm font-medium text-gray-900">
+                          {latestResponse ? formatDate(latestResponse.submittedAt) : 'まだ回答がありません'}
+                        </p>
                       </div>
                     </div>
                   </div>
-                </li>
-              ))}
-            </ul>
+
+                  {responses.length === 0 ? (
+                    <div className="mt-6 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center">
+                      <p className="text-lg font-medium text-gray-900">回答がありません</p>
+                      <p className="mt-2 text-sm text-gray-500">フォームを公開すると、このカード内に回答が表示されます。</p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 overflow-hidden rounded-2xl border border-gray-200">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">回答日時</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">参加者情報</th>
+                              {currentForm.fields.map((field) => (
+                                <th key={field.fieldId} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                                  {field.label}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 bg-white">
+                            {sortedResponses.map((response) => {
+                              const participantResponse = response as ParticipantSurveyResponse;
+
+                              return (
+                                <tr key={response.responseId} className="align-top">
+                                  <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
+                                    {formatDate(response.submittedAt)}
+                                  </td>
+                                  <td className="px-4 py-4 text-sm text-gray-900">
+                                    <div className="font-medium">
+                                      {participantResponse.participantData?.name || '名前未入力'}
+                                    </div>
+                                    <div className="mt-1 text-gray-500">
+                                      {participantResponse.participantData?.grade ? `${participantResponse.participantData.grade}年 ` : ''}
+                                      {participantResponse.participantData?.section || ''}
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {(participantResponse.participantData?.availableSlots || []).map((item) => (
+                                        <span
+                                          key={item}
+                                          className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700"
+                                        >
+                                          {formatAvailabilitySlotLabel(item)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  {currentForm.fields.map((field) => {
+                                    const answer = response.answers.find((item) => item.fieldId === field.fieldId);
+                                    return (
+                                      <td key={field.fieldId} className="px-4 py-4 text-sm text-gray-900">
+                                        <div className="max-w-[18rem] whitespace-pre-wrap break-words">
+                                          {renderResponseValue(field, answer?.value as string | string[] | undefined)}
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={deleteForm}
+                    disabled={deleting}
+                    className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deleting ? '削除中...' : 'フォームを削除'}
+                  </button>
+                </div>
+                <p className="text-sm text-gray-500">
+                  保存状態: {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
+                </p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
-
 }

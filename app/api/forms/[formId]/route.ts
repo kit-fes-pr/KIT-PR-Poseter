@@ -218,19 +218,20 @@ export async function DELETE(
       );
     }
 
-    // 回答が存在する場合は削除を拒否
-    const responsesSnapshot = await adminDb
+    // 回答を含めて削除する
+    const responsesCollection = adminDb
       .collection('forms')
       .doc(resolvedParams.formId)
-      .collection('responses')
-      .limit(1)
-      .get();
+      .collection('responses');
 
-    if (!responsesSnapshot.empty) {
-      return NextResponse.json(
-        { error: '回答が存在するフォームは削除できません' },
-        { status: 400 }
-      );
+    const responsesSnapshot = await responsesCollection.get();
+    const responseDocs = responsesSnapshot.docs;
+
+    for (let index = 0; index < responseDocs.length; index += 400) {
+      const batch = adminDb.batch();
+      const chunk = responseDocs.slice(index, index + 400);
+      chunk.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
     }
 
     // フォームを削除

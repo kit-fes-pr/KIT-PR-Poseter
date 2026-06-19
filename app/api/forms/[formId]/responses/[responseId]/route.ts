@@ -2,11 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
-import {
-  deriveLegacyAvailableTimeFromSlots,
-  normalizeAvailabilitySlots,
-  validateAvailabilitySelection,
-} from '@/lib/utils/availability';
+import { normalizeAvailabilitySlots, validateAvailabilitySelection } from '@/lib/utils/availability';
 
 export async function PATCH(
   request: NextRequest,
@@ -98,12 +94,12 @@ export async function PATCH(
         participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
       }
       
-      const availableSlots = normalizeAvailabilitySlots(participantData.availableSlots ?? participantData.availableTime);
+      const availableSlots = normalizeAvailabilitySlots(participantData.availableSlots);
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
       const availabilitySelectionError = validateAvailabilitySelection(
-        participantData.availableSlots ?? participantData.availableTime
+        participantData.availableSlots
       );
       if (availabilitySelectionError) {
         participantValidationErrors.push(availabilitySelectionError);
@@ -207,11 +203,9 @@ export async function PATCH(
     let updateData: { [key: string]: any };
     
     if (participantData) {
-      const availableSlots = normalizeAvailabilitySlots(
-        participantData.availableSlots ?? participantData.availableTime
-      );
+      const availableSlots = normalizeAvailabilitySlots(participantData.availableSlots);
       const availabilitySelectionError = validateAvailabilitySelection(
-        participantData.availableSlots ?? participantData.availableTime
+        participantData.availableSlots
       );
       if (availabilitySelectionError) {
         return NextResponse.json(
@@ -229,7 +223,6 @@ export async function PATCH(
           name: participantData.name,
           section: participantData.section,
           grade: parseInt(participantData.grade),
-          availableTime: deriveLegacyAvailableTimeFromSlots(availableSlots),
           availableSlots,
         },
       };

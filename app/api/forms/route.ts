@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { title, description, fields, eventId, year }: FormCreateData & { eventId?: string; year?: number } = body;
+    const targetEventId = eventId || 'kohdai2025';
 
     // バリデーション
     if (!title?.trim()) {
@@ -138,6 +139,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'フォームフィールドを最低1つ設定してください' },
         { status: 400 }
+      );
+    }
+
+    const existingFormSnapshot = await adminDb
+      .collection('forms')
+      .where('eventId', '==', targetEventId)
+      .limit(1)
+      .get();
+
+    if (!existingFormSnapshot.empty) {
+      return NextResponse.json(
+        { error: 'この年度には既にフォームが存在します' },
+        { status: 409 }
       );
     }
 

@@ -7,12 +7,6 @@ export type AvailabilitySlotKey =
   | typeof UNAVAILABLE_SLOT_KEY
   | typeof ALL_AVAILABLE_SLOT_KEY;
 
-export interface AvailabilityChoice {
-  key: AvailableTime;
-  label: string;
-  enabled: boolean;
-}
-
 export interface AvailabilitySlotChoice {
   key: AvailabilitySlotKey;
   label: string;
@@ -21,37 +15,9 @@ export interface AvailabilitySlotChoice {
 }
 
 export const SPECIAL_AVAILABILITY_SLOT_CHOICES: AvailabilitySlotChoice[] = [
-  { key: UNAVAILABLE_SLOT_KEY, label: '参加不可', period: 'special' },
   { key: ALL_AVAILABLE_SLOT_KEY, label: '全て可能', period: 'special' },
+  { key: UNAVAILABLE_SLOT_KEY, label: '参加不可', period: 'special' },
 ];
-
-export const DEFAULT_AVAILABILITY_CHOICES: Array<Pick<AvailabilityChoice, 'key' | 'label'>> = [
-  { key: 'morning', label: '午前のみ参加可能' },
-  { key: 'afternoon', label: '午後のみ参加可能' },
-  { key: 'both', label: '両時間参加可能' },
-  { key: 'other', label: '参加不可' },
-];
-
-export function createDefaultAvailabilityChoices(): AvailabilityChoice[] {
-  return DEFAULT_AVAILABILITY_CHOICES.map((choice) => ({
-    ...choice,
-    enabled: true,
-  }));
-}
-
-export function buildAvailabilityChoicesFromLabels(labels?: string[] | null): AvailabilityChoice[] {
-  return DEFAULT_AVAILABILITY_CHOICES.map((choice) => ({
-    ...choice,
-    enabled: (labels || []).includes(choice.label),
-  }));
-}
-
-export function serializeAvailabilityChoiceLabels(choices: AvailabilityChoice[]): string[] {
-  return choices
-    .filter((choice) => choice.enabled)
-    .map((choice) => choice.label.trim())
-    .filter((label) => label.length > 0);
-}
 
 export function getAvailabilityDisplayLabel(value: AvailableTime | string | null | undefined): string {
   if (!value) return '-';
@@ -255,16 +221,6 @@ export function normalizeAvailabilitySlotValue(input: unknown): string | null {
     return value;
   }
 
-  const legacyMap: Record<string, string> = {
-    午前のみ参加可能: 'morning',
-    午後のみ参加可能: 'afternoon',
-    両時間参加可能: 'both',
-    参加不可: UNAVAILABLE_SLOT_KEY,
-    全て可能: ALL_AVAILABLE_SLOT_KEY,
-  };
-
-  if (legacyMap[value]) return legacyMap[value];
-
   if (/^\d{4}-\d{2}-\d{2}_(am|pm)$/.test(value)) {
     return value;
   }
@@ -272,7 +228,7 @@ export function normalizeAvailabilitySlotValue(input: unknown): string | null {
   return value;
 }
 
-export function deriveLegacyAvailableTimeFromSlots(slots: string[]): AvailableTime {
+export function summarizeAvailabilitySlots(slots: string[]): AvailableTime {
   const normalized = normalizeAvailabilitySlots(slots);
   if (normalized.length === 0) return 'other';
   if (normalized.includes(UNAVAILABLE_SLOT_KEY)) return 'other';

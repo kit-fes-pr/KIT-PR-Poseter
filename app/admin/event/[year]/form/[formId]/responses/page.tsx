@@ -9,7 +9,6 @@ import { formatDate } from '@/lib/utils/dateUtils';
 import { LoadingInline } from '@/components/ui/Loading';
 import { SurveyForm, ParticipantSurveyResponse, FormResponse, FormField } from '@/types/forms';
 import {
-  deriveLegacyAvailableTimeFromSlots,
   formatAvailabilitySlotLabel,
   getAvailabilityDateSlotKeys,
   normalizeAvailabilitySlots,
@@ -122,7 +121,7 @@ export default function FormResponsesPage({
         participantResponse.participantData?.name || '',
         participantResponse.participantData?.grade || '',
         participantResponse.participantData?.section || '',
-        (participantResponse.participantData?.availableSlots || [participantResponse.participantData?.availableTime || ''])
+        (participantResponse.participantData?.availableSlots || [])
           .map((value) => formatAvailabilitySlotLabel(value))
           .join(' / '),
       ];
@@ -265,7 +264,6 @@ export default function FormResponsesPage({
 
       // 参加可能時間帯フィールドの値を取得して安定キーに正規化
       const availableSlots = normalizeAvailabilitySlots(editFormData.availability);
-      const availableTime = deriveLegacyAvailableTimeFromSlots(availableSlots);
 
       const updateData = {
         answers,
@@ -273,7 +271,6 @@ export default function FormResponsesPage({
           name: editFormData.participantName as string,
           section: editFormData.participantSection as string,
           grade: parseInt(editFormData.participantGrade as string),
-          availableTime: availableTime,
           availableSlots,
         },
       };
