@@ -6,13 +6,14 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
+import { formatAvailabilitySlotLabel } from '@/lib/utils/availability';
 
 interface Member {
   memberId: string;
   name: string;
   section: string;
   grade: number;
-  availableTime: 'morning' | 'afternoon' | 'both' | 'other';
+  availableSlots?: string[];
   source: 'csv' | 'form' | 'manual';
   teamId?: string;
   createdAt: Date;
@@ -78,21 +79,6 @@ export default function MembersPage() {
     };
     init();
   }, [router, year, loadMembers]);
-
-  const getTimeSlotBadge = (timeSlot: string) => {
-    const config = {
-      morning: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: '午前' },
-      afternoon: { bg: 'bg-purple-100', text: 'text-purple-800', label: '午後' },
-      both: { bg: 'bg-green-100', text: 'text-green-800', label: '両方' },
-      other: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'その他' },
-    };
-    const { bg, text, label } = config[timeSlot as keyof typeof config] || config.other;
-    return (
-      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${bg} ${text}`}>
-        {label}
-      </span>
-    );
-  };
 
   const getSourceBadge = (source: string) => {
     const config = {
@@ -179,7 +165,22 @@ export default function MembersPage() {
                         {member.section}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getTimeSlotBadge(member.availableTime)}
+                        <div className="flex flex-wrap gap-2">
+                          {(member.availableSlots || []).length > 0 ? (
+                            member.availableSlots!.map((slot) => (
+                              <span
+                                key={slot}
+                                className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800"
+                              >
+                                {formatAvailabilitySlotLabel(slot)}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                              未設定
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {getSourceBadge(member.source)}

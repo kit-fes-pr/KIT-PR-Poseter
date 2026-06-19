@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
-import { getAvailabilityDisplayLabel, summarizeAvailabilitySlots } from '@/lib/utils/availability';
+import { getAvailabilitySummaryLabel, summarizeAvailabilitySlots } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { Area } from '@/types';
@@ -156,7 +156,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   };
 
   const getAvailabilityLabel = (availability: string) => {
-    return getAvailabilityDisplayLabel(availability);
+    return getAvailabilitySummaryLabel(availability);
   };
 
   const loadTeams = async () => {

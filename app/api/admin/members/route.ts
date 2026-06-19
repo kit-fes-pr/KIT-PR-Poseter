@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
+import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
 
 type Member = {
   memberId: string; // responseId を流用
   name: string;
   section: string;
   grade: number;
-  availableTime: 'morning' | 'afternoon' | 'both' | 'other';
+  availableSlots: string[];
   source: 'form';
   teamId?: string;
   createdAt: Date;
@@ -84,12 +84,13 @@ export async function GET(request: NextRequest) {
       if (!rec) continue;
       const pd = rec.data?.participantData || {};
       const submittedAt = rec.data?.submittedAt?.toDate ? rec.data.submittedAt.toDate() : (rec.data?.submittedAt ? new Date(rec.data.submittedAt) : new Date());
+      const availableSlots = normalizeAvailabilitySlots(pd.availableSlots);
       memberMap.set(a.responseId, {
         memberId: a.responseId,
         name: pd.name || '-',
         section: pd.section || '-',
         grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
-        availableTime: normalizeAvailableTime(pd.availableTime, undefined),
+        availableSlots,
         source: 'form',
         teamId: a.teamId,
         createdAt: submittedAt,

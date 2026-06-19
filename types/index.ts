@@ -73,7 +73,7 @@ export interface Member {
   section: string;
   department?: string; // 学科
   grade: number;
-  availableTime: "morning" | "afternoon" | "both" | "other";
+  availableSlots?: string[];
   teamId?: string;
   year?: number; // 年度
   source: "csv" | "form";

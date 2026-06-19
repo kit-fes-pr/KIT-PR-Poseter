@@ -1,4 +1,4 @@
-export type AvailableTime = 'morning' | 'afternoon' | 'both' | 'other';
+export type AvailabilitySummary = 'morning' | 'afternoon' | 'both' | 'other';
 
 export const UNAVAILABLE_SLOT_KEY = 'unavailable' as const;
 export const ALL_AVAILABLE_SLOT_KEY = 'all_available' as const;
@@ -19,48 +19,13 @@ export const SPECIAL_AVAILABILITY_SLOT_CHOICES: AvailabilitySlotChoice[] = [
   { key: UNAVAILABLE_SLOT_KEY, label: '参加不可', period: 'special' },
 ];
 
-export function getAvailabilityDisplayLabel(value: AvailableTime | string | null | undefined): string {
+export function getAvailabilitySummaryLabel(value: AvailabilitySummary | string | null | undefined): string {
   if (!value) return '-';
   if (value === 'morning') return '午前';
   if (value === 'afternoon') return '午後';
   if (value === 'both') return '両方';
   if (value === 'other') return '参加不可';
   return value;
-}
-
-// 安定キーへの正規化関数
-export function normalizeAvailableTime(
-  input: unknown,
-  options?: string[] | null,
-  defaultValue: AvailableTime = 'other'
-): AvailableTime {
-  // 1) すでに安定キーの場合
-  if (
-    input === 'morning' ||
-    input === 'afternoon' ||
-    input === 'both' ||
-    input === 'other'
-  ) {
-    return input;
-  }
-
-  if (typeof input === 'number' && Number.isInteger(input) && options && options.length > 0) {
-    const option = options[input];
-    if (option === '午前のみ参加可能') return 'morning';
-    if (option === '午後のみ参加可能') return 'afternoon';
-    if (option === '両時間参加可能') return 'both';
-    if (option === '参加不可') return 'other';
-  }
-
-  if (typeof input === 'string') {
-    const value = input.trim();
-    if (value === '午前のみ参加可能') return 'morning';
-    if (value === '午後のみ参加可能') return 'afternoon';
-    if (value === '両時間参加可能') return 'both';
-    if (value === '参加不可') return 'other';
-  }
-
-  return defaultValue;
 }
 
 function parseDateKey(date: Date): string {
@@ -228,7 +193,7 @@ export function normalizeAvailabilitySlotValue(input: unknown): string | null {
   return value;
 }
 
-export function summarizeAvailabilitySlots(slots: string[]): AvailableTime {
+export function summarizeAvailabilitySlots(slots: string[]): AvailabilitySummary {
   const normalized = normalizeAvailabilitySlots(slots);
   if (normalized.length === 0) return 'other';
   if (normalized.includes(UNAVAILABLE_SLOT_KEY)) return 'other';
