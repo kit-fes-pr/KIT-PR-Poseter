@@ -16,10 +16,12 @@
 ## 起動方法
 
 ### 必要なもの
-- Node.js 24以上
-- npm
-- Docker Desktop
-- リポジトリ直下の `.env`
+- `.env`（リポジトリ直下）
+- ローカル起動
+  - Node.js 24以上
+  - npm
+- Docker 起動
+  - Docker Desktop
 
 ### `.env` の準備
 1. `.env.example` をコピーして `.env` を作成します。
