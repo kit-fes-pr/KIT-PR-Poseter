@@ -343,14 +343,16 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             )}
 
             {/* フォーム */}
-            <PublicSurveyForm
-              form={form}
-              control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
-              handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
-              onSubmit={onSubmit}
-              submitting={submitting}
-              submitLabel="回答を送信"
-            />
+            {!showEditModal && (
+              <PublicSurveyForm
+                form={form}
+                control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
+                handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
+                onSubmit={onSubmit}
+                submitting={submitting}
+                submitLabel="回答を送信"
+              />
+            )}
 
             {/* フッター */}
             <div className="mt-8 pt-6 border-t border-gray-200">
