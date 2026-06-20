@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const idToken = authHeader.split('Bearer ')[1];
     console.log('Verifying ID token:', idToken.substring(0, 50) + '...');
 
-    const decodedToken = await adminAuth.verifyIdToken(idToken, true);
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
     console.log('Token decoded successfully:', {
       uid: decodedToken.uid,
       email: decodedToken.email,

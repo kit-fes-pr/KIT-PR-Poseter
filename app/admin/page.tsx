@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, getIdToken, User } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 import { LoadingScreen, LoadingButtonLabel } from '@/components/ui/Loading';
 
@@ -67,42 +67,19 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/admin-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      const idToken = await getIdToken(userCredential.user);
+      localStorage.setItem('authToken', idToken);
 
+      const response = await fetch('/api/auth/verify', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
       const result = await response.json();
 
-      if (response.ok) {
-        // カスタムトークンを使ってFirebase認証
-        const { auth } = await import('@/lib/firebase');
-        const { signInWithCustomToken, getIdToken } = await import('firebase/auth');
-
-        if (result.customToken) {
-          try {
-            // カスタムトークンでサインイン
-            const userCredential = await signInWithCustomToken(auth, result.customToken);
-            console.log('Signed in with custom token:', userCredential.user.uid);
-
-            // IDトークンを取得
-            const idToken = await getIdToken(userCredential.user);
-            localStorage.setItem('authToken', idToken);
-            console.log('ID Token stored:', idToken.substring(0, 50) + '...');
-
-            router.push('/admin/event');
-          } catch (authError) {
-            console.error('Custom token authentication failed:', authError);
-            setError('認証に失敗しました');
-          }
-        } else {
-          setError('認証トークンの取得に失敗しました');
-        }
+      if (response.ok && result?.user?.isAdmin) {
+        router.push('/admin/event');
       } else {
-        setError(result.error || 'ログインに失敗しました');
+        setError(result?.error || '管理者権限がありません');
       }
     } catch (error) {
       console.error('エラー内容:', error);
