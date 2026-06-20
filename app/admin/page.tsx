@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, getIdToken, User } from 'firebase/auth';
+import {
+  getIdToken,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  User,
+} from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 import { LoadingScreen, LoadingButtonLabel } from '@/components/ui/Loading';
 
@@ -14,6 +20,17 @@ export default function AdminLogin() {
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const clearAuthState = async () => {
+    try {
+      await signOut(auth);
+    } catch (signOutError) {
+      console.error('サインアウトエラー:', signOutError);
+    } finally {
+      localStorage.removeItem('authToken');
+      setUser(null);
+    }
+  };
 
   // 認証状態を監視
   useEffect(() => {
@@ -38,17 +55,17 @@ export default function AdminLogin() {
             } else {
               // 管理者権限がない場合はログアウト
               setError('管理者権限がありません');
-              setUser(null);
+              await clearAuthState();
             }
           } else {
             // 認証失敗の場合はログアウト
             setError('認証に失敗しました');
-            setUser(null);
+            await clearAuthState();
           }
         } catch (error) {
           console.error('認証チェックエラー:', error);
           setError('認証チェックに失敗しました');
-          setUser(null);
+          await clearAuthState();
         }
       }
     });
@@ -80,10 +97,12 @@ export default function AdminLogin() {
         router.push('/admin/event');
       } else {
         setError(result?.error || '管理者権限がありません');
+        await clearAuthState();
       }
     } catch (error) {
       console.error('エラー内容:', error);
       setError('ログインに失敗しました');
+      await clearAuthState();
     } finally {
       setIsLoading(false);
     }
