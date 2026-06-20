@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // 削除されたドキュメントの取得（別途削除ログがある場合）
-    let deletedTeams: Array<{ teamId: string; deletedAt: Date }> = [];
+    let deletedTeams: Array<{ teamId: string; deleted: true; deletedAt: string | Date }> = [];
     if (includeDeleted && lastUpdated) {
       const deletedQuery = adminDb
         .collection('deletedTeams')
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       deletedTeams = deletedSnapshot.docs.map((doc) => ({
         teamId: doc.data().teamId,
         deleted: true,
-        deletedAt: doc.data().deletedAt?.toDate?.()?.toISOString(),
+        deletedAt: doc.data().deletedAt?.toDate?.()?.toISOString() || doc.data().deletedAt,
       }));
     }
 
