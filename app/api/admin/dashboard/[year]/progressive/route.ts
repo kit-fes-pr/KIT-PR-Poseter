@@ -4,6 +4,17 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 /**
  * 段階的データ読み込みAPI - チャンク単位でデータを追加取得
  */
+function serializeDateTimeValue(value: unknown): string | unknown {
+  if (!value) return value;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ year: string }> }
@@ -71,11 +82,11 @@ export async function GET(
         const teamData = {
           teamId: doc.id,
           ...raw,
-          createdAt: raw.createdAt?.toDate?.()?.toISOString(),
-          updatedAt: raw.updatedAt?.toDate?.()?.toISOString(),
-          validStartDate: raw.validStartDate?.toDate?.()?.toISOString(),
-          validEndDate: raw.validEndDate?.toDate?.()?.toISOString(),
-          validDate: raw.validDate?.toDate?.()?.toISOString(),
+          createdAt: serializeDateTimeValue(raw.createdAt),
+          updatedAt: serializeDateTimeValue(raw.updatedAt),
+          validStartDate: serializeDateTimeValue(raw.validStartDate),
+          validEndDate: serializeDateTimeValue(raw.validEndDate),
+          validDate: serializeDateTimeValue(raw.validDate),
           memberCount: 0 // デフォルト
         };
 
