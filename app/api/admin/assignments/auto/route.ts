@@ -65,6 +65,13 @@ export async function POST(request: NextRequest) {
     }
 
     const eventSlotChoices = await loadEventSlotChoices(year);
+    if (eventSlotChoices.length === 0) {
+      return NextResponse.json(
+        { error: '配布枠が未設定です。先に配布設定で登録してください。' },
+        { status: 400 }
+      );
+    }
+
     const assignmentResult = performAutoAssignment(
       participants,
       teams,
