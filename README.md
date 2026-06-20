@@ -597,6 +597,44 @@ interface YearlyStats {
 
 ## 開発・デプロイ
 
+### Makefile による開発コマンド
+
+このリポジトリでは、よく使う開発コマンドを `Makefile` にまとめています。`make <target>` で実行できます。
+
+#### 使える target
+
+- `make up`: Docker Compose で起動します
+- `make dev`: npm で開発サーバーを起動します
+- `make build`: Next.js の本番ビルドを実行します
+- `make fmt`: Prettier でコード整形を行います
+- `make lint`: ESLint を実行します
+- `make test`: 現状は build による検証を行います
+- `make ci`: `format:check -> lint -> test` をまとめて実行します
+- `make admin`: Firebase Admin SDK を使って管理者ユーザーを作成します
+
+#### admin の使い方
+
+`admin` は API サーバーを起動していなくても使えます。`FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY` が `.env` に入っている前提です。
+
+```bash
+make admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp ADMIN_PASSWORD=your-password
+```
+
+必要なら `.env` 以外を読むこともできます。
+
+```bash
+make admin ADMIN_ENV_FILE=.env.local ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp ADMIN_PASSWORD=your-password
+```
+
+#### 補足
+
+`make -n <target>` を付けると、実行せずに展開されるコマンドだけを確認できます。
+
+```bash
+make -n ci
+make -n admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp ADMIN_PASSWORD=your-password
+```
+
 ### インフラ
 
 | 項目           | サービス                |
