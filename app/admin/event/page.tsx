@@ -242,8 +242,8 @@ export default function AdminEventIndex() {
       </div>
 
       {isCreating && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-semibold mb-4">イベントを追加</h2>
             <div className="space-y-4">
               <div>
@@ -310,8 +310,8 @@ export default function AdminEventIndex() {
       )}
 
       {isEditing && editTarget && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-semibold mb-4">イベントを編集（{String(editTarget.year)}年度）</h2>
             <div className="space-y-4">
               <div>

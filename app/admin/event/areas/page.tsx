@@ -30,12 +30,14 @@ export default function AreasPage() {
     areaCode: '',
     areaName: '',
     timeSlot: 'morning',
+    adjacentAreas: '',
     description: '',
   });
   const [editForm, setEditForm] = useState({
     areaCode: '',
     areaName: '',
     timeSlot: 'morning',
+    adjacentAreas: '',
     description: '',
   });
 
@@ -121,7 +123,7 @@ export default function AreasPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '配布区域の作成に失敗しました');
-      setForm({ areaCode: '', areaName: '', timeSlot: 'morning', description: '' });
+      setForm({ areaCode: '', areaName: '', timeSlot: 'morning', adjacentAreas: '', description: '' });
       await refreshAreas();
     } catch (err) {
       setError(err instanceof Error ? err.message : '配布区域の作成に失敗しました');
@@ -160,12 +162,13 @@ export default function AreasPage() {
 
   const openEditModal = (area: Area) => {
     setEditingAreaId(area.areaId);
-    setEditForm({
-      areaCode: area.areaCode || '',
-      areaName: area.areaName || '',
-      timeSlot: area.timeSlot || 'morning',
-      description: area.description || '',
-    });
+      setEditForm({
+        areaCode: area.areaCode || '',
+        areaName: area.areaName || '',
+        timeSlot: area.timeSlot || 'morning',
+        adjacentAreas: Array.isArray(area.adjacentAreas) ? area.adjacentAreas.join(', ') : '',
+        description: area.description || '',
+      });
   };
 
   const closeEditModal = () => {
@@ -264,6 +267,16 @@ export default function AreasPage() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
+                <textarea
+                  value={form.adjacentAreas}
+                  onChange={(e) => setForm({ ...form, adjacentAreas: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2"
+                  rows={3}
+                  placeholder="A-02, A-03"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>
                 <textarea
                   value={form.description}
@@ -302,6 +315,7 @@ export default function AreasPage() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時間帯</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">総チーム数</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">割り当て先チーム</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">周辺区域</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">説明</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                     </tr>
@@ -315,6 +329,9 @@ export default function AreasPage() {
                         <td className="px-4 py-3 text-sm text-gray-900">{getAssignedTeams(area).length}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {getAssignedTeams(area).length > 0 ? getAssignedTeams(area).join(' / ') : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {Array.isArray(area.adjacentAreas) && area.adjacentAreas.length > 0 ? area.adjacentAreas.join(', ') : '-'}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500">{area.description || '-'}</td>
                         <td className="px-4 py-3 text-right text-sm">
@@ -343,8 +360,8 @@ export default function AreasPage() {
         </div>
 
         {editingAreaId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-            <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-lg">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
               <h2 className="mb-4 text-lg font-medium text-gray-900">配布区域を編集</h2>
               <form onSubmit={handleUpdate} className="space-y-4">
                 <div>
@@ -373,6 +390,16 @@ export default function AreasPage() {
                     <option value="morning">午前</option>
                     <option value="afternoon">午後</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
+                  <textarea
+                    value={editForm.adjacentAreas}
+                    onChange={(e) => setEditForm({ ...editForm, adjacentAreas: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2"
+                    rows={3}
+                    placeholder="A-02, A-03"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>

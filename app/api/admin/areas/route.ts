@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
+function normalizeAdjacentAreas(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -16,7 +26,7 @@ export async function GET(request: NextRequest) {
     const snap = await adminDb.collection('areas').get();
     const areas = snap.docs.map((doc) => ({
       areaId: doc.id,
-      ...(doc.data() as { areaCode?: string; areaName?: string; timeSlot?: string; description?: string; eventId?: string; createdAt?: { toDate?: () => Date } | Date }),
+      ...(doc.data() as { areaCode?: string; areaName?: string; timeSlot?: string; adjacentAreas?: string[]; description?: string; eventId?: string; createdAt?: { toDate?: () => Date } | Date }),
       createdAt: doc.data().createdAt?.toDate() || new Date()
     })).sort((a, b) => String(a.areaCode || '').localeCompare(String(b.areaCode || ''), 'ja'));
 
@@ -39,7 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { areaCode, areaName, timeSlot, description, eventId } = await request.json();
+    const { areaCode, areaName, timeSlot, adjacentAreas, description, eventId } = await request.json();
 
     if (!areaCode || !areaName || !timeSlot) {
       return NextResponse.json({ 
@@ -68,6 +78,7 @@ export async function POST(request: NextRequest) {
       areaCode,
       areaName,
       timeSlot,
+      adjacentAreas: normalizeAdjacentAreas(adjacentAreas),
       description: description || '',
       eventId: eventId || 'common',
       createdAt: new Date()

@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
+function normalizeAdjacentAreas(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ areaId: string }> }) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -15,7 +25,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const resolvedParams = await params;
     const { areaId } = resolvedParams;
-    const { areaCode, areaName, timeSlot, description, eventId } = await request.json();
+    const { areaCode, areaName, timeSlot, adjacentAreas, description, eventId } = await request.json();
 
     if (!areaCode || !areaName || !timeSlot) {
       return NextResponse.json({ 
@@ -49,10 +59,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }, { status: 400 });
     }
 
+    const nextAdjacentAreas = normalizeAdjacentAreas(adjacentAreas);
     const updateData = {
       areaCode,
       areaName,
       timeSlot,
+      adjacentAreas: nextAdjacentAreas,
       description: description || '',
       eventId: eventId || 'common',
       updatedAt: new Date()
@@ -61,7 +73,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    if (previousAreaCode !== areaCode) {
+    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas);
+    const adjacentChanged = JSON.stringify(previousAdjacentAreas) !== JSON.stringify(nextAdjacentAreas);
+    if (previousAreaCode !== areaCode || adjacentChanged) {
       const teamsSnap = await adminDb.collection('teams').get();
       const batch = adminDb.batch();
       let touched = 0;
@@ -71,6 +85,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           batch.update(teamDoc.ref, {
             areaId,
             assignedArea: areaCode,
+            adjacentAreas: nextAdjacentAreas,
             updatedAt: new Date(),
           });
           touched++;

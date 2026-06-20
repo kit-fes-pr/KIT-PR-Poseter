@@ -368,8 +368,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
             </div>
 
             {!readOnly && isAddingStore && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
                         <h2 className="text-lg font-medium mb-4">新規店舗を追加</h2>
                         <form className="space-y-4" onSubmit={handleSubmit(onSubmitStore)}>
                             <div>
@@ -423,8 +423,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                 const store = (storesData?.stores || []).find((s: Store) => s.storeId === detailsStoreId);
                 if (!store) return null;
                 return (
-                    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
+                        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
                             <h2 className="text-lg font-medium mb-4">詳細編集</h2>
                             <form className="space-y-4" onSubmit={handleEditSubmit((d) => updateStoreDetails(store.storeId, d))}>
                                 <div>

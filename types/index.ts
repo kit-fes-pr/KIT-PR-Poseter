@@ -17,8 +17,9 @@ export interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: "morning" | "afternoon" | "both" | "other";
+  timeSlot: string; // 配布枠キー: YYYY-MM-DD_am / YYYY-MM-DD_pm
   assignedArea: string;
+  areaId?: string;
   adjacentAreas: string[];
   eventId: string;
   year?: number; // 年度情報を追加
@@ -60,6 +61,7 @@ export interface Area {
   areaCode: string;
   areaName: string;
   timeSlot: "morning" | "afternoon";
+  adjacentAreas?: string[];
   description?: string;
   eventId: string;
   createdAt: Date;

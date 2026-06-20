@@ -299,7 +299,7 @@ interface Member {
   name: string;
   section: string;          // 所属セクション
   grade: number;            // 学年
-  availableTime: "morning" | "afternoon" | "both" | "other";
+  availableSlots: string[];
   year: number;             // 参加年度
   teamId?: string;          // 割り当て班ID
   source: "csv" | "form" | "manual";   // 登録元

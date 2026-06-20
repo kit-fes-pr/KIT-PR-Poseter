@@ -430,8 +430,8 @@ export default function Dashboard() {
       </div>
 
       {isAddingStore && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-medium mb-4">新しい店舗を追加</h2>
             <form onSubmit={handleSubmit(onSubmitStore)} className="space-y-4">
               <div>
@@ -537,8 +537,8 @@ export default function Dashboard() {
       )}
 
       {detailsStoreId && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4" onClick={() => setDetailsStoreId(null)}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4" onClick={() => setDetailsStoreId(null)}>
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             {(() => {
               const store = (storesData?.stores || []).find((s: Store) => s.storeId === detailsStoreId);
               if (!store) return null;
