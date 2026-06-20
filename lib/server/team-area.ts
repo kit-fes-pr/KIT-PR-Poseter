@@ -45,7 +45,7 @@ export async function resolveAreaRef(params: {
   return null;
 }
 
-export async function loadAreaMapByEventId() {
+export async function loadAreaMap() {
   const snap = await adminDb.collection('areas').get();
   const byCode = new Map<string, ResolvedAreaRef>();
   const byId = new Map<string, ResolvedAreaRef>();
