@@ -32,7 +32,6 @@ export function PublicSurveyForm({
       render={({ field: controllerField, fieldState }) => (
         <SurveyFieldBlock
           field={field}
-          mode="interactive"
           value={controllerField.value}
           onValueChange={controllerField.onChange}
           errorMessage={fieldState.error?.message}

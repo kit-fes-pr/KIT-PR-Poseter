@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { FormField } from '@/types/forms';
 import { SurveyFieldBlock } from '@/components/forms/SurveyFieldBlock';
 
@@ -20,6 +21,21 @@ export function FormContentTab({
   previewFields,
   availabilityChoices,
 }: FormContentTabProps) {
+  const buildInitialPreviewValues = (fields: FormField[]) => {
+    return fields.reduce<Record<string, string | string[]>>((acc, field) => {
+      acc[field.fieldId] = field.type === 'checkbox' ? [] : '';
+      return acc;
+    }, {});
+  };
+
+  const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>(
+    () => buildInitialPreviewValues(previewFields)
+  );
+
+  useEffect(() => {
+    setPreviewValues(buildInitialPreviewValues(previewFields));
+  }, [previewFields]);
+
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -71,7 +87,13 @@ export function FormContentTab({
               field={field.fieldId === 'availability'
                 ? { ...field, options: availabilityChoices }
                 : field}
-              mode="preview"
+              value={previewValues[field.fieldId]}
+              onValueChange={(value) => {
+                setPreviewValues((current) => ({
+                  ...current,
+                  [field.fieldId]: value,
+                }));
+              }}
               availabilityCopy={{
                 intro: '参加可能な日時を選択してください。',
                 multiple: '複数選択可',
