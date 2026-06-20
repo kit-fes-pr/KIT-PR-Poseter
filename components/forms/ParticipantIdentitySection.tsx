@@ -1,34 +1,35 @@
 'use client';
 
-import { Control, FieldValues, Path, useController } from 'react-hook-form';
+import { Control, Path, useController } from 'react-hook-form';
 import { ParticipantIdentityFields } from '@/components/forms/ParticipantIdentityFields';
 
-type ParticipantIdentityFormValues = {
+export type ParticipantIdentityFormValues = {
   participantName: string;
   participantGrade: string;
   participantSection: string;
+  [key: string]: string | string[];
 };
 
-type ParticipantIdentitySectionProps<TFieldValues extends ParticipantIdentityFormValues & FieldValues> = {
-  control: Control<TFieldValues>;
+type ParticipantIdentitySectionProps = {
+  control: Control<ParticipantIdentityFormValues>;
 };
 
-export function ParticipantIdentitySection<TFieldValues extends ParticipantIdentityFormValues & FieldValues>({
+export function ParticipantIdentitySection({
   control,
-}: ParticipantIdentitySectionProps<TFieldValues>) {
+}: ParticipantIdentitySectionProps) {
   const nameField = useController({
     control,
-    name: 'participantName' as Path<TFieldValues>,
+    name: 'participantName' as Path<ParticipantIdentityFormValues>,
     rules: { required: 'お名前は必須です' },
   });
   const gradeField = useController({
     control,
-    name: 'participantGrade' as Path<TFieldValues>,
+    name: 'participantGrade' as Path<ParticipantIdentityFormValues>,
     rules: { required: '学年は必須です' },
   });
   const sectionField = useController({
     control,
-    name: 'participantSection' as Path<TFieldValues>,
+    name: 'participantSection' as Path<ParticipantIdentityFormValues>,
     rules: { required: '所属セクションは必須です' },
   });
 

@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
-import { Controller } from 'react-hook-form';
-import { SurveyForm, FormAnswer, FormField } from '@/types/forms';
+import { SurveyForm, FormAnswer } from '@/types/forms';
 import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
-import { SurveyFieldBlock, buildSurveyFieldRules } from '@/components/forms/SurveyFieldBlock';
-import { ParticipantIdentitySection } from '@/components/forms/ParticipantIdentitySection';
+import { PublicSurveyForm } from '@/components/forms/PublicSurveyForm';
+import type { ParticipantIdentityFormValues } from '@/components/forms/ParticipantIdentitySection';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -237,47 +236,6 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const renderField = (field: FormField) => {
-    return (
-      <Controller
-        key={field.fieldId}
-        name={field.fieldId as string}
-        control={control}
-        defaultValue={field.type === 'checkbox' ? [] : ''}
-        rules={buildSurveyFieldRules(field)}
-        render={({ field: controllerField, fieldState }) => (
-          <SurveyFieldBlock
-            field={field}
-            mode="interactive"
-            value={controllerField.value}
-            onValueChange={controllerField.onChange}
-            errorMessage={fieldState.error?.message}
-          />
-        )}
-      />
-    );
-  };
-
-  const renderResponseForm = (submitLabel: string) => (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <ParticipantIdentitySection control={control} />
-
-      {form?.fields
-        .sort((a, b) => a.order - b.order)
-        .map(field => renderField(field))}
-
-      <div className="pt-6">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-        >
-          {submitting ? '送信中...' : submitLabel}
-        </button>
-      </div>
-    </form>
-  );
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -365,25 +323,14 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             )}
 
             {/* フォーム */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <ParticipantIdentitySection control={control} />
-
-              {/* 既存のフォームフィールド */}
-              {form?.fields
-                .sort((a, b) => a.order - b.order)
-                .map(field => renderField(field))}
-
-              {/* 送信ボタン */}
-              <div className="pt-6">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                >
-                  {submitting ? '送信中...' : '回答を送信'}
-                </button>
-              </div>
-            </form>
+            <PublicSurveyForm
+              form={form}
+              control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
+              handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
+              onSubmit={onSubmit}
+              submitting={submitting}
+              submitLabel="回答を送信"
+            />
 
             {/* フッター */}
             <div className="mt-8 pt-6 border-t border-gray-200">
@@ -435,7 +382,14 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
               {savedResponseDraft ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。' : '回答内容を入力してください。'}
             </div>
-            {renderResponseForm('変更を保存')}
+            <PublicSurveyForm
+              form={form}
+              control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
+              handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
+              onSubmit={onSubmit}
+              submitting={submitting}
+              submitLabel="変更を保存"
+            />
           </div>
         </Modal>
       )}
