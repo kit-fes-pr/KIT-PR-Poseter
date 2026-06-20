@@ -7,8 +7,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { LoadingInline } from '@/components/ui/Loading';
-import { Modal } from '@/components/ui/Modal';
-import { ParticipantIdentityFields } from '@/components/forms/ParticipantIdentityFields';
+import { ResponseEditModal } from '@/components/forms/ResponseEditModal';
 import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
 import {
   buildAvailabilitySlotChoices,
@@ -1119,74 +1118,36 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       </div>
 
       {editingResponse && currentForm && (
-        <Modal
+        <ResponseEditModal
           open
+          title="回答を編集"
           onClose={closeEditModal}
-          centered={false}
-          panelClassName="max-w-4xl"
-          contentClassName="px-6 py-6"
+          name={String(editFormData.participantName || '')}
+          grade={String(editFormData.participantGrade || '')}
+          section={String(editFormData.participantSection || '')}
+          onNameChange={(value) => setEditFormData((current) => ({ ...current, participantName: value }))}
+          onGradeChange={(value) => setEditFormData((current) => ({ ...current, participantGrade: value }))}
+          onSectionChange={(value) => setEditFormData((current) => ({ ...current, participantSection: value }))}
+          onSubmit={updateResponse}
+          submitLabel="変更を保存"
+          submitting={editSaving}
+          maxWidthClassName="max-w-4xl"
         >
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">回答を編集</h2>
-            </div>
-            <button
-              type="button"
-              onClick={closeEditModal}
-              className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="px-6 py-6">
-            <div className="space-y-6">
-              <ParticipantIdentityFields
-                name={String(editFormData.participantName || '')}
-                grade={String(editFormData.participantGrade || '')}
-                section={String(editFormData.participantSection || '')}
-                onNameChange={(value) => setEditFormData((current) => ({ ...current, participantName: value }))}
-                onGradeChange={(value) => setEditFormData((current) => ({ ...current, participantGrade: value }))}
-                onSectionChange={(value) => setEditFormData((current) => ({ ...current, participantSection: value }))}
-              />
-
-              {currentForm.fields.map((field) => (
-                <div key={field.fieldId} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
-                      <p className="text-xs text-gray-500">
-                        {field.type}
-                        {field.required ? ' ・ 必須' : ' ・ 任意'}
-                      </p>
-                    </div>
-                  </div>
-                  {renderEditableField(field)}
+          {currentForm.fields.map((field) => (
+            <div key={field.fieldId} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
+                  <p className="text-xs text-gray-500">
+                    {field.type}
+                    {field.required ? ' ・ 必須' : ' ・ 任意'}
+                  </p>
                 </div>
-              ))}
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="button"
-                  onClick={updateResponse}
-                  disabled={editSaving}
-                  className="rounded-lg border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {editSaving ? '保存中...' : '変更を保存'}
-                </button>
               </div>
+              {renderEditableField(field)}
             </div>
-          </div>
-        </Modal>
+          ))}
+        </ResponseEditModal>
       )}
     </div>
   );

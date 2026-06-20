@@ -7,8 +7,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
 import { LoadingInline } from '@/components/ui/Loading';
-import { Modal } from '@/components/ui/Modal';
-import { ParticipantIdentityFields } from '@/components/forms/ParticipantIdentityFields';
+import { ResponseEditModal } from '@/components/forms/ResponseEditModal';
 import { SurveyForm, ParticipantSurveyResponse, FormResponse, FormField } from '@/types/forms';
 import {
   formatAvailabilitySlotLabel,
@@ -553,138 +552,106 @@ export default function FormResponsesPage({
 
         {/* 編集モーダル */}
         {editingResponse && form && (
-          <Modal
+          <ResponseEditModal
             open
+            title="回答を編集"
             onClose={closeEditModal}
-            centered={false}
-            panelClassName="max-w-3xl"
-            contentClassName="px-6 py-6"
+            name={String(editFormData.participantName || '')}
+            grade={String(editFormData.participantGrade || '')}
+            section={String(editFormData.participantSection || '')}
+            onNameChange={(value) => setEditFormData({ ...editFormData, participantName: value })}
+            onGradeChange={(value) => setEditFormData({ ...editFormData, participantGrade: value })}
+            onSectionChange={(value) => setEditFormData({ ...editFormData, participantSection: value })}
+            onSubmit={updateResponse}
+            submitLabel="更新"
+            maxWidthClassName="max-w-3xl"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">回答を編集</h3>
-              <button
-                type="button"
-                onClick={closeEditModal}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+            {form.fields.map(field => (
+              <div key={field.fieldId}>
+                {(() => {
+                  const isAvailabilityField = field.fieldId === 'availability';
+                  const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
+                  return (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700">
+                        {field.label} {field.required && '*'}
+                      </label>
+                      {field.type === 'text' || field.type === 'number' ? (
+                        <input
+                          type={field.type}
+                          value={editFormData[field.fieldId] || ''}
+                          onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      ) : field.type === 'textarea' ? (
+                        <textarea
+                          rows={3}
+                          value={editFormData[field.fieldId] || ''}
+                          onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                      ) : field.type === 'select' ? (
+                        <select
+                          value={editFormData[field.fieldId] || ''}
+                          onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="">選択してください</option>
+                          {field.options?.map((option, index) => (
+                            <option key={index} value={option}>{optionLabel(option)}</option>
+                          ))}
+                        </select>
+                      ) : field.type === 'radio' ? (
+                        <div className="mt-1 space-y-2">
+                          {field.options?.map((option, index) => (
+                            <label key={index} className="flex items-center">
+                              <input
+                                type="radio"
+                                name={field.fieldId}
+                                value={option}
+                                checked={editFormData[field.fieldId] === option}
+                                onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
+                                className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : field.type === 'checkbox' ? (
+                        <div className="mt-1 space-y-2">
+                          {(() => {
+                            const allDateSlotKeys = getAvailabilityDateSlotKeys(
+                              (field.options || []).map((option) => ({
+                                key: option,
+                                label: option,
+                              }))
+                            );
 
-            <form className="space-y-4 max-h-96 overflow-y-auto">
-              <ParticipantIdentityFields
-                name={String(editFormData.participantName || '')}
-                grade={String(editFormData.participantGrade || '')}
-                section={String(editFormData.participantSection || '')}
-                onNameChange={(value) => setEditFormData({ ...editFormData, participantName: value })}
-                onGradeChange={(value) => setEditFormData({ ...editFormData, participantGrade: value })}
-                onSectionChange={(value) => setEditFormData({ ...editFormData, participantSection: value })}
-              />
-
-              {form.fields.map(field => (
-                <div key={field.fieldId}>
-                  {(() => {
-                    const isAvailabilityField = field.fieldId === 'availability';
-                    const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
-                    return (
-                      <>
-                        <label className="block text-sm font-medium text-gray-700">
-                          {field.label} {field.required && '*'}
-                        </label>
-                        {field.type === 'text' || field.type === 'number' ? (
-                          <input
-                            type={field.type}
-                            value={editFormData[field.fieldId] || ''}
-                            onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                          />
-                        ) : field.type === 'textarea' ? (
-                          <textarea
-                            rows={3}
-                            value={editFormData[field.fieldId] || ''}
-                            onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                          />
-                        ) : field.type === 'select' ? (
-                          <select
-                            value={editFormData[field.fieldId] || ''}
-                            onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                          >
-                            <option value="">選択してください</option>
-                            {field.options?.map((option, index) => (
-                              <option key={index} value={option}>{optionLabel(option)}</option>
-                            ))}
-                          </select>
-                        ) : field.type === 'radio' ? (
-                          <div className="mt-1 space-y-2">
-                            {field.options?.map((option, index) => (
+                            return field.options?.map((option, index) => (
                               <label key={index} className="flex items-center">
                                 <input
-                                  type="radio"
-                                  name={field.fieldId}
+                                  type="checkbox"
                                   value={option}
-                                  checked={editFormData[field.fieldId] === option}
-                                  onChange={(e) => setEditFormData({...editFormData, [field.fieldId]: e.target.value})}
-                                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                  checked={Array.isArray(editFormData[field.fieldId]) ? (editFormData[field.fieldId] as string[]).includes(option) : false}
+                                  onChange={() => {
+                                    const currentValues = Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId] as string[] : [];
+                                    const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+                                    setEditFormData({ ...editFormData, [field.fieldId]: nextValues });
+                                  }}
+                                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                 />
                                 <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
                               </label>
-                            ))}
-                          </div>
-                        ) : field.type === 'checkbox' ? (
-                          <div className="mt-1 space-y-2">
-                            {(() => {
-                              const allDateSlotKeys = getAvailabilityDateSlotKeys(
-                                (field.options || []).map((option) => ({
-                                  key: option,
-                                  label: option,
-                                }))
-                              );
-
-                              return field.options?.map((option, index) => (
-                                <label key={index} className="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    value={option}
-                                    checked={Array.isArray(editFormData[field.fieldId]) ? (editFormData[field.fieldId] as string[]).includes(option) : false}
-                                    onChange={() => {
-                                      const currentValues = Array.isArray(editFormData[field.fieldId]) ? editFormData[field.fieldId] as string[] : [];
-                                      const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
-                                      setEditFormData({ ...editFormData, [field.fieldId]: nextValues });
-                                    }}
-                                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                  />
-                                  <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
-                                </label>
-                              ));
-                            })()}
-                          </div>
-                        ) : null}
-                      </>
-                    );
-                  })()}
-                </div>
-              ))}
-            </form>
-
-            <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
-              <button
-                onClick={closeEditModal}
-                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={updateResponse}
-                className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                更新
-              </button>
-            </div>
-          </Modal>
+                            ));
+                          })()}
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </div>
+            ))}
+          </ResponseEditModal>
         )}
       </div>
     </div>
