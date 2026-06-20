@@ -10,9 +10,11 @@ import {
   UNAVAILABLE_SLOT_KEY,
   ALL_AVAILABLE_SLOT_KEY,
   buildAvailabilitySlotChoices,
+  compareAvailabilitySlotKeys,
   formatAvailabilitySlotLabel,
   normalizeAvailabilitySlots,
   getAvailabilityDateSlotKeys,
+  sortAvailabilitySlotKeys,
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
@@ -175,8 +177,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         setDistributionEventId(eventIdForYear);
 
         const slots = Array.isArray(eventData?.distributionAvailabilitySlots) && eventData?.distributionAvailabilitySlots.length > 0
-          ? eventData!.distributionAvailabilitySlots!.filter((slot): slot is string => typeof slot === 'string')
-          : buildAvailabilitySlotChoices(eventData?.distributionStartDate, eventData?.distributionEndDate).map((choice) => choice.key);
+          ? sortAvailabilitySlotKeys(eventData!.distributionAvailabilitySlots!.filter((slot): slot is string => typeof slot === 'string'))
+          : sortAvailabilitySlotKeys(buildAvailabilitySlotChoices(eventData?.distributionStartDate, eventData?.distributionEndDate).map((choice) => choice.key));
         setDistributionSlots(slots);
         if (!createTeamForm.timeSlot && slots.length > 0) {
           setCreateTeamForm((prev) => ({ ...prev, timeSlot: slots[0] }));
@@ -216,7 +218,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   };
 
   const getAvailabilityLabel = (slots: string[]) => {
-    const normalized = normalizeAvailabilitySlots(slots);
+    const normalized = sortAvailabilitySlotKeys(normalizeAvailabilitySlots(slots));
     if (normalized.length === 0) return '-';
     return normalized.map((slot) => formatAvailabilitySlotLabel(slot)).join(' / ');
   };
@@ -495,7 +497,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
       if (res.ok) {
         const data: { teams: Team[] } = await res.json();
-        setTeams(data.teams || []);
+        setTeams((data.teams || []).slice().sort((a, b) => compareAvailabilitySlotKeys(a.timeSlot || '', b.timeSlot || '')));
       }
     } catch (err) {
       console.error('チーム取得エラー:', err);
@@ -779,7 +781,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     const normalized = normalizeAvailabilitySlots(p.availableSlots);
     return normalized.length > 0 && !normalized.includes(UNAVAILABLE_SLOT_KEY);
   });
-  const matchingTeams = teams.filter((team) => distributionSlots.includes(team.timeSlot));
+  const matchingTeams = [...teams]
+    .filter((team) => distributionSlots.includes(team.timeSlot))
+    .sort((a, b) => compareAvailabilitySlotKeys(a.timeSlot || '', b.timeSlot || ''));
   const participantsWithAllAvailable = participants.filter((p) =>
     normalizeAvailabilitySlots(p.availableSlots).includes(ALL_AVAILABLE_SLOT_KEY)
   );

@@ -140,6 +140,33 @@ export function formatAvailabilitySlotLabel(key: string): string {
   return `${dateLabel} ${period === 'am' ? '午前' : '午後'}`;
 }
 
+export function compareAvailabilitySlotKeys(a: string, b: string): number {
+  const parse = (value: string) => {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})_(am|pm)$/);
+    if (!match) {
+      if (value === ALL_AVAILABLE_SLOT_KEY) return { rank: -2, key: value };
+      if (value === UNAVAILABLE_SLOT_KEY) return { rank: -1, key: value };
+      return { rank: 9999, key: value };
+    }
+
+    const [, datePart, period] = match;
+    const periodRank = period === 'am' ? 0 : 1;
+    return {
+      rank: 0,
+      key: `${datePart}_${periodRank}`,
+    };
+  };
+
+  const pa = parse(a);
+  const pb = parse(b);
+  if (pa.rank !== pb.rank) return pa.rank - pb.rank;
+  return pa.key.localeCompare(pb.key, 'ja');
+}
+
+export function sortAvailabilitySlotKeys(values: string[]): string[] {
+  return [...values].sort(compareAvailabilitySlotKeys);
+}
+
 export function getAvailabilityDateSlotKeys(choices: Array<{ key: string }>): string[] {
   return choices
     .map((choice) => choice.key)
