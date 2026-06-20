@@ -95,17 +95,20 @@ docker compose down
 - 各班用ログインコード（管理者事前発行）
 - ログインコードに紐づく情報：
   - 班名
-  - 担当配布区域（午前1、午後1など）
-  - 参加時間帯（午前/午後）
+  - 担当配布区域
+  - 配布枠キー（`YYYY-MM-DD_am` / `YYYY-MM-DD_pm`）
 
 #### 参加者管理
 **アンケートフォーム**
-- 項目: 名前、学年、所属セクション、参加可能時間帯
+- 1年度1フォームで運用
+- 項目: 名前、学年、所属セクション、参加可能日時
+- 配布期間に基づく午前/午後の複数選択
+- `参加不可` / `全て可能` も選択可能
 - フォーム作成・編集・削除機能
 - 回答データの管理・確認機能
 
 **CSVインポート機能**
-- 項目: 名前、所属セクション、参加可能時間帯、学年
+- 項目: 名前、所属セクション、参加可能日時、学年
 - バリデーション機能とエラー詳細表示
 - 一括インポート処理とリアルタイム結果表示
 
@@ -134,13 +137,14 @@ docker compose down
 ### 5. 管理者機能（Adminページ）
 #### イベント管理
 - 年度別イベント作成・編集・削除
-- 配布日設定とアクティブイベント切り替え
+- 配布期間と配布枠の設定
+- アクティブイベント切り替え
 - 年度別データ管理と過去データ参照
 
 #### チーム管理
 - チーム作成・編集・削除（ログインコード発行）
-- 午前/午後の時間帯管理
-- 担当区域・周辺区域設定
+- 配布枠キー（`YYYY-MM-DD_am` / `YYYY-MM-DD_pm`）で管理
+- 担当区域は配布区域側で設定し、チームへ自動反映
 - チーム別詳細情報と配布実績
 
 #### 参加者管理
@@ -230,9 +234,13 @@ docker compose down
 interface DistributionEvent {
   eventId: string;           // "kohdai2025"
   eventName: string;         // "工大祭2025"
-  distributionDate: Date;    // 学外配布日
-  year: number;             // 2025
-  isActive: boolean;        // 現在アクティブなイベントか
+  distributionDate: Date;    // 後方互換
+  distributionStartDate: Date; // 配布期間の開始日
+  distributionEndDate: Date;   // 配布期間の終了日
+  distributionAvailabilitySlots: string[]; // 配布枠キー一覧
+  distributionTimeZone: string;
+  year: number;              // 2025
+  isActive: boolean;         // 現在アクティブなイベントか
   createdAt: Date;
   updatedAt: Date;
 }
@@ -244,13 +252,14 @@ interface Team {
   teamId: string;           // "AM1-2025"
   teamCode: string;         // "AM1-2025"
   teamName: string;         // "午前1班"
-  timeSlot: "morning" | "afternoon" | "both" | "other";
-  assignedArea: string;     // "午前1"
-  adjacentAreas: string[];  // ["午前2", "午後1"] 周辺区域
+  timeSlot: string;         // "2026-06-01_am" などの配布枠キー
+  assignedArea: string;      // "午前1"
+  adjacentAreas: string[];   // ["午前2", "午後1"] 周辺区域
   eventId: string;          // "kohdai2025"
+  year?: number;            // 2025
   isActive: boolean;
-  validDate: Date;          // ログインコード有効日
   createdAt: Date;
+  updatedAt?: Date;
 }
 ```
 
@@ -302,7 +311,7 @@ interface Member {
   availableSlots: string[];
   year: number;             // 参加年度
   teamId?: string;          // 割り当て班ID
-  source: "csv" | "form" | "manual";   // 登録元
+  source: "csv" | "form";   // 登録元
   createdAt: Date;
 }
 ```
@@ -472,13 +481,13 @@ interface YearlyStats {
 | `POST` | `/api/admin/events` | イベント作成 |
 | `PATCH` | `/api/admin/events` | イベント更新 |
 | `DELETE` | `/api/admin/events` | イベント削除 |
-| `GET` | `/api/admin/teams` | チーム一覧取得（年度指定可能） |
+| `GET` | `/api/admin/teams` | チーム一覧取得（年度指定可能、配布枠キー） |
 | `POST` | `/api/admin/teams` | チーム作成 |
 | `GET` | `/api/admin/teams/{teamId}` | チーム詳細取得 |
 | `PATCH` | `/api/admin/teams/{teamId}` | チーム更新 |
 | `DELETE` | `/api/admin/teams/{teamId}` | チーム削除 |
 | `GET` | `/api/admin/teams/{teamId}/stores` | チーム別店舗情報取得 |
-| `GET` | `/api/admin/assignments` | 通常割り当て一覧取得 |
+| `GET` | `/api/admin/assignments` | 通常割り当て一覧取得（year / formId 指定可） |
 | `GET` | `/api/admin/members` | メンバー一覧取得（年度指定可能） |
 | `POST` | `/api/admin/members` | メンバー作成 |
 | `POST` | `/api/admin/members/import` | CSVインポート |
@@ -488,13 +497,13 @@ interface YearlyStats {
 #### アンケートフォーム関連
 | メソッド | エンドポイント | 説明 |
 |---------|---------------|------|
-| `GET` | `/api/forms` | フォーム一覧取得（管理者用） |
+| `GET` | `/api/forms` | フォーム一覧取得（管理者用、1年度1フォーム） |
 | `POST` | `/api/forms` | フォーム作成 |
 | `GET` | `/api/forms/{formId}` | フォーム詳細取得 |
 | `PATCH` | `/api/forms/{formId}` | フォーム更新 |
 | `DELETE` | `/api/forms/{formId}` | フォーム削除 |
 | `GET` | `/api/forms/{formId}/responses` | 回答一覧取得（管理者用） |
-| `POST` | `/api/forms/{formId}/responses` | 回答送信 |
+| `POST` | `/api/forms/{formId}/responses` | 回答送信（availableSlots） |
 
 ---
 
@@ -584,6 +593,6 @@ interface YearlyStats {
 
 ## 文書情報
 
-**最終更新**: 2025年9月23日  
+**最終更新**: 2026年6月20日  
 **作成者**: 工大祭実行委員会  
 **文書バージョン**: 1.2  
