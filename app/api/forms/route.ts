@@ -29,12 +29,12 @@ function toMillis(value: unknown): number {
 
 function normalizeFormEventContext(eventId: unknown, year: unknown): { eventId: string; year: number } | null {
   const normalizedYear = typeof year === 'number'
-    ? year
-    : typeof year === 'string' && year.trim()
-      ? Number(year)
+    ? (Number.isInteger(year) && year >= 1000 && year <= 9999 ? year : Number.NaN)
+    : typeof year === 'string' && /^\d{4}$/.test(year.trim())
+      ? Number(year.trim())
       : Number.NaN;
 
-  if (Number.isFinite(normalizedYear)) {
+  if (Number.isInteger(normalizedYear) && normalizedYear >= 1000 && normalizedYear <= 9999) {
     return {
       eventId: `kodai${normalizedYear}`,
       year: normalizedYear,
