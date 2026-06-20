@@ -105,16 +105,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
           )}
 
           {/* リアルタイム統計カード */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              {
-                label: '総チーム数',
-                value: data?.stats?.totalTeams || 0,
-                loaded: data?.stats?.loadedTeams || 0,
-                icon: '👥',
-                color: 'blue',
-                href: `/admin/event/${year}/team`
-              },
               {
                 label: '回答者数(参加可能 / 全体)',
                 value: `${availableResponses}/${totalResponses}人`,
@@ -168,7 +160,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                         </dt>
                         <dd className={`text-2xl font-bold text-${stat.color}-600 flex items-center gap-2`}>
                           <span>{stat.value}</span>
-                          {typeof stat.value === 'number' && 'loaded' in stat && stat.loaded !== undefined && stat.loaded < stat.value && (
+                          {typeof stat.value === 'number' && 'loaded' in stat && typeof stat.loaded === 'number' && stat.loaded < stat.value && (
                             <span className="ml-2 text-sm text-gray-400">
                               ({stat.loaded}件表示中)
                             </span>

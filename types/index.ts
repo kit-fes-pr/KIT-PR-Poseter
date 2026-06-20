@@ -1,10 +1,8 @@
 export interface DistributionEvent {
   eventId: string;
   eventName: string;
-  // 期間対応: 開始日・終了日（後方互換で distributionDate も保持）
   distributionStartDate?: Date | string;
   distributionEndDate?: Date | string;
-  distributionDate?: Date | string; // 後方互換
   distributionAvailabilitySlots?: string[];
   distributionTimeZone?: string;
   year: number;
@@ -60,10 +58,8 @@ export interface Area {
   areaId: string;
   areaCode: string;
   areaName: string;
-  timeSlot: "morning" | "afternoon";
   adjacentAreas?: string[];
   description?: string;
-  eventId: string;
   createdAt: Date;
 }
 

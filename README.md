@@ -210,7 +210,7 @@ docker compose down
 | `/admin/event/[year]` | 年度別イベント管理 | 管理者認証 |
 | `/admin/event/[year]/team` | チーム管理 | 管理者認証 |
 | `/admin/event/[year]/team/[teamId]` | チーム詳細管理 | 管理者認証 |
-| `/admin/event/[year]/distribution` | 配布日時設定 | 管理者認証 |
+| `/admin/event/[year]/distribution` | イベント設定 | 管理者認証 |
 | `/admin/event/[year]/form` | アンケートフォーム管理（作成・内容・回答・設定） | 管理者認証 |
 | `/admin/event/[year]/form/[formId]/responses` | アンケート回答一覧 | 管理者認証 |
 | `/admin/event/[year]/members` | メンバー管理・CSVインポート | 管理者認証 |
@@ -234,7 +234,6 @@ docker compose down
 interface DistributionEvent {
   eventId: string;           // "kohdai2025"
   eventName: string;         // "工大祭2025"
-  distributionDate: Date;    // 後方互換
   distributionStartDate: Date; // 配布期間の開始日
   distributionEndDate: Date;   // 配布期間の終了日
   distributionAvailabilitySlots: string[]; // 配布枠キー一覧
@@ -294,9 +293,7 @@ interface Area {
   areaId: string;           // "morning-1"
   areaCode: string;         // "午前1"
   areaName: string;         // "午前1区域"
-  timeSlot: "morning" | "afternoon";
   description?: string;     // 区域の説明
-  eventId: string;
   createdAt: Date;
 }
 ```

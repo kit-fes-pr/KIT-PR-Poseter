@@ -309,7 +309,7 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <YearPageSectionHeader
-          title={`配布日時設定 (${resolvedParams.year}年度)`}
+          title={`イベント設定 (${resolvedParams.year}年度)`}
           actions={(
             <>
               <Link

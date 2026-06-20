@@ -25,17 +25,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const resolvedParams = await params;
     const { areaId } = resolvedParams;
-    const { areaCode, areaName, timeSlot, adjacentAreas, description, eventId } = await request.json();
+    const { areaCode, areaName, adjacentAreas, description } = await request.json();
 
-    if (!areaCode || !areaName || !timeSlot) {
-      return NextResponse.json({ 
-        error: 'areaCode, areaName, timeSlot は必須です' 
-      }, { status: 400 });
-    }
-
-    if (!['morning', 'afternoon'].includes(timeSlot)) {
-      return NextResponse.json({ 
-        error: 'timeSlotは morning または afternoon である必要があります' 
+    if (!areaCode || !areaName) {
+      return NextResponse.json({
+        error: 'areaCode, areaName は必須です'
       }, { status: 400 });
     }
 
@@ -63,10 +57,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const updateData = {
       areaCode,
       areaName,
-      timeSlot,
       adjacentAreas: nextAdjacentAreas,
       description: description || '',
-      eventId: eventId || 'common',
       updatedAt: new Date()
     };
 

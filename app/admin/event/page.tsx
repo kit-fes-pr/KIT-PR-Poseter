@@ -176,11 +176,11 @@ export default function AdminEventIndex() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-base font-semibold">{String(ev.year)} 年度</p>
-                        <p className="text-sm text-gray-500">
-                          {String(ev.eventName) || '学外配布'} / {
-                            (() => {
-                              const s = ev.distributionStartDate || ev.distributionDate;
-                              const e = ev.distributionEndDate || ev.distributionDate;
+                              <p className="text-sm text-gray-500">
+                                {String(ev.eventName) || '学外配布'} / {
+                                  (() => {
+                              const s = ev.distributionStartDate;
+                              const e = ev.distributionEndDate;
                               if (!s || !e) return '-';
                               const sd = formatDateOnly(s as string | Date);
                               const ed = formatDateOnly(e as string | Date);
@@ -203,8 +203,8 @@ export default function AdminEventIndex() {
                       <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
                               setEditTarget(ev);
                               const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
-                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
-                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : null;
+                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : null;
                               setEditForm({ eventName: String(ev.eventName) || '', distributionStartDate: s ? s.toISOString().slice(0,10) : '', distributionEndDate: e ? e.toISOString().slice(0,10) : '' });
                               setIsEditing(true);
                               setMenuEventId(null);

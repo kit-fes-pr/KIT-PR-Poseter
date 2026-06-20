@@ -36,17 +36,16 @@ function serializeEventDoc(id: string, data: Record<string, unknown>) {
   const updatedAt = data.updatedAt instanceof Date
     ? data.updatedAt.toISOString()
     : serializeDateOnlyValue(data.updatedAt, timeZone);
-  return {
-    id,
-    ...data,
-    distributionTimeZone: timeZone,
-    createdAt,
-    updatedAt,
-    distributionDate: serializeDateOnlyValue(data.distributionDate, timeZone),
-    distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
-    distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
-    distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots) ? data.distributionAvailabilitySlots : undefined,
-  };
+    return {
+      id,
+      ...data,
+      distributionTimeZone: timeZone,
+      createdAt,
+      updatedAt,
+      distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
+      distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
+      distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots) ? data.distributionAvailabilitySlots : undefined,
+    };
 }
 
 export async function GET(request: NextRequest) {
@@ -103,9 +102,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, eventId } = await request.json();
+    const { year, eventName, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, eventId } = await request.json();
 
-    if (!year || (!distributionDate && !distributionStartDate)) {
+    if (!year || !distributionStartDate) {
       return NextResponse.json({ error: '年度と配布日（開始日）を入力してください' }, { status: 400 });
     }
 
@@ -130,8 +129,8 @@ export async function POST(request: NextRequest) {
     const timeZone = typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
       ? distributionTimeZone.trim()
       : DEFAULT_TIME_ZONE;
-    const startDateStr = String(distributionStartDate || distributionDate || '').trim();
-    const endDateStr = String(distributionEndDate || distributionDate || distributionStartDate || '').trim();
+    const startDateStr = String(distributionStartDate || '').trim();
+    const endDateStr = String(distributionEndDate || distributionStartDate || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
       return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
     }
@@ -139,7 +138,6 @@ export async function POST(request: NextRequest) {
     const payload = {
       eventId: id,
       eventName: eventName || `工大祭${y}`,
-      distributionDate: startDateStr, // 後方互換
       distributionStartDate: startDateStr,
       distributionEndDate: endDateStr,
       distributionAvailabilitySlots: Array.isArray(distributionAvailabilitySlots) && distributionAvailabilitySlots.length > 0
@@ -180,7 +178,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { id, year, eventName, distributionDate, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, isActive } = await request.json();
+    const { id, year, eventName, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, isActive } = await request.json();
     if (!id && !year) {
       return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
     }
@@ -201,16 +199,14 @@ export async function PATCH(request: NextRequest) {
     const update: Record<string, unknown> = { updatedAt: new Date(), distributionTimeZone: timeZone };
     if (typeof eventName === 'string') update.eventName = eventName;
     if (typeof isActive === 'boolean') update.isActive = isActive;
-    // 単日（distributionDate）と期間（distributionStartDate, distributionEndDate）の両対応
-    if (distributionStartDate || distributionEndDate || distributionDate) {
-      const startDateStr = String(distributionStartDate || distributionDate || '').trim();
-      const endDateStr = String(distributionEndDate || distributionDate || distributionStartDate || '').trim();
+    if (distributionStartDate || distributionEndDate) {
+      const startDateStr = String(distributionStartDate || '').trim();
+      const endDateStr = String(distributionEndDate || distributionStartDate || '').trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
         return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
       }
       update.distributionStartDate = startDateStr;
       update.distributionEndDate = endDateStr;
-      update.distributionDate = startDateStr; // 後方互換
     }
     if (Array.isArray(distributionAvailabilitySlots)) {
       update.distributionAvailabilitySlots = distributionAvailabilitySlots.filter((slot) => typeof slot === 'string');

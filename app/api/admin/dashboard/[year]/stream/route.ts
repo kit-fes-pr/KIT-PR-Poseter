@@ -67,8 +67,7 @@ export async function GET(
               ...doc.data(),
               createdAt: doc.data().createdAt?.toDate?.()?.toISOString(),
               distributionStartDate: doc.data().distributionStartDate?.toDate?.()?.toISOString(),
-              distributionEndDate: doc.data().distributionEndDate?.toDate?.()?.toISOString(),
-              distributionDate: doc.data().distributionDate?.toDate?.()?.toISOString()
+              distributionEndDate: doc.data().distributionEndDate?.toDate?.()?.toISOString()
             };
           }
 

@@ -15,13 +15,6 @@ export default function AreasPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [areas, setAreas] = useState<Area[]>([]);
-  const [teams, setTeams] = useState<Array<{
-    teamId: string;
-    teamCode: string;
-    teamName?: string;
-    areaId?: string;
-    assignedArea?: string;
-  }>>([]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
@@ -29,14 +22,12 @@ export default function AreasPage() {
   const [form, setForm] = useState({
     areaCode: '',
     areaName: '',
-    timeSlot: 'morning',
     adjacentAreas: '',
     description: '',
   });
   const [editForm, setEditForm] = useState({
     areaCode: '',
     areaName: '',
-    timeSlot: 'morning',
     adjacentAreas: '',
     description: '',
   });
@@ -60,28 +51,15 @@ export default function AreasPage() {
         setLoading(true);
         setError('');
         const token = await user.getIdToken();
-        const [areasRes, teamsRes] = await Promise.all([
-          fetch('/api/admin/areas', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch('/api/admin/teams?scope=all', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
+        const areasRes = await fetch('/api/admin/areas', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         const areasData = await areasRes.json();
         if (!areasRes.ok) {
           throw new Error(areasData.error || '配布区域の取得に失敗しました');
         }
         setAreas(areasData.areas || []);
-
-        if (teamsRes.ok) {
-          const teamsData = await teamsRes.json();
-          setTeams(teamsData.teams || []);
-        } else {
-          const teamsData = await teamsRes.json().catch(() => ({}));
-          throw new Error(teamsData.error || 'チーム情報の取得に失敗しました');
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : '配布区域の取得に失敗しました');
       } finally {
@@ -123,7 +101,7 @@ export default function AreasPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '配布区域の作成に失敗しました');
-      setForm({ areaCode: '', areaName: '', timeSlot: 'morning', adjacentAreas: '', description: '' });
+      setForm({ areaCode: '', areaName: '', adjacentAreas: '', description: '' });
       await refreshAreas();
     } catch (err) {
       setError(err instanceof Error ? err.message : '配布区域の作成に失敗しました');
@@ -148,24 +126,11 @@ export default function AreasPage() {
     }
   };
 
-  const timeSlotLabel = (value: string) => {
-    if (value === 'morning' || value === '午前' || value === '午前配布') return '午前';
-    if (value === 'afternoon' || value === '午後' || value === '午後配布') return '午後';
-    return value;
-  };
-
-  const getAssignedTeams = (area: Area) => {
-    return teams
-      .filter((team) => team.areaId === area.areaId || team.assignedArea === area.areaCode)
-      .map((team) => team.teamName ? `${team.teamName}（${team.teamCode}）` : team.teamCode);
-  };
-
   const openEditModal = (area: Area) => {
     setEditingAreaId(area.areaId);
       setEditForm({
         areaCode: area.areaCode || '',
         areaName: area.areaName || '',
-        timeSlot: area.timeSlot || 'morning',
         adjacentAreas: Array.isArray(area.adjacentAreas) ? area.adjacentAreas.join(', ') : '',
         description: area.description || '',
       });
@@ -256,17 +221,6 @@ export default function AreasPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">時間帯 *</label>
-                <select
-                  value={form.timeSlot}
-                  onChange={(e) => setForm({ ...form, timeSlot: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2"
-                >
-                  <option value="morning">午前</option>
-                  <option value="afternoon">午後</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
                 <textarea
                   value={form.adjacentAreas}
@@ -312,9 +266,6 @@ export default function AreasPage() {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">区域コード</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">区域名</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時間帯</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">総チーム数</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">割り当て先チーム</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">周辺区域</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">説明</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
@@ -325,11 +276,6 @@ export default function AreasPage() {
                       <tr key={area.areaId}>
                         <td className="px-4 py-3 text-sm text-gray-900">{area.areaCode}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{area.areaName}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{timeSlotLabel(area.timeSlot)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{getAssignedTeams(area).length}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {getAssignedTeams(area).length > 0 ? getAssignedTeams(area).join(' / ') : '-'}
-                        </td>
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {Array.isArray(area.adjacentAreas) && area.adjacentAreas.length > 0 ? area.adjacentAreas.join(', ') : '-'}
                         </td>
@@ -379,17 +325,6 @@ export default function AreasPage() {
                     onChange={(e) => setEditForm({ ...editForm, areaName: e.target.value })}
                     className="w-full rounded-md border border-gray-300 px-3 py-2"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">時間帯 *</label>
-                  <select
-                    value={editForm.timeSlot}
-                    onChange={(e) => setEditForm({ ...editForm, timeSlot: e.target.value })}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2"
-                  >
-                    <option value="morning">午前</option>
-                    <option value="afternoon">午後</option>
-                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>

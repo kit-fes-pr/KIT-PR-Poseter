@@ -283,8 +283,8 @@ async function loadEventSlotChoices(year: string) {
   }
 
   return buildAvailabilitySlotChoices(
-    eventData.distributionStartDate || eventData.distributionDate,
-    eventData.distributionEndDate || eventData.distributionDate
+    eventData.distributionStartDate,
+    eventData.distributionEndDate
   ).map((choice) => choice.key);
 }
 

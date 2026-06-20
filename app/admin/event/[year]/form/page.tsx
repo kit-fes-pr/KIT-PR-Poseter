@@ -865,7 +865,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <YearPageSectionHeader
           title={`フォーム管理 (${resolvedParams.year}年度)`}
-          description="フォーム内容と回答・各種設定を1画面で管理します。"
           actions={headerActions}
         />
 
@@ -995,7 +994,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                       href={`/admin/event/${resolvedParams.year}/distribution`}
                       className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
-                      配布日時設定へ
+                      イベント設定へ
                     </Link>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
