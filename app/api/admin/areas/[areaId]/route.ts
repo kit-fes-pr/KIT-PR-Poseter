@@ -65,8 +65,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas);
-    const adjacentChanged = JSON.stringify(previousAdjacentAreas) !== JSON.stringify(nextAdjacentAreas);
+    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas).sort((a, b) => a.localeCompare(b, 'ja'));
+    const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
+    const adjacentChanged = JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
     if (previousAreaCode !== areaCode || adjacentChanged) {
       const teamsSnap = await adminDb.collection('teams').get();
       const batch = adminDb.batch();
