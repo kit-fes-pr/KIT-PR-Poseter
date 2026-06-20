@@ -224,13 +224,12 @@ export async function DELETE(
       .doc(resolvedParams.formId)
       .collection('responses');
 
-    const responsesSnapshot = await responsesCollection.get();
-    const responseDocs = responsesSnapshot.docs;
+    const responseDocs = await responsesCollection.listDocuments();
 
     for (let index = 0; index < responseDocs.length; index += 400) {
       const batch = adminDb.batch();
       const chunk = responseDocs.slice(index, index + 400);
-      chunk.forEach((doc) => batch.delete(doc.ref));
+      chunk.forEach((doc) => batch.delete(doc));
       await batch.commit();
     }
 
