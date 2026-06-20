@@ -3,6 +3,8 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { normalizeAdjacentAreas } from '@/lib/utils/area';
 import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
 
+const TEAM_TIME_SLOT_PATTERN = /^\d{4}-\d{2}-\d{2}_(am|pm)$/;
+
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
   if (!snap.exists) return [];
@@ -122,6 +124,9 @@ export async function PATCH(
       update.adjacentAreas = normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas);
     }
     if (typeof body.timeSlot === 'string') {
+      if (!TEAM_TIME_SLOT_PATTERN.test(body.timeSlot)) {
+        return NextResponse.json({ error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' }, { status: 400 });
+      }
       const eventId = (doc.data() as Record<string, unknown>).eventId;
       const eventAvailabilitySlots = typeof eventId === 'string'
         ? await loadEventAvailabilitySlots(eventId)
