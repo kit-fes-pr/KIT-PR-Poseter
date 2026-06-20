@@ -29,9 +29,9 @@ export function getAvailabilitySummaryLabel(value: AvailabilitySummary | string 
 }
 
 function parseDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getUTCDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -67,14 +67,15 @@ export function buildAvailabilitySlotChoices(
   }
 
   const choices: AvailabilitySlotChoice[] = [];
-  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
 
   while (cursor.getTime() <= last.getTime()) {
     const dateKey = parseDateKey(cursor);
     const displayLabel = cursor.toLocaleDateString('ja-JP', {
       month: 'numeric',
       day: 'numeric',
+      timeZone: 'UTC',
     });
 
     choices.push({
@@ -90,7 +91,7 @@ export function buildAvailabilitySlotChoices(
       period: 'pm',
     });
 
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
   return choices;
@@ -129,12 +130,13 @@ export function formatAvailabilitySlotLabel(key: string): string {
   if (!match) return key;
 
   const [, datePart, period] = match;
-  const date = new Date(`${datePart}T00:00:00`);
+  const date = new Date(`${datePart}T00:00:00Z`);
   if (isNaN(date.getTime())) return key;
 
   const dateLabel = date.toLocaleDateString('ja-JP', {
     month: 'numeric',
     day: 'numeric',
+    timeZone: 'UTC',
   });
 
   return `${dateLabel} ${period === 'am' ? '午前' : '午後'}`;
