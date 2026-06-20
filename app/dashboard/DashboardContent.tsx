@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
+import { Modal } from '@/components/ui/Modal';
 import { Store, StoreFormData } from '@/types';
 import { useForm } from 'react-hook-form';
 
@@ -368,8 +369,8 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
             </div>
 
             {!readOnly && isAddingStore && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
+                <Modal open onClose={() => setIsAddingStore(false)} panelClassName="max-w-md p-6">
+                    <div className="w-full">
                         <h2 className="text-lg font-medium mb-4">新規店舗を追加</h2>
                         <form className="space-y-4" onSubmit={handleSubmit(onSubmitStore)}>
                             <div>
@@ -416,15 +417,15 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                             </div>
                         </form>
                     </div>
-                </div>
+                </Modal>
             )}
 
             {!readOnly && detailsStoreId && (() => {
                 const store = (storesData?.stores || []).find((s: Store) => s.storeId === detailsStoreId);
                 if (!store) return null;
                 return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
-                        <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
+                    <Modal open onClose={() => setDetailsStoreId(null)} panelClassName="max-w-md p-6">
+                        <div className="w-full">
                             <h2 className="text-lg font-medium mb-4">詳細編集</h2>
                             <form className="space-y-4" onSubmit={handleEditSubmit((d) => updateStoreDetails(store.storeId, d))}>
                                 <div>
@@ -480,7 +481,7 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                                 </div>
                             </form>
                         </div>
-                    </div>
+                    </Modal>
                 );
             })()}
         </div>

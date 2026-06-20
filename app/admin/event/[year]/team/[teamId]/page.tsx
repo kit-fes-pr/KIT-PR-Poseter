@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { Team, Store } from '@/types';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -226,8 +227,8 @@ export default function TeamDetailPage() {
             {completed.length === 0 && <p className="text-sm text-gray-500">なし</p>}
           </div>
           {isBasicEditOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
+            <Modal open onClose={() => setIsBasicEditOpen(false)} panelClassName="max-w-md p-6">
+            <div className="w-full">
                 <h2 className="text-lg font-medium mb-4">基本情報を編集</h2>
                 <div className="space-y-4">
                   <div>
@@ -282,8 +283,8 @@ export default function TeamDetailPage() {
                     className="px-4 py-2 bg-indigo-600 text-white rounded-md"
                   >保存</button>
                 </div>
-              </div>
             </div>
+          </Modal>
           )}
         </div>
 

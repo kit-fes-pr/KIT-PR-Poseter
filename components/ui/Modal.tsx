@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 
 type ModalProps = {
   open: boolean;
@@ -21,6 +21,34 @@ export function Modal({
   panelClassName = '',
   contentClassName = '',
 }: ModalProps) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      if (!panel.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const overlayBase = centered
@@ -34,13 +62,12 @@ export function Modal({
     <div
       role="presentation"
       className={`${overlayBase} bg-black/10 backdrop-blur-sm ${overlayClassName}`}
-      onClick={onClose}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         className={`${panelBase} ${panelClassName}`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className={contentClassName}>
           {children}
@@ -49,4 +76,3 @@ export function Modal({
     </div>
   );
 }
-

@@ -18,6 +18,7 @@ import {
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { SectionCard } from '@/components/ui/SectionCard';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
@@ -1250,10 +1251,10 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                                 </span>
                                 {assignment.timeSlot && (
                                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.timeSlot.endsWith('_am')
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : assignment.timeSlot.endsWith('_pm')
-                                        ? 'bg-purple-100 text-purple-800'
-                                        : 'bg-gray-100 text-gray-800'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : assignment.timeSlot.endsWith('_pm')
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : 'bg-gray-100 text-gray-800'
                                     }`}>
                                     {formatAvailabilitySlotLabel(assignment.timeSlot)}
                                   </span>
@@ -1356,8 +1357,17 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
         {/* 手動割り当てモーダル */}
         {showManualModal && selectedParticipant && (
-          <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-black/10 backdrop-blur-sm">
-            <div className="relative top-20 mx-auto w-full max-w-lg overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
+          <Modal
+            open
+            onClose={() => {
+              setShowManualModal(false);
+              setSelectedParticipant(null);
+            }}
+            centered={false}
+            panelClassName="max-w-lg"
+            contentClassName="px-6 py-6"
+          >
+            <div className="relative top-0 mx-auto w-full">
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium text-gray-900">
@@ -1458,110 +1468,118 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 </div>
               </div>
             </div>
-          </div>
+          </Modal>
         )}
 
         {showResponseEditModal && selectedParticipant && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/10 backdrop-blur-sm">
-            <div className="mx-auto mt-10 w-full max-w-3xl px-4 pb-10">
-              <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
-                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">回答を編集</h3>
-                    <p className="text-sm text-gray-500">後から連絡があった場合の修正に使います。</p>
+          <Modal
+            open
+            onClose={() => {
+              setShowResponseEditModal(false);
+              setSelectedResponseId('');
+              setSelectedParticipant(null);
+            }}
+            centered={false}
+            panelClassName="max-w-3xl"
+            contentClassName="px-4 pb-10"
+          >
+            <div className="mx-auto mt-10 w-full">
+              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">回答を編集</h3>
+                  <p className="text-sm text-gray-500">後から連絡があった場合の修正に使います。</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowResponseEditModal(false);
+                    setSelectedResponseId('');
+                    setSelectedParticipant(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6 px-6 py-6">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="text-sm font-medium text-gray-900">{selectedParticipant.name}</div>
+                  <div className="text-sm text-gray-500">{selectedParticipant.grade}年 - {selectedParticipant.section}</div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    現在の希望時間帯: {getAvailabilityLabel(selectedParticipant.availableSlots)}
                   </div>
-                  <button
-                    onClick={() => {
-                      setShowResponseEditModal(false);
-                      setSelectedResponseId('');
-                      setSelectedParticipant(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
                 </div>
 
-                <div className="space-y-6 px-6 py-6">
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <div className="text-sm font-medium text-gray-900">{selectedParticipant.name}</div>
-                    <div className="text-sm text-gray-500">{selectedParticipant.grade}年 - {selectedParticipant.section}</div>
-                    <div className="mt-1 text-xs text-gray-500">
-                      現在の希望時間帯: {getAvailabilityLabel(selectedParticipant.availableSlots)}
-                    </div>
+                {!currentForm ? (
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                    フォーム情報が読み込まれていません。
                   </div>
-
-                  {!currentForm ? (
-                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-                      フォーム情報が読み込まれていません。
-                    </div>
-                  ) : (
-                    <div className="space-y-5">
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div>
-                          <label className="mb-1 block text-sm font-medium text-gray-700">お名前 *</label>
-                          <input
-                            value={String(responseEditValues.participantName || '')}
-                            onChange={(e) => setResponseEditValues((current) => ({ ...current, participantName: e.target.value }))}
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-sm font-medium text-gray-700">学年 *</label>
-                          <select
-                            value={String(responseEditValues.participantGrade || '')}
-                            onChange={(e) => setResponseEditValues((current) => ({ ...current, participantGrade: e.target.value }))}
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2"
-                          >
-                            <option value="">選択してください</option>
-                            <option value="1">1年生</option>
-                            <option value="2">2年生</option>
-                            <option value="3">3年生</option>
-                            <option value="4">4年生</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-sm font-medium text-gray-700">所属セクション *</label>
-                          <input
-                            value={String(responseEditValues.participantSection || '')}
-                            onChange={(e) => setResponseEditValues((current) => ({ ...current, participantSection: e.target.value }))}
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2"
-                          />
-                        </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">お名前 *</label>
+                        <input
+                          value={String(responseEditValues.participantName || '')}
+                          onChange={(e) => setResponseEditValues((current) => ({ ...current, participantName: e.target.value }))}
+                          className="block w-full rounded-md border border-gray-300 px-3 py-2"
+                        />
                       </div>
-
-                      {currentForm.fields
-                        .slice()
-                        .sort((a, b) => a.order - b.order)
-                        .map((field) => renderResponseEditField(field))}
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">学年 *</label>
+                        <select
+                          value={String(responseEditValues.participantGrade || '')}
+                          onChange={(e) => setResponseEditValues((current) => ({ ...current, participantGrade: e.target.value }))}
+                          className="block w-full rounded-md border border-gray-300 px-3 py-2"
+                        >
+                          <option value="">選択してください</option>
+                          <option value="1">1年生</option>
+                          <option value="2">2年生</option>
+                          <option value="3">3年生</option>
+                          <option value="4">4年生</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">所属セクション *</label>
+                        <input
+                          value={String(responseEditValues.participantSection || '')}
+                          onChange={(e) => setResponseEditValues((current) => ({ ...current, participantSection: e.target.value }))}
+                          className="block w-full rounded-md border border-gray-300 px-3 py-2"
+                        />
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
-                  <button
-                    onClick={() => {
-                      setShowResponseEditModal(false);
-                      setSelectedResponseId('');
-                      setSelectedParticipant(null);
-                    }}
-                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={saveResponseEdit}
-                    disabled={editingResponseLoading || !currentForm}
-                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    {editingResponseLoading ? '保存中...' : '回答を保存'}
-                  </button>
-                </div>
+                    {currentForm.fields
+                      .slice()
+                      .sort((a, b) => a.order - b.order)
+                      .map((field) => renderResponseEditField(field))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+                <button
+                  onClick={() => {
+                    setShowResponseEditModal(false);
+                    setSelectedResponseId('');
+                    setSelectedParticipant(null);
+                  }}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={saveResponseEdit}
+                  disabled={editingResponseLoading || !currentForm}
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {editingResponseLoading ? '保存中...' : '回答を保存'}
+                </button>
               </div>
             </div>
-          </div>
+          </Modal>
         )}
       </div>
     </div>
