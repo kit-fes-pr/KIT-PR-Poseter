@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
+function serializeDateValue(value: unknown): string | unknown {
+  if (!value) return value;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}
+
 /**
  * ストリーミングダッシュボードAPI - 段階的データ配信で初回表示を高速化
  */
@@ -62,12 +73,13 @@ export async function GET(
           
           if (!eventSnapshot.empty) {
             const doc = eventSnapshot.docs[0];
+            const raw = doc.data() as Record<string, unknown>;
             event = {
               id: doc.id,
-              ...doc.data(),
-              createdAt: doc.data().createdAt?.toDate?.()?.toISOString(),
-              distributionStartDate: doc.data().distributionStartDate?.toDate?.()?.toISOString(),
-              distributionEndDate: doc.data().distributionEndDate?.toDate?.()?.toISOString()
+              ...raw,
+              createdAt: serializeDateValue(raw.createdAt),
+              distributionStartDate: serializeDateValue(raw.distributionStartDate),
+              distributionEndDate: serializeDateValue(raw.distributionEndDate)
             };
           }
 
@@ -105,11 +117,11 @@ export async function GET(
           const teams = teamsSnapshot.docs.map(doc => ({
             teamId: doc.id,
             ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate?.()?.toISOString(),
-            updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString(),
-            validStartDate: doc.data().validStartDate?.toDate?.()?.toISOString(),
-            validEndDate: doc.data().validEndDate?.toDate?.()?.toISOString(),
-            validDate: doc.data().validDate?.toDate?.()?.toISOString()
+            createdAt: serializeDateValue(doc.data().createdAt),
+            updatedAt: serializeDateValue(doc.data().updatedAt),
+            validStartDate: serializeDateValue(doc.data().validStartDate),
+            validEndDate: serializeDateValue(doc.data().validEndDate),
+            validDate: serializeDateValue(doc.data().validDate)
           }));
 
           // チーム詳細データを送信
