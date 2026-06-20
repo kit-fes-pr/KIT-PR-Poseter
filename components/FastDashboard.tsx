@@ -130,9 +130,9 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 href: `/admin/event/areas`
               },
               {
-                label: '配布日時設定',
-                value: ' ',
-                icon: '⏰',
+                label: 'イベント設定',
+                value: '',
+                icon: '⚙️',
                 color: 'indigo',
                 href: `/admin/event/${year}/distribution`
               }
