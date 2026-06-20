@@ -42,6 +42,12 @@ const adminDb = getFirestore(app);
   let userRecord;
   try {
     userRecord = await adminAuth.getUserByEmail(email);
+    userRecord = await adminAuth.updateUser(userRecord.uid, {
+      password,
+      displayName,
+      emailVerified: true,
+      disabled: false,
+    });
   } catch (error) {
     const firebaseError = error;
     if (firebaseError?.code === 'auth/user-not-found') {
