@@ -141,6 +141,9 @@ export async function POST(request: NextRequest) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
       return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
     }
+    if (startDateStr > endDateStr) {
+      return NextResponse.json({ error: '配布開始日は配布終了日以前を指定してください' }, { status: 400 });
+    }
 
     const payload = {
       eventId: id,
@@ -211,6 +214,9 @@ export async function PATCH(request: NextRequest) {
       const endDateStr = String(distributionEndDate || distributionStartDate || '').trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
         return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
+      }
+      if (startDateStr > endDateStr) {
+        return NextResponse.json({ error: '配布開始日は配布終了日以前を指定してください' }, { status: 400 });
       }
       update.distributionStartDate = startDateStr;
       update.distributionEndDate = endDateStr;
