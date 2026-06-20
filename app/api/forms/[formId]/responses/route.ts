@@ -7,12 +7,15 @@ import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from 
 import { normalizeAvailabilitySlots, validateAvailabilitySelection } from '@/lib/utils/availability';
 
 function resolveAvailabilitySlots(
-  participantAvailableSlots: unknown,
-  answers: FormAnswer[]
+  answers: FormAnswer[],
+  participantAvailableSlots: unknown
 ): string[] {
-  return normalizeAvailabilitySlots(
-    participantAvailableSlots ?? (answers.find((answer) => answer.fieldId === 'availability')?.value as unknown)
-  );
+  const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
+  if (availabilityAnswer) {
+    return normalizeAvailabilitySlots(availabilityAnswer.value);
+  }
+
+  return normalizeAvailabilitySlots(participantAvailableSlots);
 }
 
 export async function GET(
@@ -141,7 +144,7 @@ export async function POST(
         participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
       }
       
-      const availableSlots = resolveAvailabilitySlots(participantData.availableSlots, answers);
+      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -251,7 +254,7 @@ export async function POST(
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
     
     if (participantData) {
-      const availableSlots = resolveAvailabilitySlots(participantData.availableSlots, answers);
+    const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
       const availabilitySelectionError = validateAvailabilitySelection(
         availableSlots
       );
