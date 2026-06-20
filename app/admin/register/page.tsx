@@ -57,7 +57,6 @@ export default function AdminRegister() {
             // IDトークンを取得
             const idToken = await getIdToken(userCredential.user);
             localStorage.setItem('authToken', idToken);
-            console.log('ID Token stored after registration:', idToken.substring(0, 50) + '...');
 
             setTimeout(() => {
               router.push('/admin/dashboard');

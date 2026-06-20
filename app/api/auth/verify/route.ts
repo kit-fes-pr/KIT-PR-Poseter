@@ -11,22 +11,35 @@ export async function GET(request: NextRequest) {
     }
 
     const idToken = authHeader.split('Bearer ')[1];
-    console.log('Verifying ID token:', idToken.substring(0, 50) + '...');
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    console.log('Token decoded successfully:', {
-      uid: decodedToken.uid,
-      email: decodedToken.email,
-      role: decodedToken.role,
-      customClaims: decodedToken,
-    });
+    const userRecord = await adminAuth.getUser(decodedToken.uid);
+
+    if (userRecord.disabled) {
+      return NextResponse.json(
+        { error: 'セッションが無効です。再度ログインしてください' },
+        { status: 401 },
+      );
+    }
+
+    const authTime =
+      (decodedToken as unknown as { auth_time?: number }).auth_time || decodedToken.iat || 0;
+    const revokedAfterMs = userRecord.tokensValidAfterTime
+      ? Date.parse(userRecord.tokensValidAfterTime)
+      : 0;
+
+    if (revokedAfterMs && authTime * 1000 < revokedAfterMs) {
+      return NextResponse.json(
+        { error: 'セッションが失効しています。再度ログインしてください' },
+        { status: 401 },
+      );
+    }
 
     // セッションの最大寿命（24時間）を強制
     const nowSec = Math.floor(Date.now() / 1000);
-    const authTime =
-      (decodedToken as unknown as { auth_time?: number }).auth_time || decodedToken.iat || nowSec;
+    const effectiveAuthTime = authTime || nowSec;
     const maxAgeSec = 24 * 60 * 60;
-    if (nowSec - authTime > maxAgeSec) {
+    if (nowSec - effectiveAuthTime > maxAgeSec) {
       return NextResponse.json(
         { error: 'セッションが期限切れです。再度ログインしてください' },
         { status: 401 },
