@@ -143,7 +143,6 @@ docker compose down
 - チーム別詳細情報と配布実績
 
 #### 参加者管理
-- CSVインポートによる一括登録
 - アンケートフォーム作成・管理
 - メンバー情報の一覧・検索・絞り込み
 - チーム割り当て状況の管理
@@ -480,8 +479,7 @@ interface YearlyStats {
 | `DELETE` | `/api/admin/teams/{teamId}` | チーム削除 |
 | `GET` | `/api/admin/teams/{teamId}/stores` | チーム別店舗情報取得 |
 | `GET` | `/api/admin/assignments` | 通常割り当て一覧取得（year / formId 指定可） |
-| `GET` | `/api/admin/members` | メンバー一覧取得（年度指定可能） |
-| `POST` | `/api/admin/members` | メンバー作成 |
+| `GET` | `/api/admin/members` | フォーム回答由来のメンバー一覧取得（年度指定可能） |
 | `GET` | `/api/admin/yearly-stats` | 年次統計取得 |
 | `GET` | `/api/admin/current-year-total` | 当年度店舗履歴取得 |
 

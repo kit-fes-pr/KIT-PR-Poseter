@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
+import { AvailabilitySlotBadges } from '@/components/ui/AvailabilitySlotBadges';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
-import { formatAvailabilitySlotLabel } from '@/lib/utils/availability';
 
 interface Member {
   memberId: string;
@@ -149,22 +149,7 @@ export default function MembersPage() {
                         {member.section}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex flex-wrap gap-2">
-                          {(member.availableSlots || []).length > 0 ? (
-                            member.availableSlots!.map((slot) => (
-                              <span
-                                key={slot}
-                                className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800"
-                              >
-                                {formatAvailabilitySlotLabel(slot)}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                              未設定
-                            </span>
-                          )}
-                        </div>
+                        <AvailabilitySlotBadges slots={member.availableSlots || []} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {member.teamId ? (

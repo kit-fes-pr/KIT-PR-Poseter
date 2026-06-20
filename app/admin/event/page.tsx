@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { DEFAULT_TIME_ZONE, formatDateOnly } from '@/lib/utils/dateUtils';
 
 const fetcher = async (url: string) => {
@@ -28,6 +29,7 @@ export default function AdminEventIndex() {
   const [isEditing, setIsEditing] = useState(false);
   const [editTarget, setEditTarget] = useState<Record<string, unknown> | null>(null);
   const [editForm, setEditForm] = useState<{ eventName: string; distributionStartDate: string; distributionEndDate: string }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
+  const editingTarget = isEditing ? editTarget : null;
 
   // ログアウト処理
   const handleLogout = async () => {
@@ -241,9 +243,8 @@ export default function AdminEventIndex() {
         )}
       </div>
 
-      {isCreating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
+      <Modal open={isCreating} onClose={() => setIsCreating(false)} panelClassName="max-w-md p-6">
+          <div className="w-full">
             <h2 className="text-lg font-semibold mb-4">イベントを追加</h2>
             <div className="space-y-4">
               <div>
@@ -306,13 +307,11 @@ export default function AdminEventIndex() {
               >作成</button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
-      {isEditing && editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold mb-4">イベントを編集（{String(editTarget.year)}年度）</h2>
+      <Modal open={Boolean(editingTarget)} onClose={() => setIsEditing(false)} panelClassName="max-w-md p-6">
+          <div className="w-full">
+            <h2 className="text-lg font-semibold mb-4">イベントを編集（{String(editingTarget?.year)}年度）</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">イベント名</label>
@@ -335,7 +334,7 @@ export default function AdminEventIndex() {
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem('authToken');
-                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate, distributionTimeZone: DEFAULT_TIME_ZONE }) });
+                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editingTarget?.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate, distributionTimeZone: DEFAULT_TIME_ZONE }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     const { events, latest } = await fetcher('/api/admin/events');
@@ -352,8 +351,7 @@ export default function AdminEventIndex() {
               >保存</button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

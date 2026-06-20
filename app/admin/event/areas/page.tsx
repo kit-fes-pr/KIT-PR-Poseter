@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { Area } from '@/types';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
@@ -305,9 +306,12 @@ export default function AreasPage() {
           </div>
         </div>
 
-        {editingAreaId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
+        <Modal
+          open={Boolean(editingAreaId)}
+          onClose={closeEditModal}
+          panelClassName="max-w-lg p-6"
+        >
+            <div className="w-full">
               <h2 className="mb-4 text-lg font-medium text-gray-900">配布区域を編集</h2>
               <form onSubmit={handleUpdate} className="space-y-4">
                 <div>
@@ -363,8 +367,7 @@ export default function AreasPage() {
                 </div>
               </form>
             </div>
-          </div>
-        )}
+        </Modal>
       </div>
     </div>
   );
