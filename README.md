@@ -107,11 +107,6 @@ docker compose down
 - フォーム作成・編集・削除機能
 - 回答データの管理・確認機能
 
-**メンバー管理画面**
-- 参加者情報の一覧表示・検索・絞り込み
-- フォーム回答由来の参加者一覧表示
-- チーム割り当て状況の確認
-
 ### 3. 配布区域管理
 #### 区域設定
 - 区域管理番号: 午前1、午後1、午前2、午後2...
@@ -204,10 +199,8 @@ docker compose down
 | `/admin/event/[year]` | 年度別イベント管理 | 管理者認証 |
 | `/admin/event/[year]/team` | チーム管理 | 管理者認証 |
 | `/admin/event/[year]/team/[teamId]` | チーム詳細管理 | 管理者認証 |
-| `/admin/event/[year]/distribution` | イベント設定 | 管理者認証 |
+| `/admin/event/[year]/setting` | イベント設定 | 管理者認証 |
 | `/admin/event/[year]/form` | アンケートフォーム管理（作成・内容・回答・設定） | 管理者認証 |
-| `/admin/event/[year]/form/[formId]/responses` | アンケート回答一覧 | 管理者認証 |
-| `/admin/event/[year]/members` | メンバー管理 | 管理者認証 |
 | `/admin/event/[year]/stats` | 年次統計・レポート | 管理者認証 |
 | `/admin` | 管理者ログイン | なし |
 | `/dashboard` | 配布管理画面（班認証） | 班認証 |
@@ -532,7 +525,6 @@ interface YearlyStats {
    - **チーム管理** (`/admin/event/[year]/team`) - チーム一覧・作成
    - **チーム詳細** (`/admin/event/[year]/team/[teamId]`) - 個別チーム管理
    - **フォーム管理** (`/admin/event/[year]/form`) - アンケート作成・管理
-  - **メンバー管理** (`/admin/event/[year]/members`) - 参加者一覧・割り当て確認
    - **統計レポート** (`/admin/event/[year]/stats`) - 年次統計・チーム分析
    - **配布ダッシュボード** (`/admin/event/[year]/dashboard`) - 班認証での配布管理
 

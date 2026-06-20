@@ -56,7 +56,7 @@ export function FormOverviewTab({
             <h3 className="text-lg font-semibold text-gray-900">選択肢設定</h3>
           </div>
           <Link
-            href={`/admin/event/${year}/distribution`}
+            href={`/admin/event/${year}/setting`}
             className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             イベント設定へ

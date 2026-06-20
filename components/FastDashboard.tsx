@@ -125,7 +125,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 label: 'イベント設定',
                 value: '',
                 icon: '⚙️',
-                href: `/admin/event/${year}/distribution`
+                href: `/admin/event/${year}/setting`
               }
             ].map((stat, index) => (
               <MetricCard

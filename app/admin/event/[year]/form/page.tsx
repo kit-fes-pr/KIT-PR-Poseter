@@ -712,7 +712,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                       <h3 className="text-lg font-semibold text-gray-900">配布日時の設定</h3>
                     </div>
                     <Link
-                      href={`/admin/event/${resolvedParams.year}/distribution`}
+                      href={`/admin/event/${resolvedParams.year}/setting`}
                       className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                       設定を開く
