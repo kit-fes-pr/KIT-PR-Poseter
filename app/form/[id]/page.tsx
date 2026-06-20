@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { SurveyForm, FormAnswer } from '@/types/forms';
 import {
   getAvailabilityDateSlotKeys,
@@ -779,38 +780,48 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       </div>
 
       {showEditModal && form && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/10 backdrop-blur-sm p-4">
-          <div className="mx-auto my-8 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">回答を変更</h2>
-                <p className="text-sm text-gray-500">送信済みの内容を修正して保存できます。</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSubmitted(true);
-                  if (savedResponseDraft) {
-                    reset(savedResponseDraft.values);
-                  }
-                }}
-                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <Modal
+          open
+          onClose={() => {
+            setShowEditModal(false);
+            setSubmitted(true);
+            if (savedResponseDraft) {
+              reset(savedResponseDraft.values);
+            }
+          }}
+          centered={false}
+          panelClassName="max-w-4xl"
+          contentClassName="px-6 py-6"
+        >
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">回答を変更</h2>
+              <p className="text-sm text-gray-500">送信済みの内容を修正して保存できます。</p>
             </div>
-
-            <div className="px-6 py-6">
-              <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                {savedResponseDraft ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。' : '回答内容を入力してください。'}
-              </div>
-              {renderResponseForm('変更を保存')}
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditModal(false);
+                setSubmitted(true);
+                if (savedResponseDraft) {
+                  reset(savedResponseDraft.values);
+                }
+              }}
+              className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        </div>
+
+          <div className="px-6 py-6">
+            <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              {savedResponseDraft ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。' : '回答内容を入力してください。'}
+            </div>
+            {renderResponseForm('変更を保存')}
+          </div>
+        </Modal>
       )}
     </div>
   );

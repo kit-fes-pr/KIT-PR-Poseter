@@ -7,6 +7,8 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
+import { ParticipantIdentityFields } from '@/components/forms/ParticipantIdentityFields';
 import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
 import {
   buildAvailabilitySlotChoices,
@@ -1117,106 +1119,74 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       </div>
 
       {editingResponse && currentForm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/10 backdrop-blur-sm p-4">
-          <div className="mx-auto my-8 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">回答を編集</h2>
-              </div>
-              <button
-                type="button"
-                onClick={closeEditModal}
-                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <Modal
+          open
+          onClose={closeEditModal}
+          centered={false}
+          panelClassName="max-w-4xl"
+          contentClassName="px-6 py-6"
+        >
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">回答を編集</h2>
             </div>
+            <button
+              type="button"
+              onClick={closeEditModal}
+              className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-            <div className="px-6 py-6">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">お名前 *</label>
-                    <input
-                      type="text"
-                      value={editFormData.participantName || ''}
-                      onChange={(e) => setEditFormData((current) => ({ ...current, participantName: e.target.value }))}
-                      className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">学年 *</label>
-                    <select
-                      value={editFormData.participantGrade || ''}
-                      onChange={(e) => setEditFormData((current) => ({ ...current, participantGrade: e.target.value }))}
-                      className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
-                    >
-                      <option value="">選択してください</option>
-                      <option value="1">1年生</option>
-                      <option value="2">2年生</option>
-                      <option value="3">3年生</option>
-                      <option value="4">4年生</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">所属セクション *</label>
-                    <select
-                      value={editFormData.participantSection || ''}
-                      onChange={(e) => setEditFormData((current) => ({ ...current, participantSection: e.target.value }))}
-                      disabled={editFormData.participantGrade === '4'}
-                      className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500 disabled:bg-gray-100"
-                    >
-                      <option value="">選択してください</option>
-                      {(editFormData.participantGrade === '4'
-                        ? ['4年']
-                        : ['企画系', '技術系', '警備系', 'Web系', 'PR系']
-                      ).map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+          <div className="px-6 py-6">
+            <div className="space-y-6">
+              <ParticipantIdentityFields
+                name={String(editFormData.participantName || '')}
+                grade={String(editFormData.participantGrade || '')}
+                section={String(editFormData.participantSection || '')}
+                onNameChange={(value) => setEditFormData((current) => ({ ...current, participantName: value }))}
+                onGradeChange={(value) => setEditFormData((current) => ({ ...current, participantGrade: value }))}
+                onSectionChange={(value) => setEditFormData((current) => ({ ...current, participantSection: value }))}
+              />
 
-                {currentForm.fields.map((field) => (
-                  <div key={field.fieldId} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
-                        <p className="text-xs text-gray-500">
-                          {field.type}
-                          {field.required ? ' ・ 必須' : ' ・ 任意'}
-                        </p>
-                      </div>
+              {currentForm.fields.map((field) => (
+                <div key={field.fieldId} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
+                      <p className="text-xs text-gray-500">
+                        {field.type}
+                        {field.required ? ' ・ 必須' : ' ・ 任意'}
+                      </p>
                     </div>
-                    {renderEditableField(field)}
                   </div>
-                ))}
-
-                <div className="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={closeEditModal}
-                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    type="button"
-                    onClick={updateResponse}
-                    disabled={editSaving}
-                    className="rounded-lg border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {editSaving ? '保存中...' : '変更を保存'}
-                  </button>
+                  {renderEditableField(field)}
                 </div>
+              ))}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={updateResponse}
+                  disabled={editSaving}
+                  className="rounded-lg border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {editSaving ? '保存中...' : '変更を保存'}
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
