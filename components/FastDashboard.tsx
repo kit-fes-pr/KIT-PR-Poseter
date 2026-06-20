@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { LoadingScreen, LoadingInline } from '@/components/ui/Loading';
+import { MetricCard } from '@/components/ui/MetricCard';
 import { formatDateOnly } from '@/lib/utils/dateUtils';
 
 interface FastDashboardProps {
@@ -111,71 +113,31 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 label: '回答者数(参加可能 / 全体)',
                 value: `${availableResponses}/${totalResponses}人`,
                 icon: '🎓',
-                color: 'green',
                 href: `/admin/event/${year}/form`,
               },
               {
                 label: 'エリア数',
                 value: data?.stats?.totalAreas || 0,
                 icon: '📍',
-                color: 'purple',
                 href: `/admin/event/areas`
               },
               {
                 label: 'イベント設定',
                 value: '',
                 icon: '⚙️',
-                color: 'indigo',
                 href: `/admin/event/${year}/distribution`
               }
             ].map((stat, index) => (
-              <div
+              <MetricCard
                 key={stat.label}
-                role={stat.href ? 'button' : undefined}
-                tabIndex={stat.href ? 0 : undefined}
+                label={stat.label}
+                value={stat.value}
+                icon={stat.icon}
                 onClick={stat.href ? () => navigateWithPreload(stat.href!) : undefined}
-                onKeyDown={stat.href ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigateWithPreload(stat.href!);
-                  }
-                } : undefined}
-                className={`bg-white overflow-hidden shadow-lg rounded-xl transform transition-all border border-gray-100 ${
-                  stat.href ? 'hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500' : 'hover:scale-105'
-                }`}
-                style={{
-                  animationDelay: `${index * 100}ms`,
-                  animation: 'fadeInUp 0.6s ease-out forwards'
-                }}
-              >
-                <div className="p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="text-3xl">{stat.icon}</div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          {stat.label}
-                        </dt>
-                        <dd className={`text-2xl font-bold text-${stat.color}-600 flex items-center gap-2`}>
-                          <span>{stat.value}</span>
-                          {typeof stat.value === 'number' && 'loaded' in stat && typeof stat.loaded === 'number' && stat.loaded < stat.value && (
-                            <span className="ml-2 text-sm text-gray-400">
-                              ({stat.loaded}件表示中)
-                            </span>
-                          )}
-                        </dd>
-                        {'detail' in stat && typeof stat.detail === 'string' && stat.detail && (
-                          <dd className="mt-1 text-xs font-medium text-gray-500">
-                            {stat.detail}
-                          </dd>
-                        )}
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                className="animate-[fadeInUp_0.6s_ease-out_forwards]"
+                valueClassName={stat.label.includes('回答者数') ? 'text-green-600' : stat.label === 'エリア数' ? 'text-purple-600' : 'text-indigo-600'}
+                style={{ animationDelay: `${index * 100}ms` } as CSSProperties}
+              />
             ))}
           </div>
 

@@ -18,6 +18,8 @@ import {
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { SectionCard } from '@/components/ui/SectionCard';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { Area } from '@/types';
 import type { FormAnswer } from '@/types/forms';
@@ -1026,115 +1028,67 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         {/* 統計情報 */}
         {participants.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">総参加者数</dt>
-                      <dd className="text-lg font-medium text-gray-900">{stats.total}人</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">割り当て済み</dt>
-                      <dd className="text-lg font-medium text-gray-900">{stats.assigned}人</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">参加不可</dt>
-                      <dd className="text-lg font-medium text-gray-900">{unavailableCount}人</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 17.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">未割り当て</dt>
-                      <dd className="text-lg font-medium text-gray-900">{stats.unassigned}人</dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <MetricCard
+              label="総参加者数"
+              value={`${stats.total}人`}
+              icon={(
+                <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              )}
+            />
+            <MetricCard
+              label="割り当て済み"
+              value={`${stats.assigned}人`}
+              icon={(
+                <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            />
+            <MetricCard
+              label="参加不可"
+              value={`${unavailableCount}人`}
+              icon={(
+                <svg className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            />
+            <MetricCard
+              label="未割り当て"
+              value={`${stats.unassigned}人`}
+              icon={(
+                <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 17.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              )}
+            />
           </div>
         )}
 
         {/* デバッグ情報 */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div>
-              <h2 className="text-lg font-medium text-gray-900">デバッグ確認</h2>
-              <p className="text-sm text-gray-500">配布枠、チーム、参加者の可用性を同じ画面で確認できます。</p>
-            </div>
+        <SectionCard
+          title="デバッグ確認"
+          description="配布枠、チーム、参加者の可用性を同じ画面で確認できます。"
+          actions={(
             <button
               type="button"
               onClick={() => setShowDebugInfo((prev) => !prev)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               {showDebugInfo ? '閉じる' : '開く'}
             </button>
-          </div>
-
+          )}
+          className="mb-6"
+        >
           {showDebugInfo && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-medium text-gray-500">イベント配布枠</p>
-                  <p className="mt-1 text-lg font-semibold text-gray-900">{distributionSlots.length}件</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-medium text-gray-500">枠一致チーム</p>
-                  <p className="mt-1 text-lg font-semibold text-gray-900">{matchingTeams.length}件 / {teams.length}件</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-medium text-gray-500">参加可能者</p>
-                  <p className="mt-1 text-lg font-semibold text-gray-900">{availableParticipants.length}人 / {participants.length}人</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <p className="text-xs font-medium text-gray-500">全日可能</p>
-                  <p className="mt-1 text-lg font-semibold text-gray-900">{participantsWithAllAvailable.length}人</p>
-                </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <MetricCard label="イベント配布枠" value={`${distributionSlots.length}件`} />
+                <MetricCard label="枠一致チーム" value={`${matchingTeams.length}件 / ${teams.length}件`} />
+                <MetricCard label="参加可能者" value={`${availableParticipants.length}人 / ${participants.length}人`} />
+                <MetricCard label="全日可能" value={`${participantsWithAllAvailable.length}人`} />
               </div>
 
               {lastAutoAssignmentStats && (
@@ -1209,7 +1163,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
               </div>
             </div>
           )}
-        </div>
+        </SectionCard>
 
         {/* 参加者一覧と割り当て結果 */}
         {participants.length > 0 && (
