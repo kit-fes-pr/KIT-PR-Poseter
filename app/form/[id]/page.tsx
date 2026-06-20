@@ -90,10 +90,10 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
     if (!resolvedParams || !form) return;
 
     const storageKey = `form-response-${resolvedParams.id}`;
-    const stored = localStorage.getItem(storageKey);
-    if (!stored) return;
-
     try {
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return;
+
       const parsed = JSON.parse(stored) as Partial<SavedResponseDraft>;
       if (!parsed.responseId || !parsed.editToken || !parsed.values) return;
       setSavedResponseDraft({
@@ -113,7 +113,11 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
   const persistSavedResponseDraft = (draft: SavedResponseDraft) => {
     setSavedResponseDraft(draft);
     if (!storageKey) return;
-    localStorage.setItem(storageKey, JSON.stringify(draft));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(draft));
+    } catch (err) {
+      console.error('保存済み回答の保存に失敗しました', err);
+    }
   };
 
   const clearSavedResponseDraft = () => {
@@ -121,7 +125,11 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
     setEditingResponseId(null);
     setSubmitted(false);
     if (storageKey) {
-      localStorage.removeItem(storageKey);
+      try {
+        localStorage.removeItem(storageKey);
+      } catch (err) {
+        console.error('保存済み回答の削除に失敗しました', err);
+      }
     }
   };
 
