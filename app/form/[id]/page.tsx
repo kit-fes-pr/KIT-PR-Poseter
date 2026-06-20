@@ -8,6 +8,7 @@ import { Controller } from 'react-hook-form';
 import { SurveyForm, FormAnswer, FormField } from '@/types/forms';
 import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
 import { SurveyFieldBlock, buildSurveyFieldRules } from '@/components/forms/SurveyFieldBlock';
+import { ParticipantIdentitySection } from '@/components/forms/ParticipantIdentitySection';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -35,7 +36,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const { register, handleSubmit, control, formState: { errors }, watch, setValue, getValues, reset } = useForm<FormData>();
+  const { handleSubmit, control, watch, setValue, getValues, reset } = useForm<FormData>();
   const participantGrade = watch('participantGrade');
 
   useEffect(() => {
@@ -259,71 +260,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
 
   const renderResponseForm = (submitLabel: string) => (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="participantName" className="block text-sm font-medium text-gray-700">
-            お名前 *
-          </label>
-          <input
-            id="participantName"
-            type="text"
-            {...register('participantName', {
-              required: 'お名前は必須です',
-            })}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          />
-          {errors.participantName && (
-            <p className="mt-1 text-sm text-red-600">{errors.participantName.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="participantGrade" className="block text-sm font-medium text-gray-700">
-            学年 *
-          </label>
-          <select
-            id="participantGrade"
-            {...register('participantGrade', {
-              required: '学年は必須です',
-            })}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            <option value="">選択してください</option>
-            <option value="1">1年生</option>
-            <option value="2">2年生</option>
-            <option value="3">3年生</option>
-            <option value="4">4年生</option>
-          </select>
-          {errors.participantGrade && (
-            <p className="mt-1 text-sm text-red-600">{errors.participantGrade.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="participantSection" className="block text-sm font-medium text-gray-700">
-            所属セクション *
-          </label>
-          <select
-            id="participantSection"
-            disabled={participantGrade === '4'}
-            {...register('participantSection', {
-              required: '所属セクションは必須です',
-            })}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            <option value="">選択してください</option>
-            {(participantGrade === '4'
-              ? ['4年']
-              : ['企画系', '技術系', '警備系', 'Web系', 'PR系']
-            ).map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-          {errors.participantSection && (
-            <p className="mt-1 text-sm text-red-600">{errors.participantSection.message}</p>
-          )}
-        </div>
-      </div>
+      <ParticipantIdentitySection control={control} />
 
       {form?.fields
         .sort((a, b) => a.order - b.order)
@@ -429,76 +366,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
 
             {/* フォーム */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* 参加者必須情報 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 名前 */}
-                <div>
-                  <label htmlFor="participantName" className="block text-sm font-medium text-gray-700">
-                    お名前 *
-                  </label>
-                  <input
-                    id="participantName"
-                    type="text"
-                    {...register('participantName', {
-                      required: 'お名前は必須です',
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.participantName && (
-                    <p className="mt-1 text-sm text-red-600">{errors.participantName.message}</p>
-                  )}
-                </div>
-
-                {/* 学年 */}
-                <div>
-                  <label htmlFor="participantGrade" className="block text-sm font-medium text-gray-700">
-                    学年 *
-                  </label>
-                  <select
-                    id="participantGrade"
-                    {...register('participantGrade', {
-                      required: '学年は必須です',
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">選択してください</option>
-                    <option value="1">1年生</option>
-                    <option value="2">2年生</option>
-                    <option value="3">3年生</option>
-                    <option value="4">4年生</option>
-                  </select>
-                  {errors.participantGrade && (
-                    <p className="mt-1 text-sm text-red-600">{errors.participantGrade.message}</p>
-                  )}
-                </div>
-
-                {/* 所属セクション */}
-                <div>
-                  <label htmlFor="participantSection" className="block text-sm font-medium text-gray-700">
-                    所属セクション *
-                  </label>
-                  <select
-                    id="participantSection"
-                    disabled={participantGrade === '4'}
-                    {...register('participantSection', {
-                      required: '所属セクションは必須です',
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">選択してください</option>
-                    {(participantGrade === '4'
-                      ? ['4年']
-                      : ['企画系', '技術系', '警備系', 'Web系', 'PR系']
-                    ).map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                  {errors.participantSection && (
-                    <p className="mt-1 text-sm text-red-600">{errors.participantSection.message}</p>
-                  )}
-                </div>
-
-              </div>
+              <ParticipantIdentitySection control={control} />
 
               {/* 既存のフォームフィールド */}
               {form?.fields

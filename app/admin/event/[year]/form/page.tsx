@@ -8,8 +8,8 @@ import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { LoadingInline } from '@/components/ui/Loading';
 import { ResponseEditModal } from '@/components/forms/ResponseEditModal';
-import { SurveyFieldBlock } from '@/components/forms/SurveyFieldBlock';
 import { FormOverviewTab } from '@/components/forms/FormOverviewTab';
+import { FormContentTab } from '@/components/forms/FormContentTab';
 import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
 import {
   buildAvailabilitySlotChoices,
@@ -87,7 +87,7 @@ function buildFixedFields(availabilityOptions: string[]): FormField[] {
   ];
 }
 
-function isAvailabilityField(field: FormField) {
+function isAvailabilityField(field: FormField): boolean {
   return field.fieldId === 'availability';
 }
 
@@ -476,21 +476,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     }
   };
 
-  const renderFieldPreview = (field: FormField) => {
-    if (field.fieldId === 'availability') {
-      return allAvailabilityChoices.length > 0 ? (
-        <SurveyFieldBlock
-          field={{ ...field, options: allAvailabilityChoices.map((choice) => choice.key) }}
-          mode="preview"
-        />
-      ) : (
-        <p className="text-sm text-red-600">配布期間から選択肢を生成できませんでした</p>
-      );
-    }
-
-    return <SurveyFieldBlock field={field} mode="preview" />;
-  };
-
   const renderEditableField = (field: FormField) => {
     const fieldValue = editFormData[field.fieldId];
     const optionLabel = (option: string) => (isAvailabilityField(field) ? formatAvailabilitySlotLabel(option) : option);
@@ -766,39 +751,14 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
             </div>
 
             <div className="space-y-4 rounded-3xl border border-gray-200 bg-gray-100 p-4">
-              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">プレビュー</p>
-                <h3 className="mt-2 text-2xl font-semibold text-gray-900">{draftTitle || DEFAULT_TITLE}</h3>
-                {draftDescription && <p className="mt-3 text-sm leading-6 text-gray-600">{draftDescription}</p>}
-              </div>
-
-              <div className="space-y-4">
-                {buildFixedFields(allAvailabilityChoices.map((choice) => choice.key)).map((field) => (
-                  <div key={field.fieldId} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {field.label}{field.required ? ' *' : ''}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {field.fieldId === 'availability' ? '複数選択可' : '自由記述'}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-                        {field.type}
-                      </span>
-                    </div>
-                    <SurveyFieldBlock
-                      field={field}
-                      mode="preview"
-                      availabilityCopy={{
-                        intro: '参加可能な日時を選択してください。',
-                        multiple: '複数選択可',
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
+              <FormContentTab
+                draftTitle={draftTitle}
+                draftDescription={draftDescription}
+                onDraftTitleChange={setDraftTitle}
+                onDraftDescriptionChange={setDraftDescription}
+                previewFields={buildFixedFields(allAvailabilityChoices.map((choice) => choice.key))}
+                availabilityChoices={allAvailabilityChoices.map((choice) => choice.key)}
+              />
             </div>
           </div>
         </div>
@@ -875,58 +835,14 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
           <div className="p-6">
             {activeTab === 'content' && (
-              <div className="space-y-6">
-                <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900">フォーム内容</h3>
-                  <div className="mt-5 space-y-4">
-                    <div>
-                      <label htmlFor="content-title" className="block text-sm font-medium text-gray-700">
-                        フォームタイトル *
-                      </label>
-                      <input
-                        id="content-title"
-                        value={draftTitle}
-                        onChange={(e) => setDraftTitle(e.target.value)}
-                        className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="content-description" className="block text-sm font-medium text-gray-700">
-                        説明文
-                      </label>
-                      <textarea
-                        id="content-description"
-                        rows={4}
-                        value={draftDescription}
-                        onChange={(e) => setDraftDescription(e.target.value)}
-                        className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {currentForm.fields.map((field) => (
-                    <div key={field.fieldId} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                      <div className="mb-4 flex items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
-                          <p className="text-xs text-gray-500">
-                            {field.type}
-                            {field.required ? ' ・ 必須' : ' ・ 任意'}
-                          </p>
-                        </div>
-                        {field.fieldId === 'availability' && (
-                          <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">複数選択</span>
-                        )}
-                      </div>
-                      {renderFieldPreview(field)}
-                    </div>
-                  ))}
-                </div>
-
-              </div>
+              <FormContentTab
+                draftTitle={draftTitle}
+                draftDescription={draftDescription}
+                onDraftTitleChange={setDraftTitle}
+                onDraftDescriptionChange={setDraftDescription}
+                previewFields={currentForm.fields}
+                availabilityChoices={allAvailabilityChoices.map((choice) => choice.key)}
+              />
             )}
 
             {activeTab === 'overview' && (
