@@ -473,7 +473,6 @@ interface YearlyStats {
 | `GET` | `/api/admin/teams/{teamId}/stores` | チーム別店舗情報取得 |
 | `GET` | `/api/admin/assignments` | 通常割り当て一覧取得（year / formId 指定可） |
 | `GET` | `/api/admin/members` | フォーム回答由来のメンバー一覧取得（年度指定可能） |
-| `GET` | `/api/admin/yearly-stats` | 年次統計取得 |
 | `GET` | `/api/admin/current-year-total` | 当年度店舗履歴取得 |
 
 #### アンケートフォーム関連
