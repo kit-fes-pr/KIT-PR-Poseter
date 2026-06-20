@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
@@ -147,8 +148,7 @@ export async function POST(request: NextRequest) {
 
     // 一時メールアドレス + パスワード方式
     const tempEmail = `${teamData.teamCode}@temp.kodai-poster.local`;
-    const tempPassword =
-      Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
+    const tempPassword = randomUUID().replace(/-/g, '').slice(0, 24);
 
     // 既存ユーザー確認 or 作成
     let uid: string | null = null;
