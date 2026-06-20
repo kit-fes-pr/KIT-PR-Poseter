@@ -86,7 +86,7 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
         setError('');
 
         const token = await user.getIdToken();
-        const eventId = `kohdai${resolvedParams.year}`;
+        const eventId = `kodai${resolvedParams.year}`;
 
         const [eventRes, formsRes] = await Promise.all([
           fetch(`/api/admin/events?year=${resolvedParams.year}`, {
@@ -172,7 +172,7 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
       setSaveStatus('saving');
 
       const token = await user.getIdToken();
-      const eventId = eventData?.id || `kohdai${resolvedParams.year}`;
+      const eventId = eventData?.id || `kodai${resolvedParams.year}`;
 
       const eventRes = await fetch('/api/admin/events', {
         method: 'PATCH',

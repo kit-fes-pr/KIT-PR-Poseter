@@ -4,7 +4,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '認証が必要です' },
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const eventIdParam = searchParams.get('eventId');
     const yearParam = searchParams.get('year');
 
-    let targetEventId = eventIdParam || 'kohdai2025';
+    let targetEventId = eventIdParam || 'kodai2025';
     if (!eventIdParam && yearParam) {
       const year = parseInt(yearParam);
       const evSnap = await adminDb.collection('distributionEvents').where('year', '==', year).limit(1).get();
@@ -47,14 +47,14 @@ export async function GET(request: NextRequest) {
       distributedBy: string;
       areaCode: string;
     }>;
-    const teams = teamsSnapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    })) as Array<{ 
-      id: string; 
-      teamCode: string; 
-      teamName: string; 
-      assignedArea: string; 
+    const teams = teamsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Array<{
+      id: string;
+      teamCode: string;
+      teamName: string;
+      assignedArea: string;
     }>;
 
     const totalStores = stores.length;

@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
     const inRange = distStartKey && distEndKey ? (distStartKey <= todayKey && todayKey <= distEndKey) : false;
     if (!inRange) {
-      const dispDist = `${distStartKey.replace(/-/g,'/')}〜${distEndKey.replace(/-/g,'/')}`;
+      const dispDist = `${distStartKey.replace(/-/g, '/')}〜${distEndKey.replace(/-/g, '/')}`;
       return NextResponse.json({ error: `本日は配布日ではありません。イベント: ${dispDist}` }, { status: 403 });
     }
 
@@ -112,14 +112,14 @@ export async function POST(request: NextRequest) {
       const teamInRange = (ts && te) ? (ts <= todayKey && todayKey <= te) : (todayKey === ts);
       if (!teamInRange) {
         const dispTeam = (ts && te && ts !== te)
-          ? `${ts.replace(/-/g,'/')}〜${te.replace(/-/g,'/')}`
-          : (ts ? ts.replace(/-/g,'/') : '-');
+          ? `${ts.replace(/-/g, '/')}〜${te.replace(/-/g, '/')}`
+          : (ts ? ts.replace(/-/g, '/') : '-');
         return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispTeam}` }, { status: 403 });
       }
     }
 
     // 一時メールアドレス + パスワード方式
-    const tempEmail = `${teamData.teamCode}@temp.kohdai-poster.local`;
+    const tempEmail = `${teamData.teamCode}@temp.kodai-poster.local`;
     const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
 
     // 既存ユーザー確認 or 作成

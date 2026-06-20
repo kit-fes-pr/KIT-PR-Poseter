@@ -6,7 +6,7 @@ import { Store } from '@/types';
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '認証が必要です' },
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get('q');
 
     let query = adminDb.collection('stores')
-      .where('eventId', '==', 'kohdai2025');
+      .where('eventId', '==', 'kodai2025');
 
     const scope = (searchParams.get('scope') || '').toLowerCase();
     if (decodedToken.role === 'team' && scope !== 'all') {
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (q) {
       const searchTerm = q.toLowerCase();
-      stores = stores.filter(store => 
+      stores = stores.filter(store =>
         store.storeName.toLowerCase().includes(searchTerm) ||
         store.address.toLowerCase().includes(searchTerm)
       );
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '認証が必要です' },
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
       ...(distributionStatus === 'completed' && { distributedAt: new Date() }),
       ...(notes && { notes }),
       registrationMethod: 'manual',
-      eventId: 'kohdai2025',
+      eventId: 'kodai2025',
       createdAt: new Date(),
       updatedAt: new Date()
     };

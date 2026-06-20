@@ -163,7 +163,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       setError('');
 
       const token = await user.getIdToken();
-      const eventId = `kohdai${resolvedParams.year}`;
+      const eventId = `kodai${resolvedParams.year}`;
 
       const [formsRes, eventRes] = await Promise.all([
         fetch(`/api/forms?eventId=${eventId}`, {
@@ -264,7 +264,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           title: draftTitle.trim(),
           description: draftDescription.trim(),
           fields: buildFixedFields(availabilityOptions),
-          eventId: `kohdai${resolvedParams.year}`,
+          eventId: `kodai${resolvedParams.year}`,
           year: Number(resolvedParams.year),
         }),
       });
@@ -501,11 +501,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         return (
           <label
             key={`${option}-${index}`}
-            className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${
-              selected
+            className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${selected
                 ? 'border-indigo-500 bg-indigo-50 shadow-sm ring-2 ring-indigo-200'
                 : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50'
-            }`}
+              }`}
           >
             <input
               type="checkbox"
@@ -522,11 +521,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
               className="sr-only"
             />
             <span
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                selected
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${selected
                   ? 'border-indigo-600 bg-indigo-600 text-white'
                   : 'border-gray-300 bg-white text-transparent group-hover:border-indigo-400'
-              }`}
+                }`}
               aria-hidden="true"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -810,8 +808,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   type="button"
                   onClick={() => setActiveTab('content')}
                   className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'content'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                 >
                   フォーム内容
@@ -823,8 +821,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                     responsesCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
                   className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'overview'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                 >
                   回答・各種設定

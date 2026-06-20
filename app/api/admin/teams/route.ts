@@ -31,7 +31,7 @@ async function loadAreaForTeam(areaId: unknown, assignedArea: unknown) {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '認証が必要です' },
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: '認証が必要です' },
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ teams });
     }
 
-    let targetEventId = eventIdParam || 'kohdai2025';
+    let targetEventId = eventIdParam || 'kodai2025';
     let targetYear = Number.NaN;
     if (!eventIdParam && yearParam) {
       const y = parseInt(yearParam);

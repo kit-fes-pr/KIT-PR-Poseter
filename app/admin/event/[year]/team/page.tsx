@@ -166,7 +166,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
-      let eventIdForYear = `kohdai${resolvedParams.year}`;
+      let eventIdForYear = `kodai${resolvedParams.year}`;
       if (eventRes.ok) {
         const eventJson = await eventRes.json();
         const eventData = eventJson?.data as {
@@ -335,9 +335,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     return (
                       <label
                         key={`${option}-${index}`}
-                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
-                          selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
-                        }`}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -346,9 +345,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           className="sr-only"
                         />
                         <span
-                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                            selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
-                          }`}
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
+                            }`}
                         >
                           <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
@@ -371,9 +369,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   return (
                     <label
                       key={`${option}-${index}`}
-                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
-                        selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
-                      }`}
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
+                        }`}
                     >
                       <input
                         type="checkbox"
@@ -382,9 +379,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         className="sr-only"
                       />
                       <span
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                          selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
-                        }`}
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
+                          }`}
                       >
                         <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
@@ -433,9 +429,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
               return (
                 <label
                   key={option}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${
-                    selected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
-                  }`}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${selected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
+                    }`}
                 >
                   <input
                     type="checkbox"
@@ -566,7 +561,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           timeSlot: createTeamForm.timeSlot,
           areaId: createTeamForm.areaId,
           assignedArea: selectedArea?.areaCode || '',
-          eventId: distributionEventId || `kohdai${resolvedParams.year}`,
+          eventId: distributionEventId || `kodai${resolvedParams.year}`,
           year: Number(resolvedParams.year),
         }),
       });
@@ -677,13 +672,13 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-          body: JSON.stringify({
-            year: resolvedParams?.year,
-            formId: selectedForm,
-            participants,
-            teams,
-          }),
-        });
+        body: JSON.stringify({
+          year: resolvedParams?.year,
+          formId: selectedForm,
+          participants,
+          teams,
+        }),
+      });
 
       if (res.ok) {
         const data = await res.json();
@@ -1189,7 +1184,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       onChange={(e) => setSelectedTeamFilter(e.target.value)}
                       className="block w-48 px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
-                    <option value="">全ての班</option>
+                      <option value="">全ての班</option>
                       {teams.map((t) => (
                         <option key={t.teamId} value={t.teamId}>{t.teamName || getTeamAreaLabel(t)}</option>
                       ))}
@@ -1254,13 +1249,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                                   {assignment.assignedBy === 'auto' ? '自動' : '手動'}
                                 </span>
                                 {assignment.timeSlot && (
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    assignment.timeSlot.endsWith('_am')
+                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.timeSlot.endsWith('_am')
                                       ? 'bg-yellow-100 text-yellow-800'
                                       : assignment.timeSlot.endsWith('_pm')
                                         ? 'bg-purple-100 text-purple-800'
                                         : 'bg-gray-100 text-gray-800'
-                                  }`}>
+                                    }`}>
                                     {formatAvailabilitySlotLabel(assignment.timeSlot)}
                                   </span>
                                 )}
@@ -1382,15 +1376,15 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   </button>
                 </div>
 
-                  <div className="mb-4">
-                    <div className="font-medium text-gray-900">{selectedParticipant.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {selectedParticipant.grade}年 - {selectedParticipant.section}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      希望時間帯: {getAvailabilityLabel(selectedParticipant.availableSlots)}
-                    </div>
+                <div className="mb-4">
+                  <div className="font-medium text-gray-900">{selectedParticipant.name}</div>
+                  <div className="text-sm text-gray-500">
+                    {selectedParticipant.grade}年 - {selectedParticipant.section}
                   </div>
+                  <div className="text-sm text-gray-500">
+                    希望時間帯: {getAvailabilityLabel(selectedParticipant.availableSlots)}
+                  </div>
+                </div>
 
                 <div className="space-y-4">
                   <div>

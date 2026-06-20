@@ -36,16 +36,16 @@ function serializeEventDoc(id: string, data: Record<string, unknown>) {
   const updatedAt = data.updatedAt instanceof Date
     ? data.updatedAt.toISOString()
     : serializeDateOnlyValue(data.updatedAt, timeZone);
-    return {
-      id,
-      ...data,
-      distributionTimeZone: timeZone,
-      createdAt,
-      updatedAt,
-      distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
-      distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
-      distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots) ? data.distributionAvailabilitySlots : undefined,
-    };
+  return {
+    id,
+    ...data,
+    distributionTimeZone: timeZone,
+    createdAt,
+    updatedAt,
+    distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
+    distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
+    distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots) ? data.distributionAvailabilitySlots : undefined,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'この年度のイベントは既に存在します' }, { status: 409 });
     }
 
-    const id = eventId || `kohdai${y}`;
+    const id = eventId || `kodai${y}`;
     const docRef = adminDb.collection('distributionEvents').doc(id);
 
     const timeZone = typeof distributionTimeZone === 'string' && distributionTimeZone.trim()

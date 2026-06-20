@@ -219,7 +219,7 @@ docker compose down
 ##### 1. 配布イベント (`/distributionEvents/{eventId}`)
 ```typescript
 interface DistributionEvent {
-  eventId: string;           // "kohdai2025"
+  eventId: string;           // "kodai2025"
   eventName: string;         // "工大祭2025"
   distributionStartDate: Date; // 配布期間の開始日
   distributionEndDate: Date;   // 配布期間の終了日
@@ -241,7 +241,7 @@ interface Team {
   timeSlot: string;         // "2026-06-01_am" などの配布枠キー
   assignedArea: string;      // "午前1"
   adjacentAreas: string[];   // ["午前2", "午後1"] 周辺区域
-  eventId: string;          // "kohdai2025"
+  eventId: string;          // "kodai2025"
   year?: number;            // 2025
   isActive: boolean;
   createdAt: Date;
@@ -313,7 +313,7 @@ interface Member {
 1. ユーザーがログインコード（例：AM1-2025）を入力
 2. システムがログインコードを一時的なメール/パスワードに変換
    ```
-   Email: {teamCode}@temp.kohdai-poster.local
+   Email: {teamCode}@temp.kodai-poster.local
    Password: システム生成のランダムパスワード
    ```
 3. Firebase Authenticationで一時アカウント作成

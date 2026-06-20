@@ -27,6 +27,37 @@ function toMillis(value: unknown): number {
   return 0;
 }
 
+function normalizeFormEventContext(eventId: unknown, year: unknown): { eventId: string; year: number } | null {
+  const normalizedYear = typeof year === 'number'
+    ? year
+    : typeof year === 'string' && year.trim()
+      ? Number(year)
+      : Number.NaN;
+
+  if (Number.isFinite(normalizedYear)) {
+    return {
+      eventId: `kodai${normalizedYear}`,
+      year: normalizedYear,
+    };
+  }
+
+  const normalizedEventId = typeof eventId === 'string' ? eventId.trim() : '';
+  const matchedYear = normalizedEventId.match(/^kodai(\d{4})$/)?.[1];
+
+  if (matchedYear) {
+    return {
+      eventId: normalizedEventId,
+      year: Number(matchedYear),
+    };
+  }
+
+  if (normalizedEventId) {
+    return null;
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -59,7 +90,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const eventId = searchParams.get('eventId') || 'kohdai2025';
+    const eventId = searchParams.get('eventId') || 'kodai2025';
 
     // フォーム一覧を取得（非正規化されたカウンタを使用）
     const formsSnapshot = await adminDb
@@ -125,7 +156,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { title, description, fields, eventId, year }: FormCreateData & { eventId?: string; year?: number } = body;
-    const targetEventId = eventId || 'kohdai2025';
+    const normalizedEventContext = normalizeFormEventContext(eventId, year);
+
+    if (!normalizedEventContext) {
+      return NextResponse.json(
+        { error: 'eventId と year を正しく指定してください' },
+        { status: 400 }
+      );
+    }
 
     // バリデーション
     if (!title?.trim()) {
@@ -144,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     const existingFormSnapshot = await adminDb
       .collection('forms')
-      .where('eventId', '==', targetEventId)
+      .where('eventId', '==', normalizedEventContext.eventId)
       .limit(1)
       .get();
 
@@ -183,8 +221,8 @@ export async function POST(request: NextRequest) {
       title: title.trim(),
       description: description?.trim() || '',
       isActive: true,
-      eventId: eventId || 'kohdai2025',
-      year: year || 2025,
+      eventId: normalizedEventContext.eventId,
+      year: normalizedEventContext.year,
       fields: fields.map((field, index) => ({
         ...field,
         fieldId: index === 0 ? 'availability' : 'remarks',
