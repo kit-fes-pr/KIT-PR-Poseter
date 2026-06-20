@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up dev build fmt lint test ci admin
+.PHONY: help up down dev build fmt lint test ci admin
 
 ADMIN_EMAIL ?=
 ADMIN_PASSWORD ?=
@@ -9,6 +9,7 @@ ADMIN_ENV_FILE ?= .env
 help:
 	@printf "Available targets:\n"
 	@printf "  up     - Start the app with Docker Compose\n"
+	@printf "  down   - Stop the app with Docker Compose\n"
 	@printf "  dev    - Start the app with npm\n"
 	@printf "  build  - Run Next.js production build\n"
 	@printf "  fmt    - Run Prettier write formatting\n"
@@ -19,6 +20,9 @@ help:
 
 up:
 	docker compose up --build
+
+down:
+	docker compose down
 
 dev:
 	npm run dev
