@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const eventIdBody = body?.eventId as string | undefined;
     const yearBody = body?.year as number | undefined;
-    let targetEventId = eventIdBody || 'kohdai2025';
+    let targetEventId = eventIdBody || 'kodai2025';
     if (!eventIdBody && yearBody) {
       const evSnap = await adminDb.collection('distributionEvents').where('year', '==', yearBody).limit(1).get();
       if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const yearParam = searchParams.get('year');
-    const eventId = searchParams.get('eventId') || 'kohdai2025';
+    const eventId = searchParams.get('eventId') || 'kodai2025';
     const includeStores = ['1', 'true', 'yes'].includes((searchParams.get('includeStores') || '').toLowerCase());
 
     let year = yearParam ? parseInt(yearParam) : undefined;

@@ -4,6 +4,17 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 /**
  * 段階的データ読み込みAPI - チャンク単位でデータを追加取得
  */
+function serializeDateTimeValue(value: unknown): string | unknown {
+  if (!value) return value;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ year: string }> }
@@ -34,29 +45,51 @@ export async function GET(
 
     console.log(`📦 段階的データ取得: offset=${offset}, limit=${limit}`);
 
-    // チームデータをチャンク単位で取得
-    const teamsQuery = adminDb.collection('teams')
+    const eventSnap = await adminDb.collection('distributionEvents')
       .where('year', '==', yearNum)
-      .orderBy('updatedAt', 'desc')
-      .offset(offset)
-      .limit(limit);
+      .limit(1)
+      .get();
+    const eventId = !eventSnap.empty ? eventSnap.docs[0].id : null;
 
-    const teamsSnapshot = await teamsQuery.get();
-    
+    const [byYearSnapshot, byEventDocs] = await Promise.all([
+      adminDb.collection('teams')
+        .where('year', '==', yearNum)
+        .get(),
+      eventId
+        ? adminDb.collection('teams')
+          .where('eventId', '==', eventId)
+          .get()
+          .then((snapshot) => snapshot.docs)
+        : Promise.resolve([] as FirebaseFirestore.QueryDocumentSnapshot[])
+    ]);
+
+    const mergedTeamsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    byYearSnapshot.docs.forEach((doc) => mergedTeamsMap.set(doc.id, doc));
+    byEventDocs.forEach((doc) => mergedTeamsMap.set(doc.id, doc));
+
+    const orderedTeams = Array.from(mergedTeamsMap.values())
+      .map((doc) => ({
+        doc,
+        createdAtMs: doc.data().createdAt?.toMillis?.() || 0,
+        updatedAtMs: doc.data().updatedAt?.toMillis?.() || 0,
+      }))
+      .sort((a, b) => (b.updatedAtMs || b.createdAtMs) - (a.updatedAtMs || a.createdAtMs));
+
+    const pagedDocs = orderedTeams.slice(offset, offset + limit).map((item) => item.doc);
     const teams = await Promise.all(
-      teamsSnapshot.docs.map(async (doc) => {
+      pagedDocs.map(async (doc) => {
+        const raw = doc.data();
         const teamData = {
           teamId: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.()?.toISOString(),
-          updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString(),
-          validStartDate: doc.data().validStartDate?.toDate?.()?.toISOString(),
-          validEndDate: doc.data().validEndDate?.toDate?.()?.toISOString(),
-          validDate: doc.data().validDate?.toDate?.()?.toISOString(),
+          ...raw,
+          createdAt: serializeDateTimeValue(raw.createdAt),
+          updatedAt: serializeDateTimeValue(raw.updatedAt),
+          validStartDate: serializeDateTimeValue(raw.validStartDate),
+          validEndDate: serializeDateTimeValue(raw.validEndDate),
+          validDate: serializeDateTimeValue(raw.validDate),
           memberCount: 0 // デフォルト
         };
 
-        // メンバー数が必要な場合のみ取得
         if (includeMembers) {
           try {
             const memberCountSnapshot = await adminDb.collection('members')
@@ -85,7 +118,7 @@ export async function GET(
     }, {} as Record<string, { teamCount: number; memberCount: number }>);
 
     // 次のチャンクがあるかチェック
-    const hasMore = teams.length === limit;
+    const hasMore = offset + limit < orderedTeams.length;
     const nextOffset = hasMore ? offset + limit : null;
 
     const responseTime = Date.now() - startTime;

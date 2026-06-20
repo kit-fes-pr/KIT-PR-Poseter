@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { SurveyForm, FormAnswer } from '@/types/forms';
-import { normalizeAvailableTime } from '@/lib/utils/availability';
+import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
+import { PublicSurveyForm } from '@/components/forms/PublicSurveyForm';
+import type { ParticipantIdentityFormValues } from '@/components/forms/ParticipantIdentitySection';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -14,15 +17,45 @@ interface FormData {
   participantSection: string;
 }
 
+interface SavedResponseDraft {
+  responseId: string;
+  editToken: string;
+  values: FormData;
+}
+
 export default function FormResponsePage({ params }: { params: Promise<{ id: string }> }) {
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null);
   const [form, setForm] = useState<SurveyForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionMode, setSubmissionMode] = useState<'submit' | 'update'>('submit');
+  const [savedResponseDraft, setSavedResponseDraft] = useState<SavedResponseDraft | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
+  const { handleSubmit, control, watch, setValue, getValues, reset } = useForm<FormData>();
+  const participantGrade = watch('participantGrade');
+
+  useEffect(() => {
+    if (participantGrade === '4') {
+      setValue('participantSection', '4年', {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      return;
+    }
+
+    if (getValues('participantSection') === '4年') {
+      setValue('participantSection', '', {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
+  }, [participantGrade, setValue, getValues]);
 
   useEffect(() => {
     params.then(setResolvedParams);
@@ -53,6 +86,62 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
     loadForm();
   }, [resolvedParams]);
 
+  useEffect(() => {
+    if (!resolvedParams || !form) return;
+
+    const storageKey = `form-response-${resolvedParams.id}`;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored) as Partial<SavedResponseDraft>;
+      if (!parsed.responseId || !parsed.editToken || !parsed.values) return;
+      setSavedResponseDraft({
+        responseId: parsed.responseId,
+        editToken: parsed.editToken,
+        values: parsed.values as FormData,
+      });
+      setSubmitted(true);
+      setSubmissionMode('submit');
+    } catch (err) {
+      console.error('保存済み回答の読み込みに失敗しました', err);
+    }
+  }, [resolvedParams, form]);
+
+  const storageKey = resolvedParams ? `form-response-${resolvedParams.id}` : '';
+
+  const persistSavedResponseDraft = (draft: SavedResponseDraft) => {
+    setSavedResponseDraft(draft);
+    if (!storageKey) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(draft));
+    } catch (err) {
+      console.error('保存済み回答の保存に失敗しました', err);
+    }
+  };
+
+  const clearSavedResponseDraft = () => {
+    setSavedResponseDraft(null);
+    setEditingResponseId(null);
+    setSubmitted(false);
+    if (storageKey) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch (err) {
+        console.error('保存済み回答の削除に失敗しました', err);
+      }
+    }
+  };
+
+  const openEditModal = () => {
+    if (!savedResponseDraft) return;
+    reset(savedResponseDraft.values);
+    setEditingResponseId(savedResponseDraft.responseId);
+    setShowEditModal(true);
+    setSubmitted(false);
+    setError('');
+  };
+
   const onSubmit = async (data: FormData) => {
     if (!form || !resolvedParams) return;
 
@@ -60,19 +149,61 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       setSubmitting(true);
       setError('');
 
+      for (const field of form.fields) {
+        const rawValue = data[field.fieldId];
+
+        if (field.type === 'select' || field.type === 'radio') {
+          if (typeof rawValue === 'string' && rawValue && !field.options?.includes(rawValue)) {
+            setError(`${field.label}の選択肢が正しくありません`);
+            return;
+          }
+        }
+
+        if (field.type === 'checkbox') {
+          if (rawValue == null) {
+            if (field.required) {
+              setError(`${field.label}は一つ以上選択してください`);
+              return;
+            }
+            continue;
+          }
+
+          if (!Array.isArray(rawValue)) {
+            setError(`${field.label}は配列で送信してください`);
+            return;
+          }
+
+          if (!field.required && rawValue.length === 0) {
+            continue;
+          }
+
+          const invalidValue = rawValue.find((value) => !field.options?.includes(value));
+          if (invalidValue) {
+            setError(`${field.label}の選択肢が正しくありません`);
+            return;
+          }
+        }
+      }
+
       // フォームデータを変換
       const answers: FormAnswer[] = form.fields.map(field => ({
         fieldId: field.fieldId,
         value: data[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
       }));
 
-      // 参加可能時間帯フィールドの値を取得し、安定キーに正規化
-      const availabilityValue = data.availability as unknown;
-      const availabilityOptions = form?.fields.find(f => f.fieldId === 'availability')?.options || [];
-      const availableTime = normalizeAvailableTime(availabilityValue, availabilityOptions);
+      const availableSlots = normalizeAvailabilitySlots(data.availability);
+      if (availableSlots.length === 0) {
+        setError('参加可能日時は一つ以上選択してください');
+        return;
+      }
 
-      const res = await fetch(`/api/forms/${resolvedParams.id}/responses`, {
-        method: 'POST',
+      const isUpdating = Boolean(editingResponseId && savedResponseDraft?.responseId === editingResponseId && savedResponseDraft?.editToken);
+      const res = await fetch(
+        isUpdating
+          ? `/api/forms/${resolvedParams.id}/responses/${editingResponseId}`
+          : `/api/forms/${resolvedParams.id}/responses`,
+        {
+        method: isUpdating ? 'PATCH' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -82,8 +213,9 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             name: data.participantName,
             section: data.participantSection,
             grade: data.participantGrade,
-            availableTime: availableTime,
+            availableSlots,
           },
+          editToken: isUpdating ? savedResponseDraft?.editToken : undefined,
           submitterInfo: {
             submittedAt: new Date().toISOString(),
           },
@@ -93,7 +225,23 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       const result = await res.json();
 
       if (res.ok) {
+        const responseId = typeof result.responseId === 'string'
+          ? result.responseId
+          : editingResponseId || '';
+        const editToken = typeof result.editToken === 'string'
+          ? result.editToken
+          : savedResponseDraft?.editToken || '';
+        if (responseId && editToken) {
+          persistSavedResponseDraft({
+            responseId,
+            editToken,
+            values: data,
+          });
+        }
+        setSubmissionMode(isUpdating ? 'update' : 'submit');
         setSubmitted(true);
+        setShowEditModal(false);
+        setEditingResponseId(null);
       } else {
         setError(result.error || '回答の送信に失敗しました');
         if (result.details) {
@@ -105,186 +253,6 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       console.error(err);
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const renderField = (field: { fieldId: string; type: string; label: string; placeholder?: string; required: boolean; options?: string[]; validation?: { minLength?: number; maxLength?: number; min?: number; max?: number; pattern?: string } }) => {
-    const fieldId = field.fieldId;
-    const isRequired = field.required;
-    const label = field.label + (isRequired ? ' *' : '');
-
-    switch (field.type) {
-      case 'text':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <input
-              id={fieldId}
-              type="text"
-              placeholder={field.placeholder}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-                minLength: field.validation?.minLength ? {
-                  value: field.validation.minLength,
-                  message: `${field.label}は${field.validation.minLength}文字以上で入力してください`,
-                } : undefined,
-                maxLength: field.validation?.maxLength ? {
-                  value: field.validation.maxLength,
-                  message: `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
-                } : undefined,
-                pattern: field.validation?.pattern ? {
-                  value: new RegExp(field.validation.pattern),
-                  message: `${field.label}の形式が正しくありません`,
-                } : undefined,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'textarea':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <textarea
-              id={fieldId}
-              rows={4}
-              placeholder={field.placeholder}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-                minLength: field.validation?.minLength ? {
-                  value: field.validation.minLength,
-                  message: `${field.label}は${field.validation.minLength}文字以上で入力してください`,
-                } : undefined,
-                maxLength: field.validation?.maxLength ? {
-                  value: field.validation.maxLength,
-                  message: `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
-                } : undefined,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'number':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <input
-              id={fieldId}
-              type="number"
-              placeholder={field.placeholder}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-                min: field.validation?.min ? {
-                  value: field.validation.min,
-                  message: `${field.label}は${field.validation.min}以上で入力してください`,
-                } : undefined,
-                max: field.validation?.max ? {
-                  value: field.validation.max,
-                  message: `${field.label}は${field.validation.max}以下で入力してください`,
-                } : undefined,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'select':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <select
-              id={fieldId}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">選択してください</option>
-              {field.options?.map((option: string, index: number) => (
-                <option key={index} value={option}>{option}</option>
-              ))}
-            </select>
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'radio':
-        return (
-          <div key={fieldId}>
-            <fieldset>
-              <legend className="block text-sm font-medium text-gray-700 mb-2">{label}</legend>
-              <div className="space-y-2">
-                {field.options?.map((option: string, index: number) => (
-                  <label key={index} className="flex items-center">
-                    <input
-                      type="radio"
-                      value={option}
-                      {...register(fieldId, {
-                        required: isRequired ? `${field.label}は必須です` : false,
-                      })}
-                      className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">{option}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'checkbox':
-        return (
-          <div key={fieldId}>
-            <fieldset>
-              <legend className="block text-sm font-medium text-gray-700 mb-2">{label}</legend>
-              <div className="space-y-2">
-                {field.options?.map((option: string, index: number) => (
-                  <label key={index} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      value={option}
-                      {...register(fieldId, {
-                        required: isRequired ? `${field.label}は必須です` : false,
-                      })}
-                      className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">{option}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      default:
-        return null;
     }
   };
 
@@ -323,11 +291,31 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                 </svg>
               </div>
             </div>
-            <h2 className="text-lg font-medium text-green-900 mb-2">回答を送信しました</h2>
+            <h2 className="text-lg font-medium text-green-900 mb-2">
+              {submissionMode === 'update' ? '回答を更新しました' : '回答を送信しました'}
+            </h2>
             <p className="text-sm text-green-700">
               ご協力ありがとうございました。<br />
-              工大祭の準備に活用させていただきます。
+              {savedResponseDraft ? 'この端末では引き続き回答の変更ができます。' : '工大祭の準備に活用させていただきます。'}
             </p>
+            {savedResponseDraft && (
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button
+                  type="button"
+                  onClick={openEditModal}
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                >
+                  回答を変更する
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSavedResponseDraft}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  この端末の保存を削除
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -355,93 +343,16 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             )}
 
             {/* フォーム */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* 参加者必須情報 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 名前 */}
-                <div>
-                  <label htmlFor="participantName" className="block text-sm font-medium text-gray-700">
-                    お名前 *
-                  </label>
-                  <input
-                    id="participantName"
-                    type="text"
-                    {...register('participantName', {
-                      required: 'お名前は必須です',
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  {errors.participantName && (
-                    <p className="mt-1 text-sm text-red-600">{errors.participantName.message}</p>
-                  )}
-                </div>
-
-                {/* 学年 */}
-                <div>
-                  <label htmlFor="participantGrade" className="block text-sm font-medium text-gray-700">
-                    学年 *
-                  </label>
-                  <select
-                    id="participantGrade"
-                    {...register('participantGrade', {
-                      required: '学年は必須です',
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">選択してください</option>
-                    <option value="1">1年生</option>
-                    <option value="2">2年生</option>
-                    <option value="3">3年生</option>
-                    <option value="4">4年生</option>
-                  </select>
-                  {errors.participantGrade && (
-                    <p className="mt-1 text-sm text-red-600">{errors.participantGrade.message}</p>
-                  )}
-                </div>
-
-                {/* 所属セクション */}
-                <div>
-                  <label htmlFor="participantSection" className="block text-sm font-medium text-gray-700">
-                    所属セクション *
-                  </label>
-                  <select
-                    id="participantSection"
-                    {...register('participantSection', {
-                      required: '所属セクションは必須です',
-                    })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">選択してください</option>
-                    <option value="企画系">企画系</option>
-                    <option value="技術系">技術系</option>
-                    <option value="警備系">警備系</option>
-                    <option value="Web系">Web系</option>
-                    <option value="PR系">PR系</option>
-                    <option value="4年">4年</option>
-                  </select>
-                  {errors.participantSection && (
-                    <p className="mt-1 text-sm text-red-600">{errors.participantSection.message}</p>
-                  )}
-                </div>
-
-              </div>
-
-              {/* 既存のフォームフィールド */}
-              {form?.fields
-                .sort((a, b) => a.order - b.order)
-                .map(field => renderField(field))}
-
-              {/* 送信ボタン */}
-              <div className="pt-6">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                >
-                  {submitting ? '送信中...' : '回答を送信'}
-                </button>
-              </div>
-            </form>
+            {!showEditModal && (
+              <PublicSurveyForm
+                form={form}
+                control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
+                handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
+                onSubmit={onSubmit}
+                submitting={submitting}
+                submitLabel="回答を送信"
+              />
+            )}
 
             {/* フッター */}
             <div className="mt-8 pt-6 border-t border-gray-200">
@@ -452,6 +363,58 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      {showEditModal && form && (
+        <Modal
+          open
+          onClose={() => {
+            setShowEditModal(false);
+            setSubmitted(true);
+            if (savedResponseDraft) {
+              reset(savedResponseDraft.values);
+            }
+          }}
+          centered={false}
+          panelClassName="max-w-4xl"
+          contentClassName="px-6 py-6"
+        >
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">回答を変更</h2>
+              <p className="text-sm text-gray-500">送信済みの内容を修正して保存できます。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditModal(false);
+                setSubmitted(true);
+                if (savedResponseDraft) {
+                  reset(savedResponseDraft.values);
+                }
+              }}
+              className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-6 py-6">
+            <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              {savedResponseDraft ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。' : '回答内容を入力してください。'}
+            </div>
+            <PublicSurveyForm
+              form={form}
+              control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
+              handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
+              onSubmit={onSubmit}
+              submitting={submitting}
+              submitLabel="変更を保存"
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -1,13 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { Team, Store } from '@/types';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
+import { buildAvailabilitySlotChoices, formatAvailabilitySlotLabel } from '@/lib/utils/availability';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -25,14 +26,15 @@ export default function TeamDetailPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
+  const [distributionSlots, setDistributionSlots] = useState<string[]>([]);
   const completed = useMemo(() => stores.filter((s: Store) => s.distributionStatus === 'completed'), [stores]);
   const failed = useMemo(() => stores.filter((s: Store) => s.distributionStatus === 'failed'), [stores]);
   const revisit = useMemo(() => stores.filter((s: Store) => s.distributionStatus === 'revisit'), [stores]);
   const [loading, setLoading] = useState(true);
   const [isBasicEditOpen, setIsBasicEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState<{ teamName: string; timeSlot: string; assignedArea: string; adjacentAreas: string; validDate: string }>({ teamName: '', timeSlot: 'morning', assignedArea: '', adjacentAreas: '', validDate: '' });
+  const [editForm, setEditForm] = useState<{ teamName: string; timeSlot: string; assignedArea: string }>({ teamName: '', timeSlot: '', assignedArea: '' });
   const [memberLoading, setMemberLoading] = useState(false);
-  const [assignedMembers, setAssignedMembers] = useState<Array<{ responseId: string; name: string; grade: number; section: string; timeSlot: 'morning' | 'afternoon'; formId: string }>>([]);
+  const [assignedMembers, setAssignedMembers] = useState<Array<{ responseId: string; name: string; grade: number; section: string; timeSlot: string; formId: string }>>([]);
 
   // Firebase認証状態を監視
   useEffect(() => {
@@ -64,40 +66,23 @@ export default function TeamDetailPage() {
         if (!data?.user?.isAdmin) throw new Error('forbidden');
         setIsAdmin(true);
 
+        const eventRes = await fetch(`/api/admin/events?year=${y}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (eventRes.ok) {
+          const eventJson = await eventRes.json().catch(() => ({}));
+          const eventData = eventJson?.data as { distributionAvailabilitySlots?: string[]; distributionStartDate?: string | Date; distributionEndDate?: string | Date } | null;
+          const slots = Array.isArray(eventData?.distributionAvailabilitySlots) && eventData?.distributionAvailabilitySlots.length > 0
+            ? eventData!.distributionAvailabilitySlots!.filter((slot): slot is string => typeof slot === 'string')
+            : buildAvailabilitySlotChoices(eventData?.distributionStartDate, eventData?.distributionEndDate).map((choice) => choice.key);
+          setDistributionSlots(slots);
+        }
+
         const td = await fetcherAuth(`/api/admin/teams/${teamId}`);
         setTeam(td.team);
 
-        // validDate の安全な処理
-        let d: Date | null = null;
-        try {
-          const v = td.team.validDate as unknown;
-          if (v) {
-            if (
-              typeof v === 'object' && v !== null && '_seconds' in v &&
-              typeof (v as any)._seconds === 'number'
-            ) {
-              d = new Date((v as any)._seconds * 1000);
-            } else if (
-              typeof v === 'object' && v !== null && 'toDate' in v &&
-              typeof (v as any).toDate === 'function'
-            ) {
-              d = (v as any).toDate();
-            } else {
-              d = new Date(v as any);
-            }
-            if (d && isNaN(d.getTime())) d = null;
-          }
-        } catch (error) {
-          console.error('validDate parsing error:', error);
-          d = null;
-        }
-
         setEditForm({
           teamName: td.team.teamName || '',
-          timeSlot: td.team.timeSlot || 'morning',
+          timeSlot: td.team.timeSlot || '',
           assignedArea: td.team.assignedArea || '',
-          adjacentAreas: Array.isArray(td.team.adjacentAreas) ? td.team.adjacentAreas.join(', ') : '',
-          validDate: d ? d.toISOString().slice(0, 10) : ''
         });
 
         const st = await fetcherAuth(`/api/admin/teams/${teamId}/stores`);
@@ -111,7 +96,7 @@ export default function TeamDetailPage() {
       }
     };
     if (teamId) init();
-  }, [router, teamId]);
+  }, [router, teamId, y]);
 
   // 割り当てメンバー取得
   useEffect(() => {
@@ -242,8 +227,8 @@ export default function TeamDetailPage() {
             {completed.length === 0 && <p className="text-sm text-gray-500">なし</p>}
           </div>
           {isBasicEditOpen && (
-            <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <Modal open onClose={() => setIsBasicEditOpen(false)} panelClassName="max-w-md p-6">
+            <div className="w-full">
                 <h2 className="text-lg font-medium mb-4">基本情報を編集</h2>
                 <div className="space-y-4">
                   <div>
@@ -251,25 +236,27 @@ export default function TeamDetailPage() {
                     <input className="mt-1 w-full border rounded px-3 py-2" value={editForm.teamName} onChange={(e) => setEditForm({ ...editForm, teamName: e.target.value })} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">時間帯</label>
-                    <select className="mt-1 w-full border rounded px-3 py-2" value={editForm.timeSlot} onChange={(e) => setEditForm({ ...editForm, timeSlot: e.target.value })}>
-                      <option value="morning">午前</option>
-                      <option value="afternoon">午後</option>
-                      <option value="both">全日</option>
-                      <option value="other">その他</option>
+                    <label className="block text-sm font-medium text-gray-700">配布枠</label>
+                    <select
+                      className="mt-1 w-full border rounded px-3 py-2"
+                      value={editForm.timeSlot}
+                      onChange={(e) => setEditForm({ ...editForm, timeSlot: e.target.value })}
+                      disabled={distributionSlots.length === 0}
+                    >
+                      <option value="">配布枠を選択</option>
+                      {distributionSlots.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {formatAvailabilitySlotLabel(slot)}
+                        </option>
+                      ))}
                     </select>
+                    {distributionSlots.length === 0 && (
+                      <p className="mt-1 text-xs text-gray-500">先に配布設定で配布枠を登録してください。</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">担当区域</label>
                     <input className="mt-1 w-full border rounded px-3 py-2" value={editForm.assignedArea} onChange={(e) => setEditForm({ ...editForm, assignedArea: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">周辺区域（カンマ区切り）</label>
-                    <input className="mt-1 w-full border rounded px-3 py-2" value={editForm.adjacentAreas} onChange={(e) => setEditForm({ ...editForm, adjacentAreas: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">アクセス可能日</label>
-                    <input type="date" className="mt-1 w-full border rounded px-3 py-2" value={editForm.validDate} onChange={(e) => setEditForm({ ...editForm, validDate: e.target.value })} />
                   </div>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
@@ -282,8 +269,6 @@ export default function TeamDetailPage() {
                           teamName: editForm.teamName,
                           timeSlot: editForm.timeSlot,
                           assignedArea: editForm.assignedArea,
-                          adjacentAreas: editForm.adjacentAreas,
-                          validDate: editForm.validDate,
                         };
                         const res = await fetch(`/api/admin/teams/${teamId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
                         const data = await res.json();
@@ -298,8 +283,8 @@ export default function TeamDetailPage() {
                     className="px-4 py-2 bg-indigo-600 text-white rounded-md"
                   >保存</button>
                 </div>
-              </div>
             </div>
+          </Modal>
           )}
         </div>
 
@@ -343,32 +328,8 @@ export default function TeamDetailPage() {
             <div className="space-y-3 text-sm">
               <p><span className="text-gray-600">チーム名:</span> <span className="ml-2 font-medium">{team?.teamName || '-'}</span></p>
               <p><span className="text-gray-600">コード:</span> <span className="ml-2">{team?.teamCode || '-'}</span></p>
-              <p><span className="text-gray-600">時間帯:</span> <span className="ml-2">{
-                team?.timeSlot === 'morning' ? '午前' :
-                team?.timeSlot === 'afternoon' ? '午後' :
-                team?.timeSlot === 'both' ? '全日' :
-                team?.timeSlot === 'other' ? 'その他' : '-'
-              }</span></p>
+              <p><span className="text-gray-600">配布枠:</span> <span className="ml-2">{formatAvailabilitySlotLabel(team?.timeSlot || '')}</span></p>
               <p><span className="text-gray-600">担当区域:</span> <span className="ml-2">{team?.assignedArea || '-'}</span></p>
-              <p><span className="text-gray-600">周辺区域:</span> <span className="ml-2">{Array.isArray(team?.adjacentAreas) ? team?.adjacentAreas.join(', ') : '-'}</span></p>
-              <p><span className="text-gray-600">アクセス可能日:</span> <span className="ml-2">{
-                (() => {
-                  try {
-                    const parseAny = (v: any) => v?._seconds ? new Date(v._seconds * 1000) : (typeof v === 'string' ? new Date(v) : new Date(v));
-                    const vs = team?.validStartDate ? parseAny(team.validStartDate) : (team?.validDate ? parseAny(team.validDate as any) : null);
-                    const ve = team?.validEndDate ? parseAny(team.validEndDate) : (team?.validDate ? parseAny(team.validDate as any) : null);
-                    const fmt = (d: Date | null) => (d && !isNaN(d.getTime())) ? d.toLocaleDateString('ja-JP') : '';
-                    const s = fmt(vs);
-                    const e = fmt(ve);
-                    if (s && e && s !== e) return `${s} 〜 ${e}`;
-                    if (s) return s;
-                    return '-';
-                  } catch (error) {
-                    console.error('エラー内容:', error);
-                    return '-';
-                  }
-                })()
-              }</span></p>
               <div className="pt-2">
                 <button onClick={() => setIsBasicEditOpen(true)} className="px-3 py-1 border rounded-md">編集</button>
               </div>
@@ -411,11 +372,13 @@ export default function TeamDetailPage() {
                         <td className="px-6 py-3 text-sm text-gray-900">{m.section}</td>
                         <td className="px-6 py-3 text-sm">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            m.timeSlot === 'morning' ? 'bg-yellow-100 text-yellow-800' : 
-                            m.timeSlot === 'afternoon' ? 'bg-purple-100 text-purple-800' : 
-                            'bg-gray-100 text-gray-800'
+                            m.timeSlot.endsWith('_am')
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : m.timeSlot.endsWith('_pm')
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {m.timeSlot === 'morning' ? '午前' : '午後'}
+                            {formatAvailabilitySlotLabel(m.timeSlot)}
                           </span>
                         </td>
                       </tr>

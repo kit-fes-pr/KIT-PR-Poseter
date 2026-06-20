@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { normalizeAdjacentAreas } from '@/lib/utils/area';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     const snap = await adminDb.collection('areas').get();
     const areas = snap.docs.map((doc) => ({
       areaId: doc.id,
-      ...(doc.data() as { areaCode?: string; areaName?: string; timeSlot?: string; description?: string; eventId?: string; createdAt?: { toDate?: () => Date } | Date }),
+      ...(doc.data() as { areaCode?: string; areaName?: string; adjacentAreas?: string[]; description?: string; createdAt?: { toDate?: () => Date } | Date }),
       createdAt: doc.data().createdAt?.toDate() || new Date()
     })).sort((a, b) => String(a.areaCode || '').localeCompare(String(b.areaCode || ''), 'ja'));
 
@@ -39,21 +40,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { areaCode, areaName, timeSlot, description, eventId } = await request.json();
+    const { areaCode, areaName, adjacentAreas, description } = await request.json();
 
-    if (!areaCode || !areaName || !timeSlot) {
-      return NextResponse.json({ 
-        error: 'areaCode, areaName, timeSlot は必須です' 
+    if (!areaCode || !areaName) {
+      return NextResponse.json({
+        error: 'areaCode, areaName は必須です'
       }, { status: 400 });
     }
 
-    if (!['morning', 'afternoon'].includes(timeSlot)) {
-      return NextResponse.json({ 
-        error: 'timeSlotは morning または afternoon である必要があります' 
-      }, { status: 400 });
-    }
-
-    // 同じeventId内でareaCodeが重複していないかチェック
+    // 区域コードが重複していないかチェック
     const existingSnap = await adminDb.collection('areas')
       .where('areaCode', '==', areaCode)
       .get();
@@ -67,9 +62,8 @@ export async function POST(request: NextRequest) {
     const areaData = {
       areaCode,
       areaName,
-      timeSlot,
+      adjacentAreas: normalizeAdjacentAreas(adjacentAreas),
       description: description || '',
-      eventId: eventId || 'common',
       createdAt: new Date()
     };
 

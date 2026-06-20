@@ -42,8 +42,6 @@ export async function POST(request: NextRequest) {
 
     const todayKey = fmtJst(new Date());
 
-    // event.distributionDate / distributionStartDate - distributionEndDate（team.eventId から解決）
-    let distKey: string | null = null;
     let distStartKey: string | null = null;
     let distEndKey: string | null = null;
     try {
@@ -59,10 +57,6 @@ export async function POST(request: NextRequest) {
             if (ds && !isNaN(ds.getTime())) distStartKey = fmtJst(ds);
             if (de && !isNaN(de.getTime())) distEndKey = fmtJst(de);
           }
-          if (ev?.distributionDate) {
-            const dd = parseDate(ev.distributionDate as Record<string, unknown> | string | Date);
-            if (!isNaN(dd.getTime())) distKey = fmtJst(dd);
-          }
         }
       }
     } catch (error) {
@@ -70,14 +64,12 @@ export async function POST(request: NextRequest) {
     }
 
     // イベントの配布日設定が存在し、当日一致（単日一致 or 期間内一致）
-    if (!distKey && !(distStartKey && distEndKey)) {
+    if (!(distStartKey && distEndKey)) {
       return NextResponse.json({ error: '配布日が未設定です（イベントの配布日を設定してください）' }, { status: 403 });
     }
-    const inRange = distStartKey && distEndKey ? (distStartKey <= todayKey && todayKey <= distEndKey) : (distKey === todayKey);
+    const inRange = distStartKey && distEndKey ? (distStartKey <= todayKey && todayKey <= distEndKey) : false;
     if (!inRange) {
-      const dispDist = distStartKey && distEndKey
-        ? `${distStartKey.replace(/-/g,'/')}〜${distEndKey.replace(/-/g,'/')}`
-        : (distKey ? distKey.replace(/-/g,'/') : '-');
+      const dispDist = `${distStartKey.replace(/-/g, '/')}〜${distEndKey.replace(/-/g, '/')}`;
       return NextResponse.json({ error: `本日は配布日ではありません。イベント: ${dispDist}` }, { status: 403 });
     }
 
@@ -120,14 +112,14 @@ export async function POST(request: NextRequest) {
       const teamInRange = (ts && te) ? (ts <= todayKey && todayKey <= te) : (todayKey === ts);
       if (!teamInRange) {
         const dispTeam = (ts && te && ts !== te)
-          ? `${ts.replace(/-/g,'/')}〜${te.replace(/-/g,'/')}`
-          : (ts ? ts.replace(/-/g,'/') : '-');
+          ? `${ts.replace(/-/g, '/')}〜${te.replace(/-/g, '/')}`
+          : (ts ? ts.replace(/-/g, '/') : '-');
         return NextResponse.json({ error: `本日は配布日ではありません。班: ${dispTeam}` }, { status: 403 });
       }
     }
 
     // 一時メールアドレス + パスワード方式
-    const tempEmail = `${teamData.teamCode}@temp.kohdai-poster.local`;
+    const tempEmail = `${teamData.teamCode}@temp.kodai-poster.local`;
     const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
 
     // 既存ユーザー確認 or 作成

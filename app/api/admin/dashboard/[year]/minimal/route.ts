@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FirestoreCache, ServerCache } from '@/lib/utils/server-cache';
+import { isAvailableForAnySlot } from '@/lib/utils/availability';
 import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
+
+function toISOStringLike(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return undefined;
+}
 
 export async function GET(
   request: NextRequest,
@@ -39,31 +51,19 @@ export async function GET(
     // キャッシュされた最小限データを取得
     const minimalData = await FirestoreCache.getCachedMinimalData(yearNum, async () => {
       // 超並列クエリ（カウントのみで高速化）
-      const [eventSnapshot, teamsCountSnapshot, membersCountSnapshot, areasCountSnapshot] = await Promise.all([
+      const [eventSnapshot, formSnapshot, areasCountSnapshot] = await Promise.all([
         // イベント情報（1件のみ）
         adminDb.collection('distributionEvents')
           .where('year', '==', yearNum)
           .limit(1)
           .get(),
-        
-        // チーム数のみ（データは取得しない）
-        FirestoreCache.getCachedCount('teams', yearNum, () =>
-          adminDb.collection('teams')
-            .where('year', '==', yearNum)
-            .count()
-            .get()
-            .then(snapshot => snapshot.data().count)
-        ),
-        
-        // メンバー数のみ（データは取得しない）  
-        FirestoreCache.getCachedCount('members', yearNum, () =>
-          adminDb.collection('members')
-            .where('year', '==', yearNum)
-            .count()
-            .get()
-            .then(snapshot => snapshot.data().count)
-        ),
 
+        // 1年度1フォームを取得
+        adminDb.collection('forms')
+          .where('year', '==', yearNum)
+          .limit(1)
+          .get(),
+        
         // 配布区域数（共通）
         ServerCache.getOrSet('firestore:areas:global:count', () =>
           adminDb.collection('areas')
@@ -82,25 +82,73 @@ export async function GET(
           id: doc.id,
           eventName: doc.data().eventName,
           year: doc.data().year,
-          distributionStartDate: doc.data().distributionStartDate?.toDate?.()?.toISOString(),
-          distributionEndDate: doc.data().distributionEndDate?.toDate?.()?.toISOString()
+          distributionStartDate: toISOStringLike(doc.data().distributionStartDate),
+          distributionEndDate: toISOStringLike(doc.data().distributionEndDate)
         };
+      }
+
+      let totalTeams = 0;
+      if (event?.id) {
+        const [teamsByYear, teamsByEvent] = await Promise.all([
+          adminDb.collection('teams')
+            .where('year', '==', yearNum)
+            .get(),
+          adminDb.collection('teams')
+            .where('eventId', '==', event.id)
+            .get(),
+        ]);
+
+        const mergedTeams = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+        teamsByYear.docs.forEach((doc) => mergedTeams.set(doc.id, doc));
+        teamsByEvent.docs.forEach((doc) => mergedTeams.set(doc.id, doc));
+        totalTeams = Array.from(mergedTeams.values()).length;
+      } else {
+        totalTeams = await FirestoreCache.getCachedCount('teams', yearNum, () =>
+          adminDb.collection('teams')
+            .where('year', '==', yearNum)
+            .count()
+            .get()
+            .then(snapshot => snapshot.data().count)
+        );
+      }
+
+      let totalResponses = 0;
+      let availableResponses = 0;
+      if (!formSnapshot.empty) {
+        const formDoc = formSnapshot.docs[0];
+        const responsesCollection = adminDb.collection('forms')
+          .doc(formDoc.id)
+          .collection('responses');
+
+        const [totalResponsesSnapshot, availableResponsesSnapshot] = await Promise.all([
+          responsesCollection.count().get(),
+          responsesCollection.select('participantData.availableSlots').get(),
+        ]);
+
+        totalResponses = totalResponsesSnapshot.data().count;
+        availableResponses = availableResponsesSnapshot.docs.filter((doc) =>
+          isAvailableForAnySlot(doc.data()?.participantData?.availableSlots)
+        ).length;
       }
 
       return {
         event,
-        totalTeams: teamsCountSnapshot,
-        totalMembers: membersCountSnapshot,
+        totalTeams,
+        totalMembers: totalResponses,
+        totalResponses,
+        availableResponses,
         totalAreas: areasCountSnapshot
       };
     });
 
-    const { event, totalTeams, totalMembers, totalAreas } = minimalData as { event: unknown; totalTeams: number; totalMembers: number; totalAreas: number };
+    const { event, totalTeams, totalMembers, totalResponses, availableResponses, totalAreas } = minimalData as { event: unknown; totalTeams: number; totalMembers: number; totalResponses?: number; availableResponses?: number; totalAreas: number };
 
     // 最小限の統計
     const minimalStats = {
       totalTeams,
       totalMembers,
+      totalResponses: totalResponses || totalMembers,
+      availableResponses: availableResponses || 0,
       totalAreas,
       isMinimal: true // 最小限データであることを示す
     };

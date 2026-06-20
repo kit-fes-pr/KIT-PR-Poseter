@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import {
+  ALL_AVAILABLE_SLOT_KEY,
+  UNAVAILABLE_SLOT_KEY,
+  buildAvailabilitySlotChoices,
+  normalizeAvailabilitySlots,
+} from '@/lib/utils/availability';
 
 interface Participant {
   responseId: string;
   name: string;
   grade: number;
   section: string;
-  availability: string;
+  availableSlots: string[];
 }
 
 interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: 'morning' | 'afternoon' | 'both' | 'other';
+  timeSlot: string;
   assignedArea: string;
   adjacentAreas?: string[];
   maxMembers?: number;
@@ -25,7 +31,7 @@ interface Assignment {
   teamId: string;
   assignedAt: Date;
   assignedBy: 'auto' | 'manual';
-  timeSlot: 'morning' | 'afternoon';
+  timeSlot: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -49,7 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { year, formId, participants, teams, includeOther } = await request.json();
+    const { year, formId, participants, teams } = await request.json();
 
     if (!year || !formId || !participants || !teams) {
       return NextResponse.json(
@@ -58,14 +64,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 自動割り当てアルゴリズムを実行
-    const assignments = performAutoAssignment(participants, teams, Boolean(includeOther));
+    const eventSlotChoices = await loadEventSlotChoices(year);
+    if (eventSlotChoices.length === 0) {
+      return NextResponse.json(
+        { error: '配布枠が未設定です。先に配布設定で登録してください。' },
+        { status: 400 }
+      );
+    }
+
+    const assignmentResult = performAutoAssignment(
+      participants,
+      teams,
+      eventSlotChoices
+    );
+
+    // 既存の自動/手動割り当てを同一年度・フォーム内で一度クリアしてから再作成する
+    const existingAssignments = await adminDb
+      .collection('assignments')
+      .where('year', '==', parseInt(year, 10))
+      .where('formId', '==', formId)
+      .get();
+
+    const batch = adminDb.batch();
+    existingAssignments.docs.forEach((doc) => batch.delete(doc.ref));
 
     // 割り当て結果をFirestoreに保存
-    const batch = adminDb.batch();
     const assignmentCollection = adminDb.collection('assignments');
 
-    assignments.forEach(assignment => {
+    assignmentResult.assignments.forEach(assignment => {
       const docRef = assignmentCollection.doc();
       batch.set(docRef, {
         ...assignment,
@@ -78,11 +104,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: '自動割り当てが完了しました',
-      assignments,
+      assignments: assignmentResult.assignments,
       stats: {
         total: participants.length,
-        assigned: assignments.length,
-        unassigned: participants.length - assignments.length,
+        assigned: assignmentResult.assignments.length,
+        unassigned: participants.length - assignmentResult.assignments.length,
+        skippedUnavailable: assignmentResult.skippedUnavailable,
+        skippedNoMatchingTeam: assignmentResult.skippedNoMatchingTeam,
+        skippedFull: assignmentResult.skippedFull,
       }
     });
   } catch (error) {
@@ -97,17 +126,19 @@ export async function POST(request: NextRequest) {
 function performAutoAssignment(
   participants: Participant[], 
   teams: Team[], 
-  includeOther: boolean
-): Assignment[] {
+  eventSlotKeys: string[]
+): {
+  assignments: Assignment[];
+  skippedUnavailable: number;
+  skippedNoMatchingTeam: number;
+  skippedFull: number;
+} {
   const assignments: Assignment[] = [];
   const usedParticipants = new Set<string>();
+  let skippedUnavailable = 0;
+  let skippedNoMatchingTeam = 0;
+  let skippedFull = 0;
   
-  // チーム分け（other は除外）
-  const morningTeams = teams.filter(t => t.timeSlot === 'morning');
-  const afternoonTeams = teams.filter(t => t.timeSlot === 'afternoon');
-  const allDayTeams = teams.filter(t => t.timeSlot === 'both');
-  const otherTeams = includeOther ? teams.filter(t => t.timeSlot === 'other') : [];
-
   // チーム毎の現在の割り当て数を追跡
   const teamAssignmentCount: Record<string, number> = {};
   teams.forEach(team => {
@@ -119,9 +150,6 @@ function performAutoAssignment(
   teams.forEach(team => {
     teamSeniorCount[team.teamId] = 0;
   });
-
-  // セクション毎の午前・午後割り当て数を追跡（重複防止）
-  const sectionTimeSlots: Record<string, { morning: number; afternoon: number }> = {};
 
   // チームごとのセクション・学年カウント
   const teamSectionCount: Record<string, Record<string, number>> = {};
@@ -140,9 +168,9 @@ function performAutoAssignment(
     if (aIsSenior && !bIsSenior) return -1;
     if (!aIsSenior && bIsSenior) return 1;
     
-    // 制約の多い参加者を先に処理（午前のみ、午後のみ）
-    if (a.availability !== 'both' && b.availability === 'both') return -1;
-    if (a.availability === 'both' && b.availability !== 'both') return 1;
+    // 制約の多い参加者を先に処理
+    if (effectiveSlotCount(a.availableSlots, eventSlotKeys) < effectiveSlotCount(b.availableSlots, eventSlotKeys)) return -1;
+    if (effectiveSlotCount(a.availableSlots, eventSlotKeys) > effectiveSlotCount(b.availableSlots, eventSlotKeys)) return 1;
     
     return 0;
   });
@@ -150,48 +178,22 @@ function performAutoAssignment(
   for (const participant of sortedParticipants) {
     if (usedParticipants.has(participant.responseId)) continue;
 
-    const targetTimeSlot: 'morning' | 'afternoon' | 'both' = participant.availability as 'morning' | 'afternoon' | 'both';
-
-    // セクション情報を初期化
-    if (!sectionTimeSlots[participant.section]) {
-      sectionTimeSlots[participant.section] = { morning: 0, afternoon: 0 };
+    const participantSlotKeys = resolveParticipantSlotKeys(participant.availableSlots, eventSlotKeys);
+    if (participantSlotKeys.length === 0) {
+      skippedUnavailable++;
+      continue;
     }
 
-    // 割り当て可能なチームを決定
-    let candidateTeams: Team[] = [];
-    let assignmentTimeSlot: 'morning' | 'afternoon';
+    const candidateTeams = teams.filter((team) => {
+      return getMatchingTeamSlots(team, eventSlotKeys).some((slot) => participantSlotKeys.includes(slot));
+    });
 
-    if (targetTimeSlot === 'morning' || targetTimeSlot === 'afternoon') {
-      assignmentTimeSlot = targetTimeSlot;
-      candidateTeams = targetTimeSlot === 'morning' 
-        ? [...morningTeams, ...allDayTeams, ...otherTeams]
-        : [...afternoonTeams, ...allDayTeams, ...otherTeams];
-    } else if (targetTimeSlot === 'both') {
-      // 両方参加可能な場合は一度だけ割り当て
-      // セクションの重複を避けるため、より少ない時間帯を選択
-      const sectionCount = sectionTimeSlots[participant.section];
-      
-      if (sectionCount.morning < sectionCount.afternoon) {
-        assignmentTimeSlot = 'morning';
-        candidateTeams = [...morningTeams, ...allDayTeams, ...otherTeams];
-      } else if (sectionCount.afternoon < sectionCount.morning) {
-        assignmentTimeSlot = 'afternoon';
-        candidateTeams = [...afternoonTeams, ...allDayTeams, ...otherTeams];
-      } else {
-        const hash = Array.from(participant.responseId).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-        assignmentTimeSlot = hash % 2 === 0 ? 'morning' : 'afternoon';
-        candidateTeams = assignmentTimeSlot === 'morning'
-          ? [...morningTeams, ...allDayTeams, ...otherTeams]
-          : [...afternoonTeams, ...allDayTeams, ...otherTeams];
-      }
-    } else {
-      continue; // 無効な可用性
+    if (candidateTeams.length === 0) {
+      skippedNoMatchingTeam++;
+      continue;
     }
-    // 候補がゼロの場合は割り当てなし
-    if (candidateTeams.length === 0) continue;
 
-    // 学年や定員を考慮してチームを選択
-  const bestTeam = selectBalancedBestTeam(
+    const bestTeam = selectBalancedBestTeam(
       candidateTeams,
       participant,
       teamAssignmentCount,
@@ -201,6 +203,14 @@ function performAutoAssignment(
     );
 
     if (bestTeam) {
+      const teamSlotKeys = getMatchingTeamSlots(bestTeam, eventSlotKeys);
+      const assignmentTimeSlot = teamSlotKeys.find((slot) => participantSlotKeys.includes(slot))
+        || participantSlotKeys[0];
+      if (!assignmentTimeSlot) {
+        skippedNoMatchingTeam++;
+        continue;
+      }
+
       const assignment: Assignment = {
         responseId: participant.responseId,
         teamId: bestTeam.teamId,
@@ -218,20 +228,71 @@ function performAutoAssignment(
         teamSeniorCount[bestTeam.teamId]++;
       }
       
-      // セクション時間帯カウントを更新
-      if (assignmentTimeSlot === 'morning') {
-        sectionTimeSlots[participant.section].morning++;
-      } else {
-        sectionTimeSlots[participant.section].afternoon++;
-      }
-
       // セクション・学年カウントを更新
       teamSectionCount[bestTeam.teamId][participant.section] = (teamSectionCount[bestTeam.teamId][participant.section] || 0) + 1;
       teamGradeCount[bestTeam.teamId][participant.grade] = (teamGradeCount[bestTeam.teamId][participant.grade] || 0) + 1;
     }
   }
 
-  return assignments;
+  const skippedByCapacity = participants.length - usedParticipants.size - skippedUnavailable - skippedNoMatchingTeam;
+  if (skippedByCapacity > 0) {
+    skippedFull += skippedByCapacity;
+  }
+
+  return {
+    assignments,
+    skippedUnavailable,
+    skippedNoMatchingTeam,
+    skippedFull,
+  };
+}
+
+function effectiveSlotCount(slots: string[], eventSlotKeys: string[]): number {
+  const normalized = normalizeAvailabilitySlots(slots);
+  if (normalized.includes(UNAVAILABLE_SLOT_KEY)) return Number.POSITIVE_INFINITY;
+  if (normalized.includes(ALL_AVAILABLE_SLOT_KEY)) return eventSlotKeys.length || Number.POSITIVE_INFINITY;
+  const available = normalized.filter((slot) => eventSlotKeys.includes(slot));
+  return available.length || Number.POSITIVE_INFINITY;
+}
+
+function resolveParticipantSlotKeys(slots: string[], eventSlotKeys: string[]): string[] {
+  const normalized = normalizeAvailabilitySlots(slots);
+  if (normalized.length === 0 || normalized.includes(UNAVAILABLE_SLOT_KEY)) return [];
+  if (normalized.includes(ALL_AVAILABLE_SLOT_KEY)) {
+    return eventSlotKeys;
+  }
+  return normalized.filter((slot) => eventSlotKeys.includes(slot));
+}
+
+function getMatchingTeamSlots(team: Team, eventSlotKeys: string[]): string[] {
+  return eventSlotKeys.includes(team.timeSlot) ? [team.timeSlot] : [];
+}
+
+async function loadEventSlotChoices(year: string) {
+  const yearNum = parseInt(year, 10);
+  if (Number.isNaN(yearNum)) return [];
+
+  const eventSnap = await adminDb
+    .collection('distributionEvents')
+    .where('year', '==', yearNum)
+    .limit(1)
+    .get();
+
+  if (eventSnap.empty) return [];
+
+  const eventData = eventSnap.docs[0].data() as Record<string, unknown>;
+  const storedSlots = Array.isArray(eventData.distributionAvailabilitySlots)
+    ? (eventData.distributionAvailabilitySlots as unknown[]).filter((slot): slot is string => typeof slot === 'string')
+    : [];
+
+  if (storedSlots.length > 0) {
+    return storedSlots;
+  }
+
+  return buildAvailabilitySlotChoices(
+    eventData.distributionStartDate,
+    eventData.distributionEndDate
+  ).map((choice) => choice.key);
 }
 
 function selectBalancedBestTeam(

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
+import { DEFAULT_TIME_ZONE, formatDateOnly } from '@/lib/utils/dateUtils';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -27,6 +29,7 @@ export default function AdminEventIndex() {
   const [isEditing, setIsEditing] = useState(false);
   const [editTarget, setEditTarget] = useState<Record<string, unknown> | null>(null);
   const [editForm, setEditForm] = useState<{ eventName: string; distributionStartDate: string; distributionEndDate: string }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
+  const editingTarget = isEditing ? editTarget : null;
 
   // ログアウト処理
   const handleLogout = async () => {
@@ -175,15 +178,14 @@ export default function AdminEventIndex() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-base font-semibold">{String(ev.year)} 年度</p>
-                        <p className="text-sm text-gray-500">
-                          {String(ev.eventName) || '学外配布'} / {
-                            (() => {
-                              const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
-                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
-                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              <p className="text-sm text-gray-500">
+                                {String(ev.eventName) || '学外配布'} / {
+                                  (() => {
+                              const s = ev.distributionStartDate;
+                              const e = ev.distributionEndDate;
                               if (!s || !e) return '-';
-                              const sd = s.toLocaleDateString('ja-JP');
-                              const ed = e.toLocaleDateString('ja-JP');
+                              const sd = formatDateOnly(s as string | Date);
+                              const ed = formatDateOnly(e as string | Date);
                               return sd === ed ? sd : `${sd} 〜 ${ed}`;
                             })()
                           }
@@ -200,11 +202,11 @@ export default function AdminEventIndex() {
                           <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-md z-10">
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push(`/admin/event/${ev.year}`); setMenuEventId(null); }}>開く</button>
                             <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={(e) => { e.stopPropagation(); router.push('/admin/event/areas'); setMenuEventId(null); }}>配布区域</button>
-                            <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
+                      <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50" onClick={() => {
                               setEditTarget(ev);
                               const parse = (v: Record<string, unknown>) => (v?._seconds as number) ? new Date((v._seconds as number) * 1000) : new Date(v as unknown as Date);
-                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
-                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : (ev.distributionDate ? parse(ev.distributionDate as Record<string, unknown>) : null);
+                              const s = ev.distributionStartDate ? parse(ev.distributionStartDate as Record<string, unknown>) : null;
+                              const e = ev.distributionEndDate ? parse(ev.distributionEndDate as Record<string, unknown>) : null;
                               setEditForm({ eventName: String(ev.eventName) || '', distributionStartDate: s ? s.toISOString().slice(0,10) : '', distributionEndDate: e ? e.toISOString().slice(0,10) : '' });
                               setIsEditing(true);
                               setMenuEventId(null);
@@ -241,9 +243,8 @@ export default function AdminEventIndex() {
         )}
       </div>
 
-      {isCreating && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <Modal open={isCreating} onClose={() => setIsCreating(false)} panelClassName="max-w-md p-6">
+          <div className="w-full">
             <h2 className="text-lg font-semibold mb-4">イベントを追加</h2>
             <div className="space-y-4">
               <div>
@@ -286,7 +287,7 @@ export default function AdminEventIndex() {
                     const res = await fetch('/api/admin/events', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                      body: JSON.stringify({ year: Number(form.year), eventName: form.eventName, distributionStartDate: form.distributionStartDate, distributionEndDate: form.distributionEndDate || form.distributionStartDate }),
+                      body: JSON.stringify({ year: Number(form.year), eventName: form.eventName, distributionStartDate: form.distributionStartDate, distributionEndDate: form.distributionEndDate || form.distributionStartDate, distributionTimeZone: DEFAULT_TIME_ZONE }),
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '作成に失敗しました');
@@ -306,13 +307,11 @@ export default function AdminEventIndex() {
               >作成</button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
-      {isEditing && editTarget && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">イベントを編集（{String(editTarget.year)}年度）</h2>
+      <Modal open={Boolean(editingTarget)} onClose={() => setIsEditing(false)} panelClassName="max-w-md p-6">
+          <div className="w-full">
+            <h2 className="text-lg font-semibold mb-4">イベントを編集（{String(editingTarget?.year)}年度）</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">イベント名</label>
@@ -335,7 +334,7 @@ export default function AdminEventIndex() {
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem('authToken');
-                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editTarget.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate }) });
+                    const res = await fetch('/api/admin/events', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: editingTarget?.id, eventName: editForm.eventName, distributionStartDate: editForm.distributionStartDate, distributionEndDate: editForm.distributionEndDate || editForm.distributionStartDate, distributionTimeZone: DEFAULT_TIME_ZONE }) });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '更新に失敗しました');
                     const { events, latest } = await fetcher('/api/admin/events');
@@ -352,8 +351,7 @@ export default function AdminEventIndex() {
               >保存</button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

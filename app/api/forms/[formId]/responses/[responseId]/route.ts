@@ -2,34 +2,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
+import { normalizeAvailabilitySlots, validateAvailabilitySelection } from '@/lib/utils/availability';
+
+function resolveAvailabilitySlots(
+  answers: FormAnswer[],
+  participantAvailableSlots: unknown
+): string[] {
+  const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
+  if (availabilityAnswer) {
+    return normalizeAvailabilitySlots(availabilityAnswer.value);
+  }
+
+  return normalizeAvailabilitySlots(participantAvailableSlots);
+}
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ formId: string; responseId: string }> }
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
-    }
-
-    const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-
-    // 管理者のみ回答を更新可能
-    if (decodedToken.role !== 'admin') {
-      return NextResponse.json(
-        { error: '管理者権限が必要です' },
-        { status: 403 }
-      );
-    }
-
     const resolvedParams = await params;
-    
+
     // フォームの存在確認
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
     
@@ -58,7 +51,31 @@ export async function PATCH(
       );
     }
 
-    const { answers, participantData } = await request.json();
+    const body = await request.json();
+    const { answers, participantData } = body;
+
+    let isAdmin = false;
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const idToken = authHeader.split('Bearer ')[1];
+      try {
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        isAdmin = decodedToken.role === 'admin';
+      } catch (error) {
+        console.error('管理者認証エラー:', error);
+      }
+    }
+
+    const responseData = responseDoc.data() as Record<string, unknown>;
+    const editToken = typeof body.editToken === 'string' ? body.editToken : '';
+    if (!isAdmin) {
+      if (!editToken || editToken !== responseData.editToken) {
+        return NextResponse.json(
+          { error: '編集権限がありません' },
+          { status: 403 }
+        );
+      }
+    }
 
     // 回答データのバリデーション
     if (!answers || !Array.isArray(answers)) {
@@ -84,9 +101,24 @@ export async function PATCH(
       if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
       }
+
+      if (gradeNum === 4 && participantData.section !== '4年') {
+        participantValidationErrors.push('4年生の場合、所属セクションは4年である必要があります');
+      }
+
+      if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
+        participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
+      }
       
-      if (!participantData.availableTime || !['morning', 'afternoon', 'both', 'other'].includes(participantData.availableTime)) {
-        participantValidationErrors.push('参加可能時間帯は必須です');
+      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
+      if (availableSlots.length === 0) {
+        participantValidationErrors.push('参加可能日時は一つ以上選択してください');
+      }
+      const availabilitySelectionError = validateAvailabilitySelection(
+        availableSlots
+      );
+      if (availabilitySelectionError) {
+        participantValidationErrors.push(availabilitySelectionError);
       }
       
       if (participantValidationErrors.length > 0) {
@@ -187,6 +219,16 @@ export async function PATCH(
     let updateData: { [key: string]: any };
     
     if (participantData) {
+      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
+      const availabilitySelectionError = validateAvailabilitySelection(
+        availableSlots
+      );
+      if (availabilitySelectionError) {
+        return NextResponse.json(
+          { error: '参加者情報の入力エラーがあります', details: [availabilitySelectionError] },
+          { status: 400 }
+        );
+      }
       updateData = {
         answers: answers.map((answer: FormAnswer) => ({
           fieldId: answer.fieldId,
@@ -197,8 +239,9 @@ export async function PATCH(
           name: participantData.name,
           section: participantData.section,
           grade: parseInt(participantData.grade),
-          availableTime: participantData.availableTime,
+          availableSlots,
         },
+        editToken: responseData.editToken,
       };
     } else {
       updateData = {
@@ -207,6 +250,7 @@ export async function PATCH(
           value: answer.value,
         })),
         updatedAt: now,
+        editToken: responseData.editToken,
       };
     }
 

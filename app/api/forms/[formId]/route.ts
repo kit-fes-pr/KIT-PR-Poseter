@@ -1,7 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SurveyForm, FormUpdateData } from '@/types/forms';
+
+function serializeDate(value: unknown): string | unknown {
+  if (!value) return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}
 
 export async function GET(
   request: NextRequest,
@@ -47,8 +57,8 @@ export async function GET(
     return NextResponse.json({
       ...formData,
       formId: formDoc.id,
-      createdAt: (formData.createdAt as any)?.toDate ? (formData.createdAt as any).toDate() : formData.createdAt,
-      updatedAt: (formData.updatedAt as any)?.toDate ? (formData.updatedAt as any).toDate() : formData.updatedAt,
+      createdAt: serializeDate(formData.createdAt),
+      updatedAt: serializeDate(formData.updatedAt),
     });
   } catch (error) {
     console.error('フォーム取得エラー:', error);
@@ -158,6 +168,8 @@ export async function PATCH(
       form: {
         ...updatedFormData,
         formId: updatedFormDoc.id,
+        createdAt: serializeDate(updatedFormData.createdAt),
+        updatedAt: serializeDate(updatedFormData.updatedAt),
       },
     });
   } catch (error) {
@@ -206,19 +218,19 @@ export async function DELETE(
       );
     }
 
-    // 回答が存在する場合は削除を拒否
-    const responsesSnapshot = await adminDb
+    // 回答を含めて削除する
+    const responsesCollection = adminDb
       .collection('forms')
       .doc(resolvedParams.formId)
-      .collection('responses')
-      .limit(1)
-      .get();
+      .collection('responses');
 
-    if (!responsesSnapshot.empty) {
-      return NextResponse.json(
-        { error: '回答が存在するフォームは削除できません' },
-        { status: 400 }
-      );
+    const responseDocs = await responsesCollection.listDocuments();
+
+    for (let index = 0; index < responseDocs.length; index += 400) {
+      const batch = adminDb.batch();
+      const chunk = responseDocs.slice(index, index + 400);
+      chunk.forEach((doc) => batch.delete(doc));
+      await batch.commit();
     }
 
     // フォームを削除

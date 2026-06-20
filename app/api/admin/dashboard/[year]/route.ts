@@ -79,8 +79,7 @@ export async function GET(
         // Timestamp を ISO string に変換
         createdAt: (doc.data() as Record<string, { toDate?: () => Date }>).createdAt?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).createdAt,
         distributionStartDate: (doc.data() as Record<string, { toDate?: () => Date }>).distributionStartDate?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).distributionStartDate,
-        distributionEndDate: (doc.data() as Record<string, { toDate?: () => Date }>).distributionEndDate?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).distributionEndDate,
-        distributionDate: (doc.data() as Record<string, { toDate?: () => Date }>).distributionDate?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).distributionDate
+        distributionEndDate: (doc.data() as Record<string, { toDate?: () => Date }>).distributionEndDate?.toDate?.()?.toISOString() || (doc.data() as Record<string, unknown>).distributionEndDate
       };
     }
 

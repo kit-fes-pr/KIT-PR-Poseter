@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { normalizeAdjacentAreas } from '@/lib/utils/area';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ areaId: string }> }) {
   try {
@@ -15,17 +16,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const resolvedParams = await params;
     const { areaId } = resolvedParams;
-    const { areaCode, areaName, timeSlot, description, eventId } = await request.json();
+    const { areaCode, areaName, adjacentAreas, description } = await request.json();
 
-    if (!areaCode || !areaName || !timeSlot) {
-      return NextResponse.json({ 
-        error: 'areaCode, areaName, timeSlot は必須です' 
-      }, { status: 400 });
-    }
-
-    if (!['morning', 'afternoon'].includes(timeSlot)) {
-      return NextResponse.json({ 
-        error: 'timeSlotは morning または afternoon である必要があります' 
+    if (!areaCode || !areaName) {
+      return NextResponse.json({
+        error: 'areaCode, areaName は必須です'
       }, { status: 400 });
     }
 
@@ -49,19 +44,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }, { status: 400 });
     }
 
+    const nextAdjacentAreas = normalizeAdjacentAreas(adjacentAreas);
     const updateData = {
       areaCode,
       areaName,
-      timeSlot,
+      adjacentAreas: nextAdjacentAreas,
       description: description || '',
-      eventId: eventId || 'common',
       updatedAt: new Date()
     };
 
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    if (previousAreaCode !== areaCode) {
+    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas).sort((a, b) => a.localeCompare(b, 'ja'));
+    const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
+    const adjacentChanged = JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
+    if (previousAreaCode !== areaCode || adjacentChanged) {
       const teamsSnap = await adminDb.collection('teams').get();
       const batch = adminDb.batch();
       let touched = 0;
@@ -71,6 +69,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           batch.update(teamDoc.ref, {
             areaId,
             assignedArea: areaCode,
+            adjacentAreas: nextAdjacentAreas,
             updatedAt: new Date(),
           });
           touched++;

@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useProgressiveData } from '@/lib/hooks/useProgressiveData';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { LoadingScreen, LoadingInline } from '@/components/ui/Loading';
+import { MetricCard } from '@/components/ui/MetricCard';
+import { formatDateOnly } from '@/lib/utils/dateUtils';
 
 interface FastDashboardProps {
   year: number;
@@ -31,6 +34,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * pageSize;
   const visibleTeams = teams.slice(startIndex, startIndex + pageSize);
+  const totalResponses = data?.stats?.totalResponses ?? data?.stats?.totalMembers ?? 0;
+  const availableResponses = data?.stats?.availableResponses ?? 0;
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPages));
@@ -82,18 +87,12 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                   </h2>
                   <p className="text-sm text-gray-600 mt-2">
                     配布期間: {(() => {
-                      try {
-                        const eventData = (data as Record<string, unknown>)?.event as Record<string, unknown>;
-                        const start = eventData?.distributionStartDate ?
-                          new Date(String(eventData.distributionStartDate)).toLocaleDateString('ja-JP') : '';
-                        const end = eventData?.distributionEndDate ?
-                          new Date(String(eventData.distributionEndDate)).toLocaleDateString('ja-JP') : '';
+                      const eventData = (data as Record<string, unknown>)?.event as Record<string, unknown>;
+                      const start = formatDateOnly(eventData?.distributionStartDate as string | number | Date | null | undefined);
+                      const end = formatDateOnly(eventData?.distributionEndDate as string | number | Date | null | undefined);
 
-                        if (start && end && start !== end) return `${start} 〜 ${end}`;
-                        return start || '未設定';
-                      } catch {
-                        return '未設定';
-                      }
+                      if (start !== '-' && end !== '-' && start !== end) return `${start} 〜 ${end}`;
+                      return start !== '-' ? start : '未設定';
                     })()}
                   </p>
                 </div>
@@ -111,79 +110,45 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                label: '総チーム数',
-                value: data?.stats?.totalTeams || 0,
-                loaded: data?.stats?.loadedTeams || 0,
-                icon: '👥',
-                color: 'blue',
-                href: `/admin/event/${year}/team`
-              },
-              {
-                label: '総メンバー数',
-                value: data?.stats?.totalMembers || 0,
+                label: '回答者数(参加可能 / 全体)',
+                value: `${availableResponses}/${totalResponses}人`,
                 icon: '🎓',
-                color: 'green',
-                href: `/admin/event/${year}/members`,
+                href: `/admin/event/${year}/form`,
               },
               {
                 label: 'エリア数',
                 value: data?.stats?.totalAreas || 0,
                 icon: '📍',
-                color: 'purple',
                 href: `/admin/event/areas`
+              },
+              {
+                label: 'イベント設定',
+                value: '',
+                icon: '⚙️',
+                href: `/admin/event/${year}/setting`
               }
             ].map((stat, index) => (
-              <div
+              <MetricCard
                 key={stat.label}
-                role={stat.href ? 'button' : undefined}
-                tabIndex={stat.href ? 0 : undefined}
+                label={stat.label}
+                value={stat.value}
+                icon={stat.icon}
                 onClick={stat.href ? () => navigateWithPreload(stat.href!) : undefined}
-                onKeyDown={stat.href ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigateWithPreload(stat.href!);
-                  }
-                } : undefined}
-                className={`bg-white overflow-hidden shadow-lg rounded-xl transform transition-all border border-gray-100 ${
-                  stat.href ? 'hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500' : 'hover:scale-105'
-                }`}
-                style={{
-                  animationDelay: `${index * 100}ms`,
-                  animation: 'fadeInUp 0.6s ease-out forwards'
-                }}
-              >
-                <div className="p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className="text-3xl">{stat.icon}</div>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">
-                          {stat.label}
-                        </dt>
-                        <dd className={`text-2xl font-bold text-${stat.color}-600 flex items-center`}>
-                          <span>{stat.value}</span>
-                          {'loaded' in stat && stat.loaded !== undefined && stat.loaded < stat.value && (
-                            <span className="ml-2 text-sm text-gray-400">
-                              ({stat.loaded}件表示中)
-                            </span>
-                          )}
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                className="animate-[fadeInUp_0.6s_ease-out_forwards]"
+                valueClassName={stat.label.includes('回答者数') ? 'text-green-600' : stat.label === 'エリア数' ? 'text-purple-600' : 'text-indigo-600'}
+                style={{ animationDelay: `${index * 100}ms` } as CSSProperties}
+              />
             ))}
           </div>
 
           {/* 段階的チーム一覧 */}
           <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">
-                チーム一覧
-              </h3>
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  チーム一覧
+                </h3>
+              </div>
               <div className="flex items-center space-x-3">
                 {data?.progressive?.isLoading && (
                   <LoadingInline size="sm" />
@@ -191,6 +156,13 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 <span className="text-sm text-gray-500">
                   {teams.length} / {data?.stats?.totalTeams || 0} 件
                 </span>
+                <button
+                  type="button"
+                  onClick={() => navigateWithPreload(`/admin/event/${year}/team`)}
+                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  チーム管理画面へ
+                </button>
               </div>
             </div>
 
@@ -242,17 +214,10 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {(() => {
-                            try {
-                              const parseDate = (dateStr: string | undefined) =>
-                                dateStr ? new Date(dateStr).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) : '';
-                              const legacyValidDate = (team as unknown as { validDate?: string }).validDate;
-                              const start = parseDate(team.validStartDate || legacyValidDate);
-                              const end = parseDate(team.validEndDate || legacyValidDate);
-                              if (start && end && start !== end) return `${start}〜${end}`;
-                              return start || '-';
-                            } catch {
-                              return '-';
-                            }
+                            const start = formatDateOnly(team.validStartDate as string | number | Date | null | undefined);
+                            const end = formatDateOnly(team.validEndDate as string | number | Date | null | undefined);
+                            if (start !== '-' && end !== '-' && start !== end) return `${start}〜${end}`;
+                            return start !== '-' ? start : '-';
                           })()}
                         </td>
                       </tr>

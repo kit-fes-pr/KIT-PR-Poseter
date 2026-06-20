@@ -40,6 +40,7 @@ export interface FormResponse {
   formId: string;
   answers: FormAnswer[];
   submittedAt: Date;
+  editToken?: string;
   submitterInfo?: {
     name?: string;
     email?: string;
@@ -72,7 +73,7 @@ export interface ParticipantSurveyResponse extends FormResponse {
     name: string;
     section: string;  // 所属セクション
     grade: number;    // 学年
-    availableTime: 'morning' | 'afternoon' | 'both' | 'other';  // 参加可能時間帯
+    availableSlots?: string[];  // 参加可能日時の複数選択
   };
 }
 
@@ -94,7 +95,7 @@ export interface FormStats {
   participantStats?: {
     bySection: { [section: string]: number };
     byGrade: { [grade: string]: number };
-    byAvailableTime: {
+    byAvailabilitySummary: {
       morning: number;
       afternoon: number;
       both: number;

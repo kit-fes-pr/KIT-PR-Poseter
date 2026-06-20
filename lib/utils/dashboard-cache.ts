@@ -20,6 +20,8 @@ export interface ProgressiveDashboardCache {
     stats?: {
       totalTeams: number;
       totalMembers: number;
+      totalResponses?: number;
+      availableResponses?: number;
       totalAreas?: number;
       isMinimal?: boolean;
       loadedTeams?: number;

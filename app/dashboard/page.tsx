@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
+import { Modal } from '@/components/ui/Modal';
 import { Store, StoreFormData } from '@/types';
 
 const fetcher = async (url: string) => {
@@ -430,8 +431,8 @@ export default function Dashboard() {
       </div>
 
       {isAddingStore && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <Modal open onClose={() => setIsAddingStore(false)} panelClassName="max-w-md p-6">
+          <div className="w-full">
             <h2 className="text-lg font-medium mb-4">新しい店舗を追加</h2>
             <form onSubmit={handleSubmit(onSubmitStore)} className="space-y-4">
               <div>
@@ -533,12 +534,12 @@ export default function Dashboard() {
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
 
       {detailsStoreId && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4" onClick={() => setDetailsStoreId(null)}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <Modal open onClose={() => setDetailsStoreId(null)} panelClassName="max-w-md p-6">
+          <div className="w-full">
             {(() => {
               const store = (storesData?.stores || []).find((s: Store) => s.storeId === detailsStoreId);
               if (!store) return null;
@@ -646,7 +647,7 @@ export default function Dashboard() {
               );
             })()}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
