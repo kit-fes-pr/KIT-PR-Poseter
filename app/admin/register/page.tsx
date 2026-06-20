@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { auth } from '@/lib/firebase';
+import { signInWithCustomToken, getIdToken, signOut } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 
 export default function AdminRegister() {
@@ -10,6 +12,16 @@ export default function AdminRegister() {
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  const clearAuthState = async () => {
+    try {
+      await signOut(auth);
+    } catch (signOutError) {
+      console.error('サインアウトエラー:', signOutError);
+    } finally {
+      localStorage.removeItem('authToken');
+    }
+  };
 
   const {
     register,
@@ -36,10 +48,6 @@ export default function AdminRegister() {
       if (response.ok) {
         setSuccess('管理者アカウントが作成されました！管理者ダッシュボードに移動します...');
 
-        // カスタムトークンを使ってFirebase認証
-        const { auth } = await import('@/lib/firebase');
-        const { signInWithCustomToken, getIdToken } = await import('firebase/auth');
-
         if (result.customToken) {
           try {
             // カスタムトークンでサインイン
@@ -56,11 +64,13 @@ export default function AdminRegister() {
             }, 2000);
           } catch (authError) {
             console.error('Custom token authentication failed after registration:', authError);
+            await clearAuthState();
             setTimeout(() => {
               router.push('/admin');
             }, 2000);
           }
         } else {
+          await clearAuthState();
           setTimeout(() => {
             router.push('/admin');
           }, 2000);
