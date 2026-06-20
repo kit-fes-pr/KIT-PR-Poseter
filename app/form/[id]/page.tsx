@@ -152,9 +152,21 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         }
 
         if (field.type === 'checkbox') {
+          if (rawValue == null) {
+            if (field.required) {
+              setError(`${field.label}は一つ以上選択してください`);
+              return;
+            }
+            continue;
+          }
+
           if (!Array.isArray(rawValue)) {
             setError(`${field.label}は配列で送信してください`);
             return;
+          }
+
+          if (!field.required && rawValue.length === 0) {
+            continue;
           }
 
           const invalidValue = rawValue.find((value) => !field.options?.includes(value));

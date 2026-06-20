@@ -41,9 +41,19 @@ export function buildSurveyFieldRules(field: FormField): RegisterOptions {
       message: `${field.label}の形式が正しくありません`,
     } : undefined,
     validate: field.type === 'checkbox' ? (value: unknown) => {
-      if (!field.required) return true;
-      if (Array.isArray(value)) return value.length > 0 || '一つ以上選択してください';
-      return value ? true : '一つ以上選択してください';
+      if (value == null) {
+        return field.required ? '一つ以上選択してください' : true;
+      }
+
+      if (!Array.isArray(value)) {
+        return '配列で送信してください';
+      }
+
+      if (!field.required) {
+        return true;
+      }
+
+      return value.length > 0 || '一つ以上選択してください';
     } : undefined,
   };
 }
