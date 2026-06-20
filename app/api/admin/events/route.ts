@@ -28,14 +28,21 @@ function serializeDateOnlyValue(value: unknown, timeZone = DEFAULT_TIME_ZONE): s
   return value;
 }
 
+function serializeDateTimeValue(value: unknown): string | unknown {
+  if (!value) return value;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}
+
 function serializeEventDoc(id: string, data: Record<string, unknown>) {
   const timeZone = (data.distributionTimeZone as string) || DEFAULT_TIME_ZONE;
-  const createdAt = data.createdAt instanceof Date
-    ? data.createdAt.toISOString()
-    : serializeDateOnlyValue(data.createdAt, timeZone);
-  const updatedAt = data.updatedAt instanceof Date
-    ? data.updatedAt.toISOString()
-    : serializeDateOnlyValue(data.updatedAt, timeZone);
+  const createdAt = serializeDateTimeValue(data.createdAt);
+  const updatedAt = serializeDateTimeValue(data.updatedAt);
   return {
     id,
     ...data,
