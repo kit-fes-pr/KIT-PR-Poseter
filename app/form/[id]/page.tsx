@@ -4,15 +4,10 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
-import { SurveyForm, FormAnswer } from '@/types/forms';
-import {
-  getAvailabilityDateSlotKeys,
-  formatAvailabilitySlotLabel,
-  normalizeAvailabilitySlots,
-  UNAVAILABLE_SLOT_KEY,
-  ALL_AVAILABLE_SLOT_KEY,
-  toggleAvailabilitySelection,
-} from '@/lib/utils/availability';
+import { Controller } from 'react-hook-form';
+import { SurveyForm, FormAnswer, FormField } from '@/types/forms';
+import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
+import { SurveyFieldBlock, buildSurveyFieldRules } from '@/components/forms/SurveyFieldBlock';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -40,7 +35,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
   const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, reset } = useForm<FormData>();
+  const { register, handleSubmit, control, formState: { errors }, watch, setValue, getValues, reset } = useForm<FormData>();
   const participantGrade = watch('participantGrade');
 
   useEffect(() => {
@@ -241,272 +236,25 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const renderField = (field: { fieldId: string; type: string; label: string; placeholder?: string; required: boolean; options?: string[]; validation?: { minLength?: number; maxLength?: number; min?: number; max?: number; pattern?: string } }) => {
-    const fieldId = field.fieldId;
-    const isRequired = field.required;
-    const label = field.label + (isRequired ? ' *' : '');
-    const isAvailabilityField = fieldId === 'availability';
-    const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
-
-    switch (field.type) {
-      case 'text':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <input
-              id={fieldId}
-              type="text"
-              placeholder={field.placeholder}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-                minLength: field.validation?.minLength ? {
-                  value: field.validation.minLength,
-                  message: `${field.label}は${field.validation.minLength}文字以上で入力してください`,
-                } : undefined,
-                maxLength: field.validation?.maxLength ? {
-                  value: field.validation.maxLength,
-                  message: `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
-                } : undefined,
-                pattern: field.validation?.pattern ? {
-                  value: new RegExp(field.validation.pattern),
-                  message: `${field.label}の形式が正しくありません`,
-                } : undefined,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'textarea':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <textarea
-              id={fieldId}
-              rows={4}
-              placeholder={field.placeholder}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-                minLength: field.validation?.minLength ? {
-                  value: field.validation.minLength,
-                  message: `${field.label}は${field.validation.minLength}文字以上で入力してください`,
-                } : undefined,
-                maxLength: field.validation?.maxLength ? {
-                  value: field.validation.maxLength,
-                  message: `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
-                } : undefined,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'number':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <input
-              id={fieldId}
-              type="number"
-              placeholder={field.placeholder}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-                min: field.validation?.min ? {
-                  value: field.validation.min,
-                  message: `${field.label}は${field.validation.min}以上で入力してください`,
-                } : undefined,
-                max: field.validation?.max ? {
-                  value: field.validation.max,
-                  message: `${field.label}は${field.validation.max}以下で入力してください`,
-                } : undefined,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'select':
-        return (
-          <div key={fieldId}>
-            <label htmlFor={fieldId} className="block text-sm font-medium text-gray-700">
-              {label}
-            </label>
-            <select
-              id={fieldId}
-              {...register(fieldId, {
-                required: isRequired ? `${field.label}は必須です` : false,
-              })}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">選択してください</option>
-              {field.options?.map((option: string, index: number) => (
-                <option key={index} value={option}>{optionLabel(option)}</option>
-              ))}
-            </select>
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'radio':
-        return (
-          <div key={fieldId}>
-            <fieldset>
-              <legend className="block text-sm font-medium text-gray-700 mb-2">{label}</legend>
-              <div className="space-y-2">
-                {field.options?.map((option: string, index: number) => (
-                  <label key={index} className="flex items-center">
-                    <input
-                      type="radio"
-                      value={option}
-                      {...register(fieldId, {
-                        required: isRequired ? `${field.label}は必須です` : false,
-                      })}
-                      className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      case 'checkbox':
-        return (
-          <div key={fieldId}>
-            {(() => {
-              const selectedValues = (watch(fieldId) as string[]) || [];
-              const allDateSlotKeys = getAvailabilityDateSlotKeys(
-                (field.options || []).map((option) => ({
-                  key: option,
-                  label: option,
-                }))
-              );
-              const checkboxRegistration = register(fieldId, {
-                validate: (value) => {
-                  if (!isRequired) return true;
-                  if (Array.isArray(value)) return value.length > 0 || '一つ以上選択してください';
-                  return value ? true : '一つ以上選択してください';
-                },
-              });
-              const specialOptions = (field.options || []).filter(
-                (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY
-              );
-              const dateOptions = (field.options || []).filter(
-                (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY
-              );
-
-              const renderOptionCard = (option: string, index: number, tone: 'date' | 'special' = 'date') => {
-                const selected = selectedValues.includes(option);
-                const isSpecial = tone === 'special';
-                return (
-                  <label
-                    key={`${option}-${index}`}
-                    className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${
-                      selected
-                        ? 'border-indigo-500 bg-indigo-50 shadow-sm ring-2 ring-indigo-200'
-                        : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      value={option}
-                      checked={selected}
-                      {...checkboxRegistration}
-                      onChange={() => {
-                        const currentValues = (getValues(fieldId) as string[]) || [];
-                        const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
-                        setValue(fieldId as never, nextValues as never, {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        });
-                      }}
-                      className="sr-only"
-                    />
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                        selected
-                          ? 'border-indigo-600 bg-indigo-600 text-white'
-                          : 'border-gray-300 bg-white text-transparent group-hover:border-indigo-400'
-                      }`}
-                      aria-hidden="true"
-                    >
-                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
-                      </svg>
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-gray-900">
-                        {optionLabel(option)}
-                      </span>
-                      {isSpecial ? (
-                        <span className="mt-1 block text-xs text-gray-500">
-                          {option === ALL_AVAILABLE_SLOT_KEY
-                            ? '配布期間内の全日時に対応可能です'
-                            : 'この日時には参加できません'}
-                        </span>
-                      ) : (
-                        <span className="mt-1 block text-xs text-gray-500">
-                          複数選択できます
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                );
-              };
-
-              return (
-                <fieldset>
-                  <legend className="block text-sm font-medium text-gray-700 mb-2">{label}</legend>
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <p className="text-sm text-gray-600">参加可能な日時を選択してください。</p>
-                      <p className="text-xs text-gray-500">複数選択可</p>
-                    </div>
-
-                    {specialOptions.length > 0 && (
-                      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {specialOptions.map((option, index) => renderOptionCard(option, index, 'special'))}
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {dateOptions.map((option, index) => renderOptionCard(option, index))}
-                    </div>
-                  </div>
-                </fieldset>
-              );
-            })()}
-            {errors[fieldId] && (
-              <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
-            )}
-          </div>
-        );
-
-      default:
-        return null;
-    }
+  const renderField = (field: FormField) => {
+    return (
+      <Controller
+        key={field.fieldId}
+        name={field.fieldId as string}
+        control={control}
+        defaultValue={field.type === 'checkbox' ? [] : ''}
+        rules={buildSurveyFieldRules(field)}
+        render={({ field: controllerField, fieldState }) => (
+          <SurveyFieldBlock
+            field={field}
+            mode="interactive"
+            value={controllerField.value}
+            onValueChange={controllerField.onChange}
+            errorMessage={fieldState.error?.message}
+          />
+        )}
+      />
+    );
   };
 
   const renderResponseForm = (submitLabel: string) => (
