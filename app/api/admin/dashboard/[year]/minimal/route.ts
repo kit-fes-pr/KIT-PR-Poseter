@@ -116,13 +116,17 @@ export async function GET(
       let availableResponses = 0;
       if (!formSnapshot.empty) {
         const formDoc = formSnapshot.docs[0];
-        const responsesSnapshot = await adminDb.collection('forms')
+        const responsesCollection = adminDb.collection('forms')
           .doc(formDoc.id)
-          .collection('responses')
-          .get();
+          .collection('responses');
 
-        totalResponses = responsesSnapshot.size;
-        availableResponses = responsesSnapshot.docs.filter((doc) =>
+        const [totalResponsesSnapshot, availableResponsesSnapshot] = await Promise.all([
+          responsesCollection.count().get(),
+          responsesCollection.select('participantData.availableSlots').get(),
+        ]);
+
+        totalResponses = totalResponsesSnapshot.data().count;
+        availableResponses = availableResponsesSnapshot.docs.filter((doc) =>
           isAvailableForAnySlot(doc.data()?.participantData?.availableSlots)
         ).length;
       }
