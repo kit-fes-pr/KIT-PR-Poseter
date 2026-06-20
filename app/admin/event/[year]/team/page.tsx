@@ -935,11 +935,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   <p className="mt-1 text-xs text-gray-500">先に配布設定で配布枠を登録してください。</p>
                 )}
               </div>
-              <div>
-                <p className="text-xs text-gray-500">
-                  周辺区域は配布区域側で設定し、このチームには自動反映されます。
-                </p>
-              </div>
               <div className="md:col-span-2 flex justify-end">
                 <button
                   type="submit"

@@ -181,10 +181,12 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
 
           {/* 段階的チーム一覧 */}
           <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">
-                チーム一覧
-              </h3>
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  チーム一覧
+                </h3>
+              </div>
               <div className="flex items-center space-x-3">
                 {data?.progressive?.isLoading && (
                   <LoadingInline size="sm" />
@@ -192,6 +194,13 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 <span className="text-sm text-gray-500">
                   {teams.length} / {data?.stats?.totalTeams || 0} 件
                 </span>
+                <button
+                  type="button"
+                  onClick={() => navigateWithPreload(`/admin/event/${year}/team`)}
+                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  チーム管理画面へ
+                </button>
               </div>
             </div>
 
