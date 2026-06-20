@@ -38,7 +38,11 @@ export default function Home() {
           const { signInWithEmailAndPassword, getIdToken } = await import('firebase/auth');
 
           if (result.tempEmail && result.tempPassword) {
-            const cred = await signInWithEmailAndPassword(auth, result.tempEmail, result.tempPassword);
+            const cred = await signInWithEmailAndPassword(
+              auth,
+              result.tempEmail,
+              result.tempPassword,
+            );
             const idToken = await getIdToken(cred.user);
             localStorage.setItem('authToken', idToken);
             router.push('/dashboard');
@@ -77,9 +81,7 @@ export default function Home() {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           工大祭ポスター配布管理システム
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          ログインコードを入力してください
-        </p>
+        <p className="mt-2 text-center text-sm text-gray-600">ログインコードを入力してください</p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

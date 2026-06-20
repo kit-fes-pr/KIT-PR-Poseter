@@ -7,7 +7,7 @@ import { DashboardTeam, writeDashboardCache } from '@/lib/utils/dashboard-cache'
 export function preloadDashboard(year: number) {
   const token = localStorage.getItem('authToken');
   if (!token || !year) return;
-  
+
   const minimalKey = `/api/admin/dashboard/${year}/minimal`;
   const fullKey = `/api/admin/dashboard/${year}`;
   const progressiveKey = `/api/admin/dashboard/${year}/progressive?offset=0&limit=10&includeMembers=true`;
@@ -15,40 +15,50 @@ export function preloadDashboard(year: number) {
   // バックグラウンドでデータを取得してキャッシュ
   Promise.allSettled([
     fetch(minimalKey, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => res.ok ? res.json() : null),
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((res) => (res.ok ? res.json() : null)),
     fetch(fullKey, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => res.ok ? res.json() : null),
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((res) => (res.ok ? res.json() : null)),
     fetch(progressiveKey, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).then(res => res.ok ? res.json() : null)
-  ]).then((results) => {
-    const minimalResult = results[0].status === 'fulfilled' ? results[0].value : null;
-    const fullResult = results[1].status === 'fulfilled' ? results[1].value : null;
-    const progressiveResult = results[2].status === 'fulfilled' ? results[2].value : null;
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((res) => (res.ok ? res.json() : null)),
+  ])
+    .then((results) => {
+      const minimalResult = results[0].status === 'fulfilled' ? results[0].value : null;
+      const fullResult = results[1].status === 'fulfilled' ? results[1].value : null;
+      const progressiveResult = results[2].status === 'fulfilled' ? results[2].value : null;
 
-    if (minimalResult) {
-      swrMutate(minimalKey, minimalResult, false);
-    }
-    if (fullResult) {
-      swrMutate(fullKey, fullResult, false);
-    }
-    if (minimalResult) {
-      const totalTeams = Number((minimalResult as { stats?: { totalTeams?: number } }).stats?.totalTeams || 0);
-      const progressiveTeams = Array.isArray((progressiveResult as { teams?: DashboardTeam[] } | null)?.teams)
-        ? ((progressiveResult as { teams?: DashboardTeam[] } | null)?.teams as DashboardTeam[])
-        : [];
-      writeDashboardCache(year, {
-        minimalData: minimalResult,
-        progressiveTeams,
-        loadingProgress: totalTeams > 0 ? Math.min(100, (progressiveTeams.length / totalTeams) * 100) : 0,
-        totalExpected: totalTeams,
-        hasMore: Boolean((progressiveResult as { pagination?: { hasMore?: boolean } } | null)?.pagination?.hasMore)
-      });
-    }
-    console.log(`📦 年度${year}のダッシュボードデータをプリロードしました`);
-  }).catch(err => {
-    console.warn('プリロード失敗:', err);
-  });
+      if (minimalResult) {
+        swrMutate(minimalKey, minimalResult, false);
+      }
+      if (fullResult) {
+        swrMutate(fullKey, fullResult, false);
+      }
+      if (minimalResult) {
+        const totalTeams = Number(
+          (minimalResult as { stats?: { totalTeams?: number } }).stats?.totalTeams || 0,
+        );
+        const progressiveTeams = Array.isArray(
+          (progressiveResult as { teams?: DashboardTeam[] } | null)?.teams,
+        )
+          ? ((progressiveResult as { teams?: DashboardTeam[] } | null)?.teams as DashboardTeam[])
+          : [];
+        writeDashboardCache(year, {
+          minimalData: minimalResult,
+          progressiveTeams,
+          loadingProgress:
+            totalTeams > 0 ? Math.min(100, (progressiveTeams.length / totalTeams) * 100) : 0,
+          totalExpected: totalTeams,
+          hasMore: Boolean(
+            (progressiveResult as { pagination?: { hasMore?: boolean } } | null)?.pagination
+              ?.hasMore,
+          ),
+        });
+      }
+      console.log(`📦 年度${year}のダッシュボードデータをプリロードしました`);
+    })
+    .catch((err) => {
+      console.warn('プリロード失敗:', err);
+    });
 }

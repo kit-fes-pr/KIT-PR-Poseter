@@ -186,7 +186,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       }
 
       // フォームデータを変換
-      const answers: FormAnswer[] = form.fields.map(field => ({
+      const answers: FormAnswer[] = form.fields.map((field) => ({
         fieldId: field.fieldId,
         value: data[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
       }));
@@ -197,40 +197,45 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         return;
       }
 
-      const isUpdating = Boolean(editingResponseId && savedResponseDraft?.responseId === editingResponseId && savedResponseDraft?.editToken);
+      const isUpdating = Boolean(
+        editingResponseId &&
+        savedResponseDraft?.responseId === editingResponseId &&
+        savedResponseDraft?.editToken,
+      );
       const res = await fetch(
         isUpdating
           ? `/api/forms/${resolvedParams.id}/responses/${editingResponseId}`
           : `/api/forms/${resolvedParams.id}/responses`,
         {
-        method: isUpdating ? 'PATCH' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+          method: isUpdating ? 'PATCH' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            answers,
+            participantData: {
+              name: data.participantName,
+              section: data.participantSection,
+              grade: data.participantGrade,
+              availableSlots,
+            },
+            editToken: isUpdating ? savedResponseDraft?.editToken : undefined,
+            submitterInfo: {
+              submittedAt: new Date().toISOString(),
+            },
+          }),
         },
-        body: JSON.stringify({
-          answers,
-          participantData: {
-            name: data.participantName,
-            section: data.participantSection,
-            grade: data.participantGrade,
-            availableSlots,
-          },
-          editToken: isUpdating ? savedResponseDraft?.editToken : undefined,
-          submitterInfo: {
-            submittedAt: new Date().toISOString(),
-          },
-        }),
-      });
+      );
 
       const result = await res.json();
 
       if (res.ok) {
-        const responseId = typeof result.responseId === 'string'
-          ? result.responseId
-          : editingResponseId || '';
-        const editToken = typeof result.editToken === 'string'
-          ? result.editToken
-          : savedResponseDraft?.editToken || '';
+        const responseId =
+          typeof result.responseId === 'string' ? result.responseId : editingResponseId || '';
+        const editToken =
+          typeof result.editToken === 'string'
+            ? result.editToken
+            : savedResponseDraft?.editToken || '';
         if (responseId && editToken) {
           persistSavedResponseDraft({
             responseId,
@@ -286,8 +291,18 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
           <div className="bg-green-50 border border-green-200 rounded-md p-6 max-w-md">
             <div className="flex items-center justify-center mb-4">
               <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="h-6 w-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
             </div>
@@ -295,8 +310,11 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
               {submissionMode === 'update' ? '回答を更新しました' : '回答を送信しました'}
             </h2>
             <p className="text-sm text-green-700">
-              ご協力ありがとうございました。<br />
-              {savedResponseDraft ? 'この端末では引き続き回答の変更ができます。' : '工大祭の準備に活用させていただきます。'}
+              ご協力ありがとうございました。
+              <br />
+              {savedResponseDraft
+                ? 'この端末では引き続き回答の変更ができます。'
+                : '工大祭の準備に活用させていただきます。'}
             </p>
             {savedResponseDraft && (
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -346,8 +364,12 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             {!showEditModal && (
               <PublicSurveyForm
                 form={form}
-                control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
-                handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
+                control={
+                  control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>
+                }
+                handleSubmit={
+                  handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>
+                }
                 onSubmit={onSubmit}
                 submitting={submitting}
                 submitLabel="回答を送信"
@@ -395,19 +417,30 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
               className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
 
           <div className="px-6 py-6">
             <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              {savedResponseDraft ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。' : '回答内容を入力してください。'}
+              {savedResponseDraft
+                ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。'
+                : '回答内容を入力してください。'}
             </div>
             <PublicSurveyForm
               form={form}
-              control={control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>}
-              handleSubmit={handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>}
+              control={
+                control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>
+              }
+              handleSubmit={
+                handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>
+              }
               onSubmit={onSubmit}
               submitting={submitting}
               submitLabel="変更を保存"

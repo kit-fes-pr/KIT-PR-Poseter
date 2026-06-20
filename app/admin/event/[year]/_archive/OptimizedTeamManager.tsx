@@ -13,65 +13,67 @@ const incrementalFetcher = createIncrementalFetcher(cacheManager);
 interface OptimizedTeamManagerProps {
   year: number;
   isAdmin: boolean;
-  onTeamUpdate?: (teams: Array<{ teamId: string; teamCode: string; teamName: string; assignedArea: string }>) => void;
+  onTeamUpdate?: (
+    teams: Array<{ teamId: string; teamCode: string; teamName: string; assignedArea: string }>,
+  ) => void;
 }
 
-export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: OptimizedTeamManagerProps) {
+export default function OptimizedTeamManager({
+  year,
+  isAdmin,
+  onTeamUpdate,
+}: OptimizedTeamManagerProps) {
   const { mutate } = useSWRConfig();
-  
+
   // リアルタイム更新を有効化
   const { isListening } = useTeamRealtimeUpdates(year, isAdmin);
-  
+
   // 差分取得でチームデータを取得
-  const { 
-    data: teams, 
-    error, 
+  const {
+    data: teams,
+    error,
     isLoading,
-    mutate: mutateTeams
-  } = useSWR(
-    isAdmin ? `/api/admin/teams?year=${year}` : null,
-    incrementalFetcher,
-    {
-      ...optimizedSWRConfig,
-      onSuccess: (data) => {
-        const teams = Array.isArray(data) ? data : [];
-        console.log(`チームデータ取得成功 (${teams.length}件)`);
-        onTeamUpdate?.(teams);
-      },
-      onError: (error) => {
-        console.error('チームデータ取得エラー:', error);
-        // キャッシュをクリアして次回フル取得
-        cacheManager.removeCache(`admin_teams_incremental_year_${year}`);
-      }
-    }
-  );
-  
+    mutate: mutateTeams,
+  } = useSWR(isAdmin ? `/api/admin/teams?year=${year}` : null, incrementalFetcher, {
+    ...optimizedSWRConfig,
+    onSuccess: (data) => {
+      const teams = Array.isArray(data) ? data : [];
+      console.log(`チームデータ取得成功 (${teams.length}件)`);
+      onTeamUpdate?.(teams);
+    },
+    onError: (error) => {
+      console.error('チームデータ取得エラー:', error);
+      // キャッシュをクリアして次回フル取得
+      cacheManager.removeCache(`admin_teams_incremental_year_${year}`);
+    },
+  });
+
   // ソートされたチーム一覧
   const sortedTeams = useMemo(() => {
     if (!teams || !Array.isArray(teams)) return [];
-    
+
     return [...teams].sort((a, b) => {
       const codeA = String(a.teamCode || '').toLowerCase();
       const codeB = String(b.teamCode || '').toLowerCase();
-      
+
       // AM、PMの順序を定義
       const getOrderPriority = (code: string) => {
         if (code.includes('am')) return 1;
         if (code.includes('pm')) return 2;
         return 3;
       };
-      
+
       const priorityA = getOrderPriority(codeA);
       const priorityB = getOrderPriority(codeB);
-      
+
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
-      
+
       return codeA.localeCompare(codeB);
     });
   }, [teams]);
-  
+
   // 手動更新機能
   const forceRefresh = async () => {
     const cacheKey = `admin_teams_incremental_year_${year}`;
@@ -79,23 +81,26 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
     await mutateTeams();
     mutate(cacheKey); // SWR cache invalidation
   };
-  
+
   // 定期的なキャッシュクリーンアップ
   useEffect(() => {
-    const cleanup = setInterval(() => {
-      // 古いキャッシュを削除（デバッグ用）
-      console.log('キャッシュクリーンアップ実行');
-    }, 5 * 60 * 1000); // 5分間隔
-    
+    const cleanup = setInterval(
+      () => {
+        // 古いキャッシュを削除（デバッグ用）
+        console.log('キャッシュクリーンアップ実行');
+      },
+      5 * 60 * 1000,
+    ); // 5分間隔
+
     return () => clearInterval(cleanup);
   }, []);
-  
+
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-md p-4">
         <h3 className="text-red-800 font-medium">データ取得エラー</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
-        <button 
+        <button
           onClick={forceRefresh}
           className="mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
         >
@@ -104,7 +109,7 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
       </div>
     );
   }
-  
+
   if (isLoading && !teams) {
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
@@ -112,7 +117,7 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-4">
       {/* チーム一覧 */}
@@ -121,17 +126,11 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
           <h3 className="text-lg leading-6 font-medium text-gray-900">
             チーム一覧 ({sortedTeams.length}件)
           </h3>
-          {isListening && (
-            <p className="mt-1 text-sm text-green-600">
-              リアルタイム更新が有効です
-            </p>
-          )}
+          {isListening && <p className="mt-1 text-sm text-green-600">リアルタイム更新が有効です</p>}
         </div>
-        
+
         {sortedTeams.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            チームが登録されていません
-          </div>
+          <div className="text-center py-8 text-gray-500">チームが登録されていません</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -169,7 +168,7 @@ export default function OptimizedTeamManager({ year, isAdmin, onTeamUpdate }: Op
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {(() => {
                         try {
-                          const parseDate = (dateStr: string | undefined) => 
+                          const parseDate = (dateStr: string | undefined) =>
                             dateStr ? new Date(dateStr).toLocaleDateString('ja-JP') : '';
                           const start = parseDate(team.validStartDate || team.validDate);
                           const end = parseDate(team.validEndDate || team.validDate);

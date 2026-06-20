@@ -81,11 +81,7 @@ export function LoadingScreen({
   );
 }
 
-export function LoadingButtonLabel({
-  message = '読み込み中...',
-}: {
-  message?: string;
-}) {
+export function LoadingButtonLabel({ message = '読み込み中...' }: { message?: string }) {
   return (
     <span className="inline-flex items-center gap-2">
       <LoadingSpinner size="sm" />

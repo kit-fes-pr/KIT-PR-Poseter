@@ -10,7 +10,9 @@ export class FirestoreOptimizer {
   /**
    * 複数のクエリを並列実行し、結果をキャッシュ
    */
-  static async parallelQuery(queries: Array<{ key: string; query: () => Promise<unknown> }>): Promise<Record<string, unknown>> {
+  static async parallelQuery(
+    queries: Array<{ key: string; query: () => Promise<unknown> }>,
+  ): Promise<Record<string, unknown>> {
     const results: Record<string, unknown> = {};
     const activeQueries: Promise<void>[] = [];
 
@@ -39,7 +41,7 @@ export class FirestoreOptimizer {
             console.error(`❌ Query "${key}" failed:`, error);
             results[key] = null;
           }
-        })()
+        })(),
       );
     }
 
@@ -52,19 +54,9 @@ export class FirestoreOptimizer {
    */
   static getIndexHints(collection: string) {
     const hints = {
-      teams: [
-        'year ASC, updatedAt DESC',
-        'year ASC, isActive ASC',
-        'year ASC, teamCode ASC'
-      ],
-      members: [
-        'year ASC, teamId ASC',
-        'year ASC, createdAt DESC'
-      ],
-      distributionEvents: [
-        'year ASC',
-        'year ASC, createdAt DESC'
-      ]
+      teams: ['year ASC, updatedAt DESC', 'year ASC, isActive ASC', 'year ASC, teamCode ASC'],
+      members: ['year ASC, teamId ASC', 'year ASC, createdAt DESC'],
+      distributionEvents: ['year ASC', 'year ASC, createdAt DESC'],
     };
 
     return hints[collection as keyof typeof hints] || [];
@@ -75,22 +67,22 @@ export class FirestoreOptimizer {
    */
   static async batchGet(refs: unknown[]): Promise<unknown[]> {
     if (refs.length === 0) return [];
-    
+
     const batchSize = 10; // Firestoreのバッチサイズ制限
     const batches: unknown[][] = [];
-    
+
     for (let i = 0; i < refs.length; i += batchSize) {
       batches.push(refs.slice(i, i + batchSize));
     }
-    
+
     const results = await Promise.all(
-      batches.map(batch => 
-        adminDb.getAll(...(batch as Parameters<typeof adminDb.getAll>)).then(docs => 
-          docs.map(doc => ({ id: doc.id, ...doc.data() }))
-        )
-      )
+      batches.map((batch) =>
+        adminDb
+          .getAll(...(batch as Parameters<typeof adminDb.getAll>))
+          .then((docs) => docs.map((doc) => ({ id: doc.id, ...doc.data() }))),
+      ),
     );
-    
+
     return results.flat();
   }
 
@@ -116,7 +108,7 @@ export class FirestoreOptimizer {
     return {
       cacheSize: this.queryCache.size,
       cacheKeys: Array.from(this.queryCache.keys()),
-      memory: JSON.stringify(Array.from(this.queryCache.entries())).length
+      memory: JSON.stringify(Array.from(this.queryCache.entries())).length,
     };
   }
 }

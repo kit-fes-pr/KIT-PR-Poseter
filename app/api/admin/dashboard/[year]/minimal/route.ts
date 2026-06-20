@@ -9,23 +9,25 @@ function toISOStringLike(value: unknown): string | undefined {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return new Date(value).toISOString();
-  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
     return (value as { toDate: () => Date }).toDate().toISOString();
   }
   return undefined;
 }
 
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ year: string }> }
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {
   const startTime = Date.now();
   let yearNum: number = 0;
-  
+
   try {
     const { year } = await context.params;
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
@@ -42,10 +44,10 @@ export async function GET(
       return NextResponse.json({ error: '不正な年度です' }, { status: 400 });
     }
 
-    logInfo('最小限データ取得開始', { 
+    logInfo('最小限データ取得開始', {
       component: 'minimal-dashboard-api',
       year: yearNum,
-      operation: 'data_fetch_start' 
+      operation: 'data_fetch_start',
     });
 
     // キャッシュされた最小限データを取得
@@ -53,25 +55,22 @@ export async function GET(
       // 超並列クエリ（カウントのみで高速化）
       const [eventSnapshot, formSnapshot, areasCountSnapshot] = await Promise.all([
         // イベント情報（1件のみ）
-        adminDb.collection('distributionEvents')
-          .where('year', '==', yearNum)
-          .limit(1)
-          .get(),
+        adminDb.collection('distributionEvents').where('year', '==', yearNum).limit(1).get(),
 
         // 1年度1フォームを取得
-        adminDb.collection('forms')
-          .where('year', '==', yearNum)
-          .limit(1)
-          .get(),
-        
+        adminDb.collection('forms').where('year', '==', yearNum).limit(1).get(),
+
         // 配布区域数（共通）
-        ServerCache.getOrSet('firestore:areas:global:count', () =>
-          adminDb.collection('areas')
-            .count()
-            .get()
-            .then(snapshot => snapshot.data().count),
-          5 * 60 * 1000
-        )
+        ServerCache.getOrSet(
+          'firestore:areas:global:count',
+          () =>
+            adminDb
+              .collection('areas')
+              .count()
+              .get()
+              .then((snapshot) => snapshot.data().count),
+          5 * 60 * 1000,
+        ),
       ]);
 
       // イベント情報（軽量）
@@ -83,19 +82,15 @@ export async function GET(
           eventName: doc.data().eventName,
           year: doc.data().year,
           distributionStartDate: toISOStringLike(doc.data().distributionStartDate),
-          distributionEndDate: toISOStringLike(doc.data().distributionEndDate)
+          distributionEndDate: toISOStringLike(doc.data().distributionEndDate),
         };
       }
 
       let totalTeams = 0;
       if (event?.id) {
         const [teamsByYear, teamsByEvent] = await Promise.all([
-          adminDb.collection('teams')
-            .where('year', '==', yearNum)
-            .get(),
-          adminDb.collection('teams')
-            .where('eventId', '==', event.id)
-            .get(),
+          adminDb.collection('teams').where('year', '==', yearNum).get(),
+          adminDb.collection('teams').where('eventId', '==', event.id).get(),
         ]);
 
         const mergedTeams = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
@@ -104,11 +99,12 @@ export async function GET(
         totalTeams = Array.from(mergedTeams.values()).length;
       } else {
         totalTeams = await FirestoreCache.getCachedCount('teams', yearNum, () =>
-          adminDb.collection('teams')
+          adminDb
+            .collection('teams')
             .where('year', '==', yearNum)
             .count()
             .get()
-            .then(snapshot => snapshot.data().count)
+            .then((snapshot) => snapshot.data().count),
         );
       }
 
@@ -116,7 +112,8 @@ export async function GET(
       let availableResponses = 0;
       if (!formSnapshot.empty) {
         const formDoc = formSnapshot.docs[0];
-        const responsesCollection = adminDb.collection('forms')
+        const responsesCollection = adminDb
+          .collection('forms')
           .doc(formDoc.id)
           .collection('responses');
 
@@ -127,7 +124,7 @@ export async function GET(
 
         totalResponses = totalResponsesSnapshot.data().count;
         availableResponses = availableResponsesSnapshot.docs.filter((doc) =>
-          isAvailableForAnySlot(doc.data()?.participantData?.availableSlots)
+          isAvailableForAnySlot(doc.data()?.participantData?.availableSlots),
         ).length;
       }
 
@@ -137,11 +134,19 @@ export async function GET(
         totalMembers: totalResponses,
         totalResponses,
         availableResponses,
-        totalAreas: areasCountSnapshot
+        totalAreas: areasCountSnapshot,
       };
     });
 
-    const { event, totalTeams, totalMembers, totalResponses, availableResponses, totalAreas } = minimalData as { event: unknown; totalTeams: number; totalMembers: number; totalResponses?: number; availableResponses?: number; totalAreas: number };
+    const { event, totalTeams, totalMembers, totalResponses, availableResponses, totalAreas } =
+      minimalData as {
+        event: unknown;
+        totalTeams: number;
+        totalMembers: number;
+        totalResponses?: number;
+        availableResponses?: number;
+        totalAreas: number;
+      };
 
     // 最小限の統計
     const minimalStats = {
@@ -150,52 +155,58 @@ export async function GET(
       totalResponses: totalResponses || totalMembers,
       availableResponses: availableResponses || 0,
       totalAreas,
-      isMinimal: true // 最小限データであることを示す
+      isMinimal: true, // 最小限データであることを示す
     };
 
     const responseTime = Date.now() - startTime;
     logPerformance('minimal-dashboard-complete', responseTime, {
       component: 'minimal-dashboard-api',
       year: yearNum,
-      operation: 'complete'
+      operation: 'complete',
     });
 
-    return NextResponse.json({
-      event,
-      stats: minimalStats,
-      teams: [], // 空配列（後で段階的読み込み）
-      performance: {
-        responseTime,
-        dataFreshnessTime: new Date().toISOString(),
-        isMinimalResponse: true
+    return NextResponse.json(
+      {
+        event,
+        stats: minimalStats,
+        teams: [], // 空配列（後で段階的読み込み）
+        performance: {
+          responseTime,
+          dataFreshnessTime: new Date().toISOString(),
+          isMinimalResponse: true,
+        },
+        loadingStrategy: {
+          nextEndpoint: `/api/admin/dashboard/${year}/progressive`,
+          chunkSize: 10,
+          totalItems: totalTeams,
+        },
       },
-      loadingStrategy: {
-        nextEndpoint: `/api/admin/dashboard/${year}/progressive`,
-        chunkSize: 10,
-        totalItems: totalTeams
-      }
-    }, {
-      headers: {
-        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
-        'X-Response-Type': 'minimal'
-      }
-    });
-
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+          'X-Response-Type': 'minimal',
+        },
+      },
+    );
   } catch (error) {
     const responseTime = Date.now() - startTime;
-    logError('最小限データ取得エラー', {
-      component: 'minimal-dashboard-api',
-      year: yearNum,
-      duration: responseTime,
-      operation: 'error'
-    }, error);
-    
-    return NextResponse.json(
-      { 
-        error: 'データ取得に失敗しました',
-        performance: { responseTime }
+    logError(
+      '最小限データ取得エラー',
+      {
+        component: 'minimal-dashboard-api',
+        year: yearNum,
+        duration: responseTime,
+        operation: 'error',
       },
-      { status: 500 }
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        error: 'データ取得に失敗しました',
+        performance: { responseTime },
+      },
+      { status: 500 },
     );
   }
 }

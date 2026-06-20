@@ -10,7 +10,7 @@ export interface SurveyForm {
   eventId: string;
   year: number;
   fields: FormField[];
-  createdBy: string;  // 管理者ID
+  createdBy: string; // 管理者ID
   createdAt: Date;
   updatedAt: Date;
   // 非正規化された集計フィールド（任意）
@@ -24,13 +24,13 @@ export interface FormField {
   label: string;
   placeholder?: string;
   required: boolean;
-  options?: string[];  // select, radio, checkbox用
+  options?: string[]; // select, radio, checkbox用
   validation?: {
     minLength?: number;
     maxLength?: number;
-    min?: number;  // number用
-    max?: number;  // number用
-    pattern?: string;  // 正規表現
+    min?: number; // number用
+    max?: number; // number用
+    pattern?: string; // 正規表現
   };
   order: number;
 }
@@ -50,7 +50,7 @@ export interface FormResponse {
 
 export interface FormAnswer {
   fieldId: string;
-  value: string | string[];  // checkbox は配列
+  value: string | string[]; // checkbox は配列
 }
 
 // フォーム作成・編集用のデータ
@@ -71,9 +71,9 @@ export interface FormUpdateData {
 export interface ParticipantSurveyResponse extends FormResponse {
   participantData: {
     name: string;
-    section: string;  // 所属セクション
-    grade: number;    // 学年
-    availableSlots?: string[];  // 参加可能日時の複数選択
+    section: string; // 所属セクション
+    grade: number; // 学年
+    availableSlots?: string[]; // 参加可能日時の複数選択
   };
 }
 

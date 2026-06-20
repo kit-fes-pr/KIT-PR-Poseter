@@ -2,7 +2,10 @@
 
 import { Control, Controller, Path, UseFormHandleSubmit } from 'react-hook-form';
 import { SurveyForm, FormField } from '@/types/forms';
-import { ParticipantIdentityFormValues, ParticipantIdentitySection } from '@/components/forms/ParticipantIdentitySection';
+import {
+  ParticipantIdentityFormValues,
+  ParticipantIdentitySection,
+} from '@/components/forms/ParticipantIdentitySection';
 import { SurveyFieldBlock, buildSurveyFieldRules } from '@/components/forms/SurveyFieldBlock';
 
 type PublicSurveyFormProps = {
@@ -44,9 +47,7 @@ export function PublicSurveyForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <ParticipantIdentitySection control={control} />
 
-      {form?.fields
-        .sort((a, b) => a.order - b.order)
-        .map((field) => renderField(field))}
+      {form?.fields.sort((a, b) => a.order - b.order).map((field) => renderField(field))}
 
       <div className="pt-6">
         <button

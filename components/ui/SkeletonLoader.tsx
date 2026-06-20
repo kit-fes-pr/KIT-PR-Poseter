@@ -6,16 +6,16 @@ import { LoadingInline, LoadingScreen, LoadingSpinner } from './Loading';
 /**
  * 基本スケルトンUI
  */
-export const Skeleton: React.FC<{ 
+export const Skeleton: React.FC<{
   className?: string;
   width?: string | number;
   height?: string | number;
 }> = ({ className = '', width, height }) => (
   <div
     className={`animate-pulse bg-gray-200 rounded ${className}`}
-    style={{ 
+    style={{
       width: typeof width === 'number' ? `${width}px` : width,
-      height: typeof height === 'number' ? `${height}px` : height
+      height: typeof height === 'number' ? `${height}px` : height,
     }}
   />
 );
@@ -40,7 +40,7 @@ export const DashboardSkeleton: React.FC = () => (
 
       {/* 統計カード */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map(i => (
+        {[1, 2, 3].map((i) => (
           <div key={i} className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
@@ -62,12 +62,12 @@ export const DashboardSkeleton: React.FC = () => (
         <div className="px-4 py-5 border-b border-gray-200">
           <Skeleton className="h-6 w-32" />
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {[1, 2, 3, 4].map(i => (
+                {[1, 2, 3, 4].map((i) => (
                   <th key={i} className="px-6 py-3">
                     <Skeleton className="h-4 w-20" />
                   </th>
@@ -75,9 +75,9 @@ export const DashboardSkeleton: React.FC = () => (
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {[1, 2, 3, 4, 5].map(i => (
+              {[1, 2, 3, 4, 5].map((i) => (
                 <tr key={i}>
-                  {[1, 2, 3, 4].map(j => (
+                  {[1, 2, 3, 4].map((j) => (
                     <td key={j} className="px-6 py-4">
                       <Skeleton className="h-4 w-full" />
                     </td>
@@ -102,7 +102,7 @@ export const TeamDetailSkeleton: React.FC = () => (
       <div className="bg-white shadow rounded-lg p-6 space-y-4">
         <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4, 5, 6].map(i => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="space-y-1">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-6 w-full" />
@@ -115,7 +115,7 @@ export const TeamDetailSkeleton: React.FC = () => (
       <div className="bg-white shadow rounded-lg p-6 space-y-4">
         <Skeleton className="h-6 w-32" />
         <div className="space-y-3">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="border rounded-lg p-4">
               <div className="flex items-center space-x-4">
                 <Skeleton className="h-12 w-12 rounded-full" />
@@ -139,11 +139,7 @@ export const FastLoadingIndicator: React.FC<{
   message?: string;
   progress?: number;
   isSlowLoading?: boolean;
-}> = ({ 
-  message = "読み込み中...", 
-  progress,
-  isSlowLoading = false 
-}) => (
+}> = ({ message = '読み込み中...', progress, isSlowLoading = false }) => (
   <LoadingScreen
     message={message}
     progress={progress}

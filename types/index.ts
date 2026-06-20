@@ -23,9 +23,24 @@ export interface Team {
   year?: number; // 年度情報を追加
   isActive: boolean;
   // アクセス可能期間（範囲対応）
-  validStartDate?: Date | string | { _seconds: number; _nanoseconds?: number } | { toDate: () => Date } | null;
-  validEndDate?: Date | string | { _seconds: number; _nanoseconds?: number } | { toDate: () => Date } | null;
-  validDate?: Date | string | { _seconds: number; _nanoseconds?: number } | { toDate: () => Date } | null; // 後方互換
+  validStartDate?:
+    | Date
+    | string
+    | { _seconds: number; _nanoseconds?: number }
+    | { toDate: () => Date }
+    | null;
+  validEndDate?:
+    | Date
+    | string
+    | { _seconds: number; _nanoseconds?: number }
+    | { toDate: () => Date }
+    | null;
+  validDate?:
+    | Date
+    | string
+    | { _seconds: number; _nanoseconds?: number }
+    | { toDate: () => Date }
+    | null; // 後方互換
   // メンバー関連
   maxMembers?: number;
   memberCount?: number;
@@ -41,14 +56,14 @@ export interface Store {
   address: string;
   addressKana: string;
   areaCode: string;
-  distributionStatus: "pending" | "completed" | "failed" | "revisit";
-  failureReason?: "absent" | "refused" | "closed" | "other";
+  distributionStatus: 'pending' | 'completed' | 'failed' | 'revisit';
+  failureReason?: 'absent' | 'refused' | 'closed' | 'other';
   distributedCount: number;
   distributedBy: string;
   createdByTeamCode?: string;
   distributedAt?: Date;
   notes?: string;
-  registrationMethod: "preset" | "manual";
+  registrationMethod: 'preset' | 'manual';
   eventId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -74,7 +89,7 @@ export interface Member {
   availableSlots?: string[];
   teamId?: string;
   year?: number; // 年度
-  source: "form";
+  source: 'form';
   createdAt: Date | string;
   updatedAt?: Date | string;
 }
@@ -105,15 +120,15 @@ export interface AuthUser {
   customClaims?: {
     teamCode?: string;
     teamId?: string;
-    role?: "admin" | "team";
+    role?: 'admin' | 'team';
   };
 }
 
 export interface StoreFormData {
   storeName: string;
   address: string;
-  distributionStatus: Store["distributionStatus"];
-  failureReason?: Store["failureReason"];
+  distributionStatus: Store['distributionStatus'];
+  failureReason?: Store['failureReason'];
   distributedCount: number;
   notes?: string;
 }
@@ -148,7 +163,7 @@ export interface TeamHistory {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: "morning" | "afternoon";
+  timeSlot: 'morning' | 'afternoon';
   assignedArea: string;
   adjacentAreas: string[];
   members: TeamMember[];
@@ -163,7 +178,7 @@ export interface TeamMember {
   name: string;
   section: string;
   grade: number;
-  role?: "leader" | "member";
+  role?: 'leader' | 'member';
   joinedAt: Date;
 }
 
@@ -171,7 +186,7 @@ export interface AreaHistory {
   areaId: string;
   areaCode: string;
   areaName: string;
-  timeSlot: "morning" | "afternoon";
+  timeSlot: 'morning' | 'afternoon';
   totalStores: number;
   completedStores: number;
   completionRate: number;
@@ -183,8 +198,8 @@ export interface StoreDistributionRecord {
   storeName: string;
   address: string;
   areaCode: string;
-  distributionStatus: Store["distributionStatus"];
-  failureReason?: Store["failureReason"];
+  distributionStatus: Store['distributionStatus'];
+  failureReason?: Store['failureReason'];
   distributedCount: number;
   distributedBy: string;
   distributedAt: Date;
@@ -219,7 +234,7 @@ export interface DistributionFilter {
   eventId?: string;
   teamCode?: string;
   areaCode?: string;
-  timeSlot?: "morning" | "afternoon";
+  timeSlot?: 'morning' | 'afternoon';
   completionRateMin?: number;
   completionRateMax?: number;
 }

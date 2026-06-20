@@ -2,18 +2,21 @@
  * 高性能サーバーサイドキャッシュシステム
  */
 export class ServerCache {
-  private static cache = new Map<string, {
-    data: unknown;
-    timestamp: number;
-    ttl: number;
-    accessCount: number;
-    lastAccess: number;
-  }>();
-  
+  private static cache = new Map<
+    string,
+    {
+      data: unknown;
+      timestamp: number;
+      ttl: number;
+      accessCount: number;
+      lastAccess: number;
+    }
+  >();
+
   private static readonly DEFAULT_TTL = 30 * 1000; // 30秒
   private static readonly MAX_CACHE_SIZE = 1000;
   private static readonly CLEANUP_INTERVAL = 60 * 1000; // 1分
-  
+
   static {
     // 定期的なキャッシュクリーンアップ
     if (typeof setInterval !== 'undefined') {
@@ -57,7 +60,7 @@ export class ServerCache {
       timestamp: Date.now(),
       ttl,
       accessCount: 1,
-      lastAccess: Date.now()
+      lastAccess: Date.now(),
     });
   }
 
@@ -74,14 +77,14 @@ export class ServerCache {
   static deletePattern(pattern: string): number {
     let deletedCount = 0;
     const regex = new RegExp(pattern.replace('*', '.*'));
-    
+
     for (const key of this.cache.keys()) {
       if (regex.test(key)) {
         this.cache.delete(key);
         deletedCount++;
       }
     }
-    
+
     return deletedCount;
   }
 
@@ -91,7 +94,7 @@ export class ServerCache {
   static async getOrSet<T>(
     key: string,
     factory: () => Promise<T>,
-    ttl: number = this.DEFAULT_TTL
+    ttl: number = this.DEFAULT_TTL,
   ): Promise<T> {
     const cached = this.get<T>(key);
     if (cached !== null) {
@@ -101,14 +104,14 @@ export class ServerCache {
 
     console.log(`⚡ キャッシュミス、実行中: ${key}`);
     const startTime = Date.now();
-    
+
     try {
       const result = await factory();
       this.set(key, result, ttl);
-      
+
       const executionTime = Date.now() - startTime;
       console.log(`✅ キャッシュ保存完了: ${key} (${executionTime}ms)`);
-      
+
       return result;
     } catch (error) {
       console.error(`❌ キャッシュ生成エラー: ${key}`, error);
@@ -161,7 +164,7 @@ export class ServerCache {
   static getStats() {
     const entries = Array.from(this.cache.entries());
     const now = Date.now();
-    
+
     return {
       size: this.cache.size,
       maxSize: this.MAX_CACHE_SIZE,
@@ -172,11 +175,13 @@ export class ServerCache {
         ttl: entry.ttl,
         accessCount: entry.accessCount,
         dataSize: JSON.stringify(entry.data).length,
-        expired: now - entry.timestamp > entry.ttl
+        expired: now - entry.timestamp > entry.ttl,
       })),
       totalHits: entries.reduce((sum, [, entry]) => sum + entry.accessCount, 0),
-      avgAccessCount: entries.length > 0 ? 
-        entries.reduce((sum, [, entry]) => sum + entry.accessCount, 0) / entries.length : 0
+      avgAccessCount:
+        entries.length > 0
+          ? entries.reduce((sum, [, entry]) => sum + entry.accessCount, 0) / entries.length
+          : 0,
     };
   }
 
@@ -191,7 +196,9 @@ export class ServerCache {
   /**
    * キャッシュウォームアップ（事前読み込み）
    */
-  static async warmup(tasks: Array<{ key: string; factory: () => Promise<unknown>; ttl?: number }>): Promise<void> {
+  static async warmup(
+    tasks: Array<{ key: string; factory: () => Promise<unknown>; ttl?: number }>,
+  ): Promise<void> {
     console.log(`🔥 キャッシュウォームアップ開始: ${tasks.length}件`);
     const startTime = Date.now();
 
@@ -207,7 +214,7 @@ export class ServerCache {
     });
 
     const results = await Promise.allSettled(promises);
-    const successful = results.filter(r => r.status === 'fulfilled').length;
+    const successful = results.filter((r) => r.status === 'fulfilled').length;
     const duration = Date.now() - startTime;
 
     console.log(`🔥 ウォームアップ完了: ${successful}/${tasks.length} (${duration}ms)`);
@@ -231,7 +238,7 @@ export class FirestoreCache {
   static async getCachedCount(
     collection: string,
     year: number,
-    queryFn: () => Promise<number>
+    queryFn: () => Promise<number>,
   ): Promise<number> {
     const key = this.getYearKey(collection, year, 'count');
     return ServerCache.getOrSet(key, queryFn, 5 * 60 * 1000); // 5分キャッシュ
@@ -242,7 +249,7 @@ export class FirestoreCache {
    */
   static async getCachedMinimalData(
     year: number,
-    queryFn: () => Promise<unknown>
+    queryFn: () => Promise<unknown>,
   ): Promise<unknown> {
     const key = this.getYearKey('dashboard', year, 'minimal');
     return ServerCache.getOrSet(key, queryFn, 30 * 1000); // 30秒キャッシュ
@@ -251,10 +258,7 @@ export class FirestoreCache {
   /**
    * イベント情報キャッシュ（比較的長時間）
    */
-  static async getCachedEvent(
-    year: number,
-    queryFn: () => Promise<unknown>
-  ): Promise<unknown> {
+  static async getCachedEvent(year: number, queryFn: () => Promise<unknown>): Promise<unknown> {
     const key = this.getYearKey('events', year);
     return ServerCache.getOrSet(key, queryFn, 2 * 60 * 1000); // 2分キャッシュ
   }
@@ -263,14 +267,10 @@ export class FirestoreCache {
    * 年度データ無効化
    */
   static invalidateYear(year: number): void {
-    const patterns = [
-      `firestore:*:${year}:*`,
-      `firestore:*:${year}`,
-      `dashboard:${year}:*`
-    ];
+    const patterns = [`firestore:*:${year}:*`, `firestore:*:${year}`, `dashboard:${year}:*`];
 
     let totalDeleted = 0;
-    patterns.forEach(pattern => {
+    patterns.forEach((pattern) => {
       totalDeleted += ServerCache.deletePattern(pattern);
     });
 

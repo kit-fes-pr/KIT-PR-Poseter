@@ -10,7 +10,9 @@ if (!getApps().length) {
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
   if (!projectId || !clientEmail || !privateKey) {
-    console.warn('Firebase Admin SDK credentials not provided - some functionality will be limited');
+    console.warn(
+      'Firebase Admin SDK credentials not provided - some functionality will be limited',
+    );
     adminApp = initializeApp({});
   } else {
     adminApp = initializeApp({

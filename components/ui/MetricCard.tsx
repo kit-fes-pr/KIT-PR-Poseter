@@ -34,12 +34,16 @@ export function MetricCard({
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={onClick}
-      onKeyDown={interactive ? (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick?.();
-        }
-      } : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
       className={`bg-white overflow-hidden shadow-lg rounded-xl transform transition-all border border-gray-100 ${interactive ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 hover:scale-105' : ''} ${className}`}
       style={style}
     >
@@ -56,11 +60,7 @@ export function MetricCard({
               <dd className={`text-2xl font-bold flex items-center gap-2 ${valueClassName}`}>
                 <span>{value}</span>
               </dd>
-              {detail && (
-                <dd className="mt-1 text-xs font-medium text-gray-500">
-                  {detail}
-                </dd>
-              )}
+              {detail && <dd className="mt-1 text-xs font-medium text-gray-500">{detail}</dd>}
             </dl>
           </div>
         </div>

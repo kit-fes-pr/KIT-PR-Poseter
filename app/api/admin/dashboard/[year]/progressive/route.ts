@@ -9,27 +9,29 @@ function serializeDateTimeValue(value: unknown): string | unknown {
   if (typeof value === 'string') return value;
   if (value instanceof Date) return value.toISOString();
   if (typeof value === 'number') return new Date(value).toISOString();
-  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
     return (value as { toDate: () => Date }).toDate().toISOString();
   }
   return value;
 }
 
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ year: string }> }
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {
   const startTime = Date.now();
-  
+
   try {
     const { year } = await context.params;
     const authHeader = request.headers.get('authorization');
     const { searchParams } = new URL(request.url);
-    
+
     const offset = parseInt(searchParams.get('offset') || '0');
     const limit = parseInt(searchParams.get('limit') || '10');
     const includeMembers = searchParams.get('includeMembers') === 'true';
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
@@ -45,22 +47,22 @@ export async function GET(
 
     console.log(`📦 段階的データ取得: offset=${offset}, limit=${limit}`);
 
-    const eventSnap = await adminDb.collection('distributionEvents')
+    const eventSnap = await adminDb
+      .collection('distributionEvents')
       .where('year', '==', yearNum)
       .limit(1)
       .get();
     const eventId = !eventSnap.empty ? eventSnap.docs[0].id : null;
 
     const [byYearSnapshot, byEventDocs] = await Promise.all([
-      adminDb.collection('teams')
-        .where('year', '==', yearNum)
-        .get(),
+      adminDb.collection('teams').where('year', '==', yearNum).get(),
       eventId
-        ? adminDb.collection('teams')
-          .where('eventId', '==', eventId)
-          .get()
-          .then((snapshot) => snapshot.docs)
-        : Promise.resolve([] as FirebaseFirestore.QueryDocumentSnapshot[])
+        ? adminDb
+            .collection('teams')
+            .where('eventId', '==', eventId)
+            .get()
+            .then((snapshot) => snapshot.docs)
+        : Promise.resolve([] as FirebaseFirestore.QueryDocumentSnapshot[]),
     ]);
 
     const mergedTeamsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
@@ -87,12 +89,13 @@ export async function GET(
           validStartDate: serializeDateTimeValue(raw.validStartDate),
           validEndDate: serializeDateTimeValue(raw.validEndDate),
           validDate: serializeDateTimeValue(raw.validDate),
-          memberCount: 0 // デフォルト
+          memberCount: 0, // デフォルト
         };
 
         if (includeMembers) {
           try {
-            const memberCountSnapshot = await adminDb.collection('members')
+            const memberCountSnapshot = await adminDb
+              .collection('members')
               .where('teamId', '==', doc.id)
               .count()
               .get();
@@ -103,19 +106,22 @@ export async function GET(
         }
 
         return teamData;
-      })
+      }),
     );
 
     // エリア統計の更新
-    const areaStats = teams.reduce((acc, team) => {
-      const area = String((team as Record<string, unknown>).assignedArea || '未設定');
-      if (!acc[area]) {
-        acc[area] = { teamCount: 0, memberCount: 0 };
-      }
-      acc[area].teamCount++;
-      acc[area].memberCount += team.memberCount || 0;
-      return acc;
-    }, {} as Record<string, { teamCount: number; memberCount: number }>);
+    const areaStats = teams.reduce(
+      (acc, team) => {
+        const area = String((team as Record<string, unknown>).assignedArea || '未設定');
+        if (!acc[area]) {
+          acc[area] = { teamCount: 0, memberCount: 0 };
+        }
+        acc[area].teamCount++;
+        acc[area].memberCount += team.memberCount || 0;
+        return acc;
+      },
+      {} as Record<string, { teamCount: number; memberCount: number }>,
+    );
 
     // 次のチャンクがあるかチェック
     const hasMore = offset + limit < orderedTeams.length;
@@ -123,36 +129,38 @@ export async function GET(
 
     const responseTime = Date.now() - startTime;
 
-    return NextResponse.json({
-      teams,
-      pagination: {
-        offset,
-        limit,
-        hasMore,
-        nextOffset,
-        returned: teams.length
+    return NextResponse.json(
+      {
+        teams,
+        pagination: {
+          offset,
+          limit,
+          hasMore,
+          nextOffset,
+          returned: teams.length,
+        },
+        areaStats,
+        performance: {
+          responseTime,
+          chunkTime: responseTime,
+        },
       },
-      areaStats,
-      performance: {
-        responseTime,
-        chunkTime: responseTime
-      }
-    }, {
-      headers: {
-        'Cache-Control': 'public, max-age=60',
-        'X-Chunk-Info': `${offset}-${offset + teams.length - 1}/${limit}`
-      }
-    });
-
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60',
+          'X-Chunk-Info': `${offset}-${offset + teams.length - 1}/${limit}`,
+        },
+      },
+    );
   } catch (error) {
     const responseTime = Date.now() - startTime;
     console.error('段階的取得エラー:', error);
     return NextResponse.json(
-      { 
+      {
         error: '段階的データ取得に失敗しました',
-        performance: { responseTime }
+        performance: { responseTime },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

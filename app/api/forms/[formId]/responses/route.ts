@@ -4,11 +4,14 @@ import { randomUUID } from 'crypto';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
-import { normalizeAvailabilitySlots, validateAvailabilitySelection } from '@/lib/utils/availability';
+import {
+  normalizeAvailabilitySlots,
+  validateAvailabilitySelection,
+} from '@/lib/utils/availability';
 
 function resolveAvailabilitySlots(
   answers: FormAnswer[],
-  participantAvailableSlots: unknown
+  participantAvailableSlots: unknown,
 ): string[] {
   const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
   if (availabilityAnswer) {
@@ -20,16 +23,13 @@ function resolveAvailabilitySlots(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ formId: string }> }
+  { params }: { params: Promise<{ formId: string }> },
 ) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
@@ -37,22 +37,16 @@ export async function GET(
 
     // 管理者のみ回答一覧を取得可能
     if (decodedToken.role !== 'admin') {
-      return NextResponse.json(
-        { error: '管理者権限が必要です' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
     const resolvedParams = await params;
-    
+
     // フォームの存在確認
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
-    
+
     if (!formDoc.exists) {
-      return NextResponse.json(
-        { error: 'フォームが見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'フォームが見つかりません' }, { status: 404 });
     }
 
     // 回答一覧を取得
@@ -63,7 +57,7 @@ export async function GET(
       .orderBy('submittedAt', 'desc')
       .get();
 
-    const responses = responsesSnapshot.docs.map(doc => {
+    const responses = responsesSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         ...data,
@@ -76,36 +70,30 @@ export async function GET(
     return NextResponse.json({ responses });
   } catch (error) {
     console.error('回答一覧取得エラー:', error);
-    return NextResponse.json(
-      { error: '回答一覧の取得に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '回答一覧の取得に失敗しました' }, { status: 500 });
   }
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ formId: string }> }
+  { params }: { params: Promise<{ formId: string }> },
 ) {
   try {
     const resolvedParams = await params;
-    
+
     // フォームの存在確認とアクティブ状態チェック
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
-    
+
     if (!formDoc.exists) {
-      return NextResponse.json(
-        { error: 'フォームが見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'フォームが見つかりません' }, { status: 404 });
     }
 
     const formData = formDoc.data() as SurveyForm;
-    
+
     if (!formData.isActive) {
       return NextResponse.json(
         { error: 'このフォームは現在回答を受け付けていません' },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -113,24 +101,29 @@ export async function POST(
 
     // 回答データのバリデーション
     if (!answers || !Array.isArray(answers)) {
-      return NextResponse.json(
-        { error: '回答データが正しくありません' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
     }
 
     // 参加者データのバリデーション
     if (participantData) {
       const participantValidationErrors: string[] = [];
-      
-      if (!participantData.name || typeof participantData.name !== 'string' || participantData.name.trim() === '') {
+
+      if (
+        !participantData.name ||
+        typeof participantData.name !== 'string' ||
+        participantData.name.trim() === ''
+      ) {
         participantValidationErrors.push('お名前は必須です');
       }
-      
-      if (!participantData.section || typeof participantData.section !== 'string' || participantData.section.trim() === '') {
+
+      if (
+        !participantData.section ||
+        typeof participantData.section !== 'string' ||
+        participantData.section.trim() === ''
+      ) {
         participantValidationErrors.push('所属セクションは必須です');
       }
-      
+
       const gradeNum = parseInt(participantData.grade);
       if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
@@ -143,37 +136,38 @@ export async function POST(
       if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
         participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
       }
-      
+
       const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
-      const availabilitySelectionError = validateAvailabilitySelection(
-        availableSlots
-      );
+      const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         participantValidationErrors.push(availabilitySelectionError);
       }
-      
+
       if (participantValidationErrors.length > 0) {
         return NextResponse.json(
           { error: '参加者情報の入力エラーがあります', details: participantValidationErrors },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
 
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
-    
+
     for (const field of formData.fields) {
       const answer = answers.find((a: FormAnswer) => a.fieldId === field.fieldId);
-      
+
       // 必須フィールドのチェック
       if (field.required) {
-        if (!answer || !answer.value || 
-            (Array.isArray(answer.value) && answer.value.length === 0) ||
-            (typeof answer.value === 'string' && answer.value.trim() === '')) {
+        if (
+          !answer ||
+          !answer.value ||
+          (Array.isArray(answer.value) && answer.value.length === 0) ||
+          (typeof answer.value === 'string' && answer.value.trim() === '')
+        ) {
           validationErrors.push(`${field.label}は必須です`);
           continue;
         }
@@ -188,10 +182,14 @@ export async function POST(
               validationErrors.push(`${field.label}は文字列で入力してください`);
             } else {
               if (field.validation?.minLength && answer.value.length < field.validation.minLength) {
-                validationErrors.push(`${field.label}は${field.validation.minLength}文字以上で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.minLength}文字以上で入力してください`,
+                );
               }
               if (field.validation?.maxLength && answer.value.length > field.validation.maxLength) {
-                validationErrors.push(`${field.label}は${field.validation.maxLength}文字以下で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
+                );
               }
               if (field.validation?.pattern) {
                 const regex = new RegExp(field.validation.pattern);
@@ -208,10 +206,14 @@ export async function POST(
               validationErrors.push(`${field.label}は数値で入力してください`);
             } else {
               if (field.validation?.min !== undefined && numValue < field.validation.min) {
-                validationErrors.push(`${field.label}は${field.validation.min}以上で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.min}以上で入力してください`,
+                );
               }
               if (field.validation?.max !== undefined && numValue > field.validation.max) {
-                validationErrors.push(`${field.label}は${field.validation.max}以下で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.max}以下で入力してください`,
+                );
               }
             }
             break;
@@ -242,26 +244,24 @@ export async function POST(
     if (validationErrors.length > 0) {
       return NextResponse.json(
         { error: '入力エラーがあります', details: validationErrors },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // 回答データを保存
     const now = new Date();
     const editToken = randomUUID();
-    
+
     // 参加者データがある場合はParticipantSurveyResponseとして保存
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
-    
+
     if (participantData) {
-    const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
-      const availabilitySelectionError = validateAvailabilitySelection(
-        availableSlots
-      );
+      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
+      const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(
           { error: '参加者情報の入力エラーがあります', details: [availabilitySelectionError] },
-          { status: 400 }
+          { status: 400 },
         );
       }
       responseData = {
@@ -301,11 +301,14 @@ export async function POST(
 
     // 親フォームに集計を反映（レスポンス数 +1, 最終回答日時を更新）
     try {
-      await adminDb.collection('forms').doc(resolvedParams.formId).update({
-        responseCount: FieldValue.increment(1),
-        lastResponseAt: new Date(),
-        updatedAt: new Date(),
-      });
+      await adminDb
+        .collection('forms')
+        .doc(resolvedParams.formId)
+        .update({
+          responseCount: FieldValue.increment(1),
+          lastResponseAt: new Date(),
+          updatedAt: new Date(),
+        });
     } catch (e) {
       console.error('フォーム集計更新エラー:', e);
       // 集計更新失敗は致命的ではないため継続
@@ -318,9 +321,6 @@ export async function POST(
     });
   } catch (error) {
     console.error('回答送信エラー:', error);
-    return NextResponse.json(
-      { error: '回答の送信に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '回答の送信に失敗しました' }, { status: 500 });
   }
 }

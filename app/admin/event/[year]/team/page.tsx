@@ -113,7 +113,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   const [showResponseEditModal, setShowResponseEditModal] = useState(false);
   const [selectedResponseId, setSelectedResponseId] = useState<string>('');
   const [editingResponseLoading, setEditingResponseLoading] = useState(false);
-  const [responseEditValues, setResponseEditValues] = useState<Record<string, string | string[]>>({});
+  const [responseEditValues, setResponseEditValues] = useState<Record<string, string | string[]>>(
+    {},
+  );
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('');
   const [showCreateTeamForm, setShowCreateTeamForm] = useState(false);
   const [createTeamSubmitting, setCreateTeamSubmitting] = useState(false);
@@ -164,7 +166,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       const token = await user.getIdToken();
 
       const eventRes = await fetch(`/api/admin/events?year=${resolvedParams.year}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       let eventIdForYear = `kodai${resolvedParams.year}`;
@@ -179,9 +181,20 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         eventIdForYear = eventData?.id || eventIdForYear;
         setDistributionEventId(eventIdForYear);
 
-        const slots = Array.isArray(eventData?.distributionAvailabilitySlots) && eventData?.distributionAvailabilitySlots.length > 0
-          ? sortAvailabilitySlotKeys(eventData!.distributionAvailabilitySlots!.filter((slot): slot is string => typeof slot === 'string'))
-          : sortAvailabilitySlotKeys(buildAvailabilitySlotChoices(eventData?.distributionStartDate, eventData?.distributionEndDate).map((choice) => choice.key));
+        const slots =
+          Array.isArray(eventData?.distributionAvailabilitySlots) &&
+          eventData?.distributionAvailabilitySlots.length > 0
+            ? sortAvailabilitySlotKeys(
+                eventData!.distributionAvailabilitySlots!.filter(
+                  (slot): slot is string => typeof slot === 'string',
+                ),
+              )
+            : sortAvailabilitySlotKeys(
+                buildAvailabilitySlotChoices(
+                  eventData?.distributionStartDate,
+                  eventData?.distributionEndDate,
+                ).map((choice) => choice.key),
+              );
         setDistributionSlots(slots);
         if (!createTeamForm.timeSlot && slots.length > 0) {
           setCreateTeamForm((prev) => ({ ...prev, timeSlot: slots[0] }));
@@ -191,11 +204,14 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       }
 
       const formsRes = await fetch(`/api/forms?eventId=${encodeURIComponent(eventIdForYear)}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const formsData = formsRes.ok ? await formsRes.json() : null;
-      const nextForm = Array.isArray(formsData?.forms) && formsData.forms.length > 0 ? (formsData.forms[0] as CurrentForm) : null;
+      const nextForm =
+        Array.isArray(formsData?.forms) && formsData.forms.length > 0
+          ? (formsData.forms[0] as CurrentForm)
+          : null;
       if (nextForm) {
         setCurrentForm(nextForm);
         setSelectedForm(nextForm.formId);
@@ -228,7 +244,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
   const openResponseEditModal = (participant: Participant) => {
     const record = responseRecords[participant.responseId];
-    const answerMap = new Map((record?.answers || []).map((answer) => [answer.fieldId, answer.value]));
+    const answerMap = new Map(
+      (record?.answers || []).map((answer) => [answer.fieldId, answer.value]),
+    );
 
     setSelectedParticipant(participant);
     setSelectedResponseId(participant.responseId);
@@ -236,7 +254,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       participantName: record?.participantData?.name || participant.name || '',
       participantGrade: String(record?.participantData?.grade || participant.grade || ''),
       participantSection: record?.participantData?.section || participant.section || '',
-      availability: normalizeAvailabilitySlots(record?.participantData?.availableSlots || participant.availableSlots),
+      availability: normalizeAvailabilitySlots(
+        record?.participantData?.availableSlots || participant.availableSlots,
+      ),
       ...Object.fromEntries(answerMap.entries()),
     });
     setShowResponseEditModal(true);
@@ -315,14 +335,19 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     const fieldId = field.fieldId;
     const isAvailabilityField = fieldId === 'availability';
     const label = `${field.label}${field.required ? ' *' : ''}`;
-    const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
+    const optionLabel = (option: string) =>
+      isAvailabilityField ? formatAvailabilitySlotLabel(option) : option;
     const value = responseEditValues[fieldId];
 
     if (isAvailabilityField && field.type === 'checkbox') {
       const selectedValues = normalizeAvailabilitySlots(value);
       const options = field.options || [];
-      const specialOptions = options.filter((option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY);
-      const dateOptions = options.filter((option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY);
+      const specialOptions = options.filter(
+        (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY,
+      );
+      const dateOptions = options.filter(
+        (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
+      );
 
       return (
         <div key={fieldId} className="space-y-3">
@@ -336,8 +361,11 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     return (
                       <label
                         key={`${option}-${index}`}
-                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
-                          }`}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
+                          selected
+                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                            : 'border-gray-200 bg-white hover:border-indigo-300'
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -346,17 +374,24 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           className="sr-only"
                         />
                         <span
-                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
-                            }`}
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                            selected
+                              ? 'border-indigo-600 bg-indigo-600 text-white'
+                              : 'border-gray-300 bg-white text-transparent'
+                          }`}
                         >
                           <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
                           </svg>
                         </span>
                         <span>
-                          <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
+                          <span className="block text-sm font-medium text-gray-900">
+                            {optionLabel(option)}
+                          </span>
                           <span className="mt-1 block text-xs text-gray-500">
-                            {option === ALL_AVAILABLE_SLOT_KEY ? '配布期間内の全日時に対応可能です' : 'この日時には参加できません'}
+                            {option === ALL_AVAILABLE_SLOT_KEY
+                              ? '配布期間内の全日時に対応可能です'
+                              : 'この日時には参加できません'}
                           </span>
                         </span>
                       </label>
@@ -370,8 +405,11 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   return (
                     <label
                       key={`${option}-${index}`}
-                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
-                        }`}
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
+                        selected
+                          ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                          : 'border-gray-200 bg-white hover:border-indigo-300'
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -380,15 +418,20 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         className="sr-only"
                       />
                       <span
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
-                          }`}
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                          selected
+                            ? 'border-indigo-600 bg-indigo-600 text-white'
+                            : 'border-gray-300 bg-white text-transparent'
+                        }`}
                       >
                         <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
                         </svg>
                       </span>
                       <span>
-                        <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
+                        <span className="block text-sm font-medium text-gray-900">
+                          {optionLabel(option)}
+                        </span>
                         <span className="mt-1 block text-xs text-gray-500">複数選択できます</span>
                       </span>
                     </label>
@@ -407,12 +450,16 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
           <select
             value={typeof value === 'string' ? value : ''}
-            onChange={(e) => setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))}
+            onChange={(e) =>
+              setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))
+            }
             className="block w-full rounded-md border border-gray-300 px-3 py-2"
           >
             <option value="">選択してください</option>
             {field.options?.map((option) => (
-              <option key={option} value={option}>{optionLabel(option)}</option>
+              <option key={option} value={option}>
+                {optionLabel(option)}
+              </option>
             ))}
           </select>
         </div>
@@ -430,15 +477,20 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
               return (
                 <label
                   key={option}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${selected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
-                    }`}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${
+                    selected
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-gray-200 bg-white hover:border-indigo-300'
+                  }`}
                 >
                   <input
                     type="checkbox"
                     checked={selected}
                     onChange={() => {
                       setResponseEditValues((current) => {
-                        const currentValues = Array.isArray(current[fieldId]) ? (current[fieldId] as string[]) : [];
+                        const currentValues = Array.isArray(current[fieldId])
+                          ? (current[fieldId] as string[])
+                          : [];
                         const nextValues = currentValues.includes(option)
                           ? currentValues.filter((item) => item !== option)
                           : [...currentValues, option];
@@ -463,7 +515,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           <input
             type="number"
             value={typeof value === 'string' ? value : ''}
-            onChange={(e) => setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))}
+            onChange={(e) =>
+              setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))
+            }
             className="block w-full rounded-md border border-gray-300 px-3 py-2"
           />
         </div>
@@ -477,7 +531,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           type="text"
           value={typeof value === 'string' ? value : ''}
           placeholder={field.placeholder}
-          onChange={(e) => setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))}
+          onChange={(e) =>
+            setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))
+          }
           className="block w-full rounded-md border border-gray-300 px-3 py-2"
         />
       </div>
@@ -490,12 +546,16 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     try {
       const token = await user.getIdToken();
       const res = await fetch(`/api/admin/teams?year=${resolvedParams.year}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
         const data: { teams: Team[] } = await res.json();
-        setTeams((data.teams || []).slice().sort((a, b) => compareAvailabilitySlotKeys(a.timeSlot || '', b.timeSlot || '')));
+        setTeams(
+          (data.teams || [])
+            .slice()
+            .sort((a, b) => compareAvailabilitySlotKeys(a.timeSlot || '', b.timeSlot || '')),
+        );
       }
     } catch (err) {
       console.error('チーム取得エラー:', err);
@@ -508,7 +568,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     try {
       const token = await user.getIdToken();
       const res = await fetch('/api/admin/areas', {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -527,7 +587,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
   const getTeamAreaLabel = (team?: Team | null) => {
     if (!team) return '-';
-    const matched = areas.find((area) => area.areaId === team.areaId || area.areaCode === team.assignedArea);
+    const matched = areas.find(
+      (area) => area.areaId === team.areaId || area.areaCode === team.assignedArea,
+    );
     if (matched) return getAreaLabel(matched);
     return team.assignedArea || '-';
   };
@@ -540,7 +602,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   const createTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resolvedParams || !user) return;
-    if (!createTeamForm.teamCode || !createTeamForm.teamName || !createTeamForm.areaId || !createTeamForm.timeSlot) {
+    if (
+      !createTeamForm.teamCode ||
+      !createTeamForm.teamName ||
+      !createTeamForm.areaId ||
+      !createTeamForm.timeSlot
+    ) {
       setError('チームコード、チーム名、配布区域、配布枠は必須です');
       return;
     }
@@ -591,44 +658,55 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     try {
       const token = await user.getIdToken();
       const res = await fetch(`/api/forms/${formId}/responses`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
         const data = await res.json();
         const recordMap: Record<string, ResponseRecord> = {};
-        const participantList = data.responses.map((response: {
-          responseId: string;
-          participantData?: { name: string; grade: number; section: string; availableSlots?: string[] };
-          answers?: Array<{ fieldId: string; value: string | string[] }>;
-          submittedAt: string | Date;
-        }) => {
-          recordMap[response.responseId] = {
-            responseId: response.responseId,
-            participantData: response.participantData,
-            answers: (response.answers || []) as FormAnswer[],
-            submittedAt: response.submittedAt,
-          };
-          const raw = response.answers?.find((a) => a.fieldId === 'availability')?.value;
-          const availableSlots = normalizeAvailabilitySlots(
-            Array.isArray(raw)
-              ? raw
-              : typeof raw === 'string'
-                ? [raw]
-                : response.participantData?.availableSlots || []
-          );
+        const participantList = data.responses.map(
+          (response: {
+            responseId: string;
+            participantData?: {
+              name: string;
+              grade: number;
+              section: string;
+              availableSlots?: string[];
+            };
+            answers?: Array<{ fieldId: string; value: string | string[] }>;
+            submittedAt: string | Date;
+          }) => {
+            recordMap[response.responseId] = {
+              responseId: response.responseId,
+              participantData: response.participantData,
+              answers: (response.answers || []) as FormAnswer[],
+              submittedAt: response.submittedAt,
+            };
+            const raw = response.answers?.find((a) => a.fieldId === 'availability')?.value;
+            const availableSlots = normalizeAvailabilitySlots(
+              Array.isArray(raw)
+                ? raw
+                : typeof raw === 'string'
+                  ? [raw]
+                  : response.participantData?.availableSlots || [],
+            );
 
-          return {
-            responseId: response.responseId,
-            name: response.participantData?.name || '',
-            grade: response.participantData?.grade || 0,
-            section: response.participantData?.section || '',
-            availableSlots,
-            submittedAt: new Date(response.submittedAt),
-          };
-        });
+            return {
+              responseId: response.responseId,
+              name: response.participantData?.name || '',
+              grade: response.participantData?.grade || 0,
+              section: response.participantData?.section || '',
+              availableSlots,
+              submittedAt: new Date(response.submittedAt),
+            };
+          },
+        );
         setResponseRecords(recordMap);
-        setParticipants(participantList.filter((participant: Participant) => participant.availableSlots.length > 0));
+        setParticipants(
+          participantList.filter(
+            (participant: Participant) => participant.availableSlots.length > 0,
+          ),
+        );
       }
     } catch (err) {
       setError('参加者データの取得に失敗しました');
@@ -642,7 +720,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     try {
       const token = await user.getIdToken();
       const res = await fetch(`/api/admin/assignments?year=${resolvedParams.year}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -671,7 +749,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           year: resolvedParams?.year,
@@ -689,7 +767,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         await loadAssignments();
         if ((data?.stats?.assigned || 0) === 0) {
           setError(
-            '自動割り当ては完了しましたが、割り当て可能な組み合わせがありませんでした。配布枠とチームの配布枠キーが一致しているか確認してください。'
+            '自動割り当ては完了しましたが、割り当て可能な組み合わせがありませんでした。配布枠とチームの配布枠キーが一致しているか確認してください。',
           );
         }
         if ((data?.stats?.assigned || 0) > 0) {
@@ -714,7 +792,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           year: resolvedParams?.year,
@@ -735,18 +813,17 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     }
   };
 
-
   const getAssignmentForParticipant = (responseId: string) => {
-    return assignments.find(a => a.responseId === responseId);
+    return assignments.find((a) => a.responseId === responseId);
   };
 
   const getTeamById = (teamId: string) => {
-    return teams.find(t => t.teamId === teamId);
+    return teams.find((t) => t.teamId === teamId);
   };
 
   const getAssignmentStats = () => {
-    const assigned = participants.filter(p => getAssignmentForParticipant(p.responseId));
-    const unassigned = participants.filter(p => !getAssignmentForParticipant(p.responseId));
+    const assigned = participants.filter((p) => getAssignmentForParticipant(p.responseId));
+    const unassigned = participants.filter((p) => !getAssignmentForParticipant(p.responseId));
 
     return {
       total: participants.length,
@@ -783,7 +860,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     .filter((team) => distributionSlots.includes(team.timeSlot))
     .sort((a, b) => compareAvailabilitySlotKeys(a.timeSlot || '', b.timeSlot || ''));
   const participantsWithAllAvailable = participants.filter((p) =>
-    normalizeAvailabilitySlots(p.availableSlots).includes(ALL_AVAILABLE_SLOT_KEY)
+    normalizeAvailabilitySlots(p.availableSlots).includes(ALL_AVAILABLE_SLOT_KEY),
   );
   const filteredParticipants = participants.filter((p) => {
     const normalized = normalizeAvailabilitySlots(p.availableSlots);
@@ -807,9 +884,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     }
     const collator = new Intl.Collator('ja');
     const rows = assignments
-      .map(a => {
-        const p = participants.find(p => p.responseId === a.responseId);
-        const t = teams.find(t => t.teamId === a.teamId);
+      .map((a) => {
+        const p = participants.find((p) => p.responseId === a.responseId);
+        const t = teams.find((t) => t.teamId === a.teamId);
         if (!p || !t) return null;
         const teamLabel = t.teamName || t.assignedArea || t.teamId;
         return {
@@ -828,9 +905,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     });
 
     const header = ['チーム', '学年', '氏名'];
-    const data = sorted.map(r => [r.team, r.grade ? `${r.grade}` : '', r.name]);
+    const data = sorted.map((r) => [r.team, r.grade ? `${r.grade}` : '', r.name]);
     const csvContent = [header, ...data]
-      .map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
       .join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -850,14 +927,14 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         <YearPageSectionHeader
           title={`チーム割り当て管理 (${resolvedParams?.year}年度)`}
           description="アンケート結果を基に参加者を配布区域チームに自動割り当てします。"
-          actions={(
+          actions={
             <Link
               href={`/admin/event/${resolvedParams?.year}`}
               className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
             >
               イベント管理へ戻る
             </Link>
-          )}
+          }
         />
 
         {/* エラー表示 */}
@@ -872,7 +949,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
               <h2 className="text-lg font-medium text-gray-900">チーム作成</h2>
-              <p className="text-sm text-gray-500">配布区域を選んで、その区域へ配布するチームを作成します。</p>
+              <p className="text-sm text-gray-500">
+                配布区域を選んで、その区域へ配布するチームを作成します。
+              </p>
             </div>
             <button
               type="button"
@@ -886,10 +965,14 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           {showCreateTeamForm && (
             <form onSubmit={createTeam} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">チームコード *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  チームコード *
+                </label>
                 <input
                   value={createTeamForm.teamCode}
-                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, teamCode: e.target.value })}
+                  onChange={(e) =>
+                    setCreateTeamForm({ ...createTeamForm, teamCode: e.target.value })
+                  }
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="A-01"
                 />
@@ -898,7 +981,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 <label className="block text-sm font-medium text-gray-700 mb-1">チーム名 *</label>
                 <input
                   value={createTeamForm.teamName}
-                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, teamName: e.target.value })}
+                  onChange={(e) =>
+                    setCreateTeamForm({ ...createTeamForm, teamName: e.target.value })
+                  }
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="本館前A班"
                 />
@@ -922,7 +1007,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 <label className="block text-sm font-medium text-gray-700 mb-1">配布枠</label>
                 <select
                   value={createTeamForm.timeSlot}
-                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, timeSlot: e.target.value })}
+                  onChange={(e) =>
+                    setCreateTeamForm({ ...createTeamForm, timeSlot: e.target.value })
+                  }
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md"
                   disabled={distributionSlots.length === 0}
                 >
@@ -934,7 +1021,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   ))}
                 </select>
                 {distributionSlots.length === 0 && (
-                  <p className="mt-1 text-xs text-gray-500">先に配布設定で配布枠を登録してください。</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    先に配布設定で配布枠を登録してください。
+                  </p>
                 )}
               </div>
               <div className="md:col-span-2 flex justify-end">
@@ -957,16 +1046,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
               <p className="text-sm font-medium text-gray-700 mb-1">対象フォーム</p>
-              <p className="text-sm text-gray-900">
-                {selectedFormTitle || 'フォームが未設定です'}
-              </p>
+              <p className="text-sm text-gray-900">{selectedFormTitle || 'フォームが未設定です'}</p>
             </div>
 
             {/* 割り当てモード */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                割り当てモード
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">割り当てモード</label>
               <div className="space-y-2">
                 <label className="flex items-center">
                   <input
@@ -1001,7 +1086,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
                 <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
                 </svg>
                 自動割り当てを実行
               </button>
@@ -1011,8 +1101,18 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   onClick={clearAssignments}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <svg
+                    className="mr-2 h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
                   </svg>
                   割り当てをクリア
                 </button>
@@ -1027,38 +1127,78 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             <MetricCard
               label="総参加者数"
               value={`${stats.total}人`}
-              icon={(
-                <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              icon={
+                <svg
+                  className="h-6 w-6 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
                 </svg>
-              )}
+              }
             />
             <MetricCard
               label="割り当て済み"
               value={`${stats.assigned}人`}
-              icon={(
-                <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              icon={
+                <svg
+                  className="h-6 w-6 text-green-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
-              )}
+              }
             />
             <MetricCard
               label="参加不可"
               value={`${unavailableCount}人`}
-              icon={(
-                <svg className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              icon={
+                <svg
+                  className="h-6 w-6 text-indigo-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
-              )}
+              }
             />
             <MetricCard
               label="未割り当て"
               value={`${stats.unassigned}人`}
-              icon={(
-                <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 17.5c-.77.833.192 2.5 1.732 2.5z" />
+              icon={
+                <svg
+                  className="h-6 w-6 text-yellow-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 17.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
                 </svg>
-              )}
+              }
             />
           </div>
         )}
@@ -1067,7 +1207,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         <SectionCard
           title="デバッグ確認"
           description="配布枠、チーム、参加者の可用性を同じ画面で確認できます。"
-          actions={(
+          actions={
             <button
               type="button"
               onClick={() => setShowDebugInfo((prev) => !prev)}
@@ -1075,15 +1215,21 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             >
               {showDebugInfo ? '閉じる' : '開く'}
             </button>
-          )}
+          }
           className="mb-6"
         >
           {showDebugInfo && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <MetricCard label="イベント配布枠" value={`${distributionSlots.length}件`} />
-                <MetricCard label="枠一致チーム" value={`${matchingTeams.length}件 / ${teams.length}件`} />
-                <MetricCard label="参加可能者" value={`${availableParticipants.length}人 / ${participants.length}人`} />
+                <MetricCard
+                  label="枠一致チーム"
+                  value={`${matchingTeams.length}件 / ${teams.length}件`}
+                />
+                <MetricCard
+                  label="参加可能者"
+                  value={`${availableParticipants.length}人 / ${participants.length}人`}
+                />
                 <MetricCard label="全日可能" value={`${participantsWithAllAvailable.length}人`} />
               </div>
 
@@ -1104,11 +1250,16 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 <div className="rounded-lg border border-gray-200 p-4">
                   <h3 className="text-sm font-medium text-gray-900">配布枠キー</h3>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {distributionSlots.length > 0 ? distributionSlots.map((slot) => (
-                      <span key={slot} className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700">
-                        {formatAvailabilitySlotLabel(slot)}
-                      </span>
-                    )) : (
+                    {distributionSlots.length > 0 ? (
+                      distributionSlots.map((slot) => (
+                        <span
+                          key={slot}
+                          className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
+                        >
+                          {formatAvailabilitySlotLabel(slot)}
+                        </span>
+                      ))
+                    ) : (
                       <span className="text-sm text-gray-500">未設定</span>
                     )}
                   </div>
@@ -1117,14 +1268,27 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 <div className="rounded-lg border border-gray-200 p-4">
                   <h3 className="text-sm font-medium text-gray-900">チーム枠</h3>
                   <div className="mt-2 space-y-2">
-                    {teams.length > 0 ? teams.slice(0, 12).map((team) => (
-                      <div key={team.teamId} className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm">
-                        <span className="font-medium text-gray-900">{team.teamName || team.teamCode}</span>
-                        <span className={distributionSlots.includes(team.timeSlot) ? 'text-emerald-600' : 'text-rose-600'}>
-                          {formatAvailabilitySlotLabel(team.timeSlot)}
-                        </span>
-                      </div>
-                    )) : (
+                    {teams.length > 0 ? (
+                      teams.slice(0, 12).map((team) => (
+                        <div
+                          key={team.teamId}
+                          className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm"
+                        >
+                          <span className="font-medium text-gray-900">
+                            {team.teamName || team.teamCode}
+                          </span>
+                          <span
+                            className={
+                              distributionSlots.includes(team.timeSlot)
+                                ? 'text-emerald-600'
+                                : 'text-rose-600'
+                            }
+                          >
+                            {formatAvailabilitySlotLabel(team.timeSlot)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
                       <span className="text-sm text-gray-500">チーム未作成</span>
                     )}
                   </div>
@@ -1139,7 +1303,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       <tr>
                         <th className="px-3 py-2 text-left font-medium text-gray-500">氏名</th>
                         <th className="px-3 py-2 text-left font-medium text-gray-500">学年</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">希望時間帯</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500">
+                          希望時間帯
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -1147,7 +1313,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         <tr key={participant.responseId}>
                           <td className="px-3 py-2 text-gray-900">{participant.name}</td>
                           <td className="px-3 py-2 text-gray-700">{participant.grade}年</td>
-                          <td className="px-3 py-2 text-gray-700">{getAvailabilityLabel(participant.availableSlots)}</td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {getAvailabilityLabel(participant.availableSlots)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1167,8 +1335,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             <div className="px-4 py-5 sm:px-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">参加者一覧と割り当て状況</h3>
-                  <p className="mt-1 max-w-2xl text-sm text-gray-500">選択されたフォームの回答者とチーム割り当て状況</p>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    参加者一覧と割り当て状況
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                    選択されたフォームの回答者とチーム割り当て状況
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 flex-col">
@@ -1176,7 +1348,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     <button
                       onClick={exportAssignmentsCsv}
                       className="px-3 py-2 text-sm rounded-md border bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    >CSV出力</button>
+                    >
+                      CSV出力
+                    </button>
                   </div>
                   <div className="flex items-center gap-2 flex-col">
                     <label className="text-sm text-gray-600">班で絞り込み</label>
@@ -1187,7 +1361,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     >
                       <option value="">全ての班</option>
                       {teams.map((t) => (
-                        <option key={t.teamId} value={t.teamId}>{t.teamName || getTeamAreaLabel(t)}</option>
+                        <option key={t.teamId} value={t.teamId}>
+                          {t.teamName || getTeamAreaLabel(t)}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1241,21 +1417,29 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                             <div className="text-sm">
                               <div className="font-medium text-gray-900">{team.teamName}</div>
                               <div className="text-gray-500">{getTeamAreaLabel(team)}</div>
-                              <div className="text-gray-400 text-xs">配布枠: {formatAvailabilitySlotLabel(team.timeSlot)}</div>
+                              <div className="text-gray-400 text-xs">
+                                配布枠: {formatAvailabilitySlotLabel(team.timeSlot)}
+                              </div>
                               <div className="flex space-x-2 mt-1">
-                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.assignedBy === 'auto'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-green-100 text-green-800'
-                                  }`}>
+                                <span
+                                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    assignment.assignedBy === 'auto'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-green-100 text-green-800'
+                                  }`}
+                                >
                                   {assignment.assignedBy === 'auto' ? '自動' : '手動'}
                                 </span>
                                 {assignment.timeSlot && (
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.timeSlot.endsWith('_am')
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : assignment.timeSlot.endsWith('_pm')
-                                      ? 'bg-purple-100 text-purple-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                    }`}>
+                                  <span
+                                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                      assignment.timeSlot.endsWith('_am')
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : assignment.timeSlot.endsWith('_pm')
+                                          ? 'bg-purple-100 text-purple-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                    }`}
+                                  >
                                     {formatAvailabilitySlotLabel(assignment.timeSlot)}
                                   </span>
                                 )}
@@ -1299,7 +1483,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           <div className="bg-white shadow overflow-hidden sm:rounded-md mt-8">
             <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
               <h3 className="text-lg leading-6 font-medium text-gray-900">参加不可メンバー</h3>
-              <p className="mt-1 text-sm text-gray-500">参加不可を選んだ回答者を別枠で表示します。手動割り当ては可能です。</p>
+              <p className="mt-1 text-sm text-gray-500">
+                参加不可を選んだ回答者を別枠で表示します。手動割り当ては可能です。
+              </p>
             </div>
             <div className="divide-y divide-gray-200">
               {unavailableParticipants.map((participant) => {
@@ -1307,14 +1493,22 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 const team = assignment ? getTeamById(assignment.teamId) : null;
 
                 return (
-                  <div key={participant.responseId} className="px-4 py-4 sm:px-6 flex items-center justify-between gap-4">
+                  <div
+                    key={participant.responseId}
+                    className="px-4 py-4 sm:px-6 flex items-center justify-between gap-4"
+                  >
                     <div>
                       <div className="text-sm font-medium text-gray-900">{participant.name}</div>
-                      <div className="text-sm text-gray-500">{participant.grade}年 - {participant.section}</div>
-                      <div className="text-xs text-gray-400 mt-1">{getAvailabilityLabel(participant.availableSlots)}</div>
+                      <div className="text-sm text-gray-500">
+                        {participant.grade}年 - {participant.section}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {getAvailabilityLabel(participant.availableSlots)}
+                      </div>
                       {assignment && team && (
                         <div className="mt-2 text-xs text-gray-500">
-                          割り当て先: {team.teamName} / {formatAvailabilitySlotLabel(assignment.timeSlot)}
+                          割り当て先: {team.teamName} /{' '}
+                          {formatAvailabilitySlotLabel(assignment.timeSlot)}
                         </div>
                       )}
                     </div>
@@ -1345,8 +1539,18 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         {/* フォーム未選択時のメッセージ */}
         {participants.length === 0 && selectedForm === '' && (
           <div className="text-center py-12">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
             </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">フォームが未設定です</h3>
             <p className="mt-1 text-sm text-gray-500">
@@ -1370,9 +1574,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             <div className="relative top-0 mx-auto w-full">
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    手動割り当て変更
-                  </h3>
+                  <h3 className="text-lg font-medium text-gray-900">手動割り当て変更</h3>
                   <button
                     onClick={() => {
                       setShowManualModal(false);
@@ -1381,7 +1583,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     className="text-gray-400 hover:text-gray-600"
                   >
                     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -1401,11 +1608,17 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       割り当て先チーム
                     </label>
-                    <select value={manualAssignTeamId} onChange={(e) => setManualAssignTeamId(e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    <select
+                      value={manualAssignTeamId}
+                      onChange={(e) => setManualAssignTeamId(e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
                       <option value="">チームを選択</option>
-                      {teams.map(team => (
+                      {teams.map((team) => (
                         <option key={team.teamId} value={team.teamId}>
-                          {team.teamName} - {getTeamAreaLabel(team)} / {formatAvailabilitySlotLabel(team.timeSlot)} (最大{team.maxMembers || 10}人)
+                          {team.teamName} - {getTeamAreaLabel(team)} /{' '}
+                          {formatAvailabilitySlotLabel(team.timeSlot)} (最大{team.maxMembers || 10}
+                          人)
                         </option>
                       ))}
                     </select>
@@ -1431,21 +1644,24 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         setManualAssignLoading(true);
                         const token = await user!.getIdToken();
                         // 時間帯の自動決定
-                        const team = teams.find(t => t.teamId === manualAssignTeamId);
+                        const team = teams.find((t) => t.teamId === manualAssignTeamId);
                         const ts = resolveAssignmentSlot(team);
                         if (!ts) {
                           throw new Error('選択されたチームに対応する参加可能時間が見つかりません');
                         }
                         const res = await fetch('/api/admin/assignments', {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                          },
                           body: JSON.stringify({
                             year: resolvedParams?.year,
                             formId: selectedForm,
                             responseId: selectedParticipant.responseId,
                             teamId: manualAssignTeamId,
                             timeSlot: ts,
-                          })
+                          }),
                         });
                         const data = await res.json();
                         if (!res.ok) throw new Error(data.error || '更新に失敗しました');
@@ -1498,15 +1714,24 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
 
               <div className="space-y-6 px-6 py-6">
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <div className="text-sm font-medium text-gray-900">{selectedParticipant.name}</div>
-                  <div className="text-sm text-gray-500">{selectedParticipant.grade}年 - {selectedParticipant.section}</div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {selectedParticipant.name}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {selectedParticipant.grade}年 - {selectedParticipant.section}
+                  </div>
                   <div className="mt-1 text-xs text-gray-500">
                     現在の希望時間帯: {getAvailabilityLabel(selectedParticipant.availableSlots)}
                   </div>
@@ -1520,18 +1745,32 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                   <div className="space-y-5">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">お名前 *</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          お名前 *
+                        </label>
                         <input
                           value={String(responseEditValues.participantName || '')}
-                          onChange={(e) => setResponseEditValues((current) => ({ ...current, participantName: e.target.value }))}
+                          onChange={(e) =>
+                            setResponseEditValues((current) => ({
+                              ...current,
+                              participantName: e.target.value,
+                            }))
+                          }
                           className="block w-full rounded-md border border-gray-300 px-3 py-2"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">学年 *</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          学年 *
+                        </label>
                         <select
                           value={String(responseEditValues.participantGrade || '')}
-                          onChange={(e) => setResponseEditValues((current) => ({ ...current, participantGrade: e.target.value }))}
+                          onChange={(e) =>
+                            setResponseEditValues((current) => ({
+                              ...current,
+                              participantGrade: e.target.value,
+                            }))
+                          }
                           className="block w-full rounded-md border border-gray-300 px-3 py-2"
                         >
                           <option value="">選択してください</option>
@@ -1542,10 +1781,17 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         </select>
                       </div>
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">所属セクション *</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          所属セクション *
+                        </label>
                         <input
                           value={String(responseEditValues.participantSection || '')}
-                          onChange={(e) => setResponseEditValues((current) => ({ ...current, participantSection: e.target.value }))}
+                          onChange={(e) =>
+                            setResponseEditValues((current) => ({
+                              ...current,
+                              participantSection: e.target.value,
+                            }))
+                          }
                           className="block w-full rounded-md border border-gray-300 px-3 py-2"
                         />
                       </div>

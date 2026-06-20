@@ -5,43 +5,31 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ storeId: string }> }
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
-  const {
-      storeName,
-      address,
-      distributionStatus,
-      failureReason,
-      distributedCount,
-      notes,
-    } = await request.json();
+    const { storeName, address, distributionStatus, failureReason, distributedCount, notes } =
+      await request.json();
 
     const resolvedParams = await params;
     const storeRef = adminDb.collection('stores').doc(resolvedParams.storeId);
     const storeDoc = await storeRef.get();
 
     if (!storeDoc.exists) {
-      return NextResponse.json(
-        { error: '店舗が見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: '店舗が見つかりません' }, { status: 404 });
     }
 
     const updateData: Record<string, unknown> = {
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     // 基本情報の更新
@@ -90,26 +78,22 @@ export async function PUT(
     const updatedDoc = await storeRef.get();
     const updatedStore = {
       id: updatedDoc.id,
-      ...updatedDoc.data()
+      ...updatedDoc.data(),
     };
 
     return NextResponse.json({
       success: true,
-      store: updatedStore
+      store: updatedStore,
     });
-
   } catch (error) {
     console.error('Update store error:', error);
-    return NextResponse.json(
-      { error: '店舗情報の更新に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '店舗情報の更新に失敗しました' }, { status: 500 });
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ storeId: string }> }
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
     const authHeader = request.headers.get('authorization');

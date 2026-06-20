@@ -8,14 +8,14 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return NextResponse.json(
         { error: 'メールアドレスとパスワードを入力してください' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!email.endsWith('@st.kanazawa-it.ac.jp')) {
       return NextResponse.json(
         { error: 'st.kanazawa-it.ac.jp ドメインのメールアドレスのみ使用可能です' },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -75,12 +75,8 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
-
   } catch (error) {
     console.error('Admin register error:', error);
-    return NextResponse.json(
-      { error: '管理者アカウントの作成に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '管理者アカウントの作成に失敗しました' }, { status: 500 });
   }
 }

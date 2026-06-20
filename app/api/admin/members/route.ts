@@ -31,19 +31,20 @@ export async function GET(request: NextRequest) {
     const yearStr = searchParams.get('year');
     if (!yearStr) return NextResponse.json({ error: 'year が必要です' }, { status: 400 });
     const year = parseInt(yearStr, 10);
-    if (Number.isNaN(year)) return NextResponse.json({ error: 'year の形式が不正です' }, { status: 400 });
+    if (Number.isNaN(year))
+      return NextResponse.json({ error: 'year の形式が不正です' }, { status: 400 });
 
     // 通常割り当てを取得（responseId, formId, teamId, timeSlot）
-    const assignmentsSnap = await adminDb
-      .collection('assignments')
-      .where('year', '==', year)
-      .get();
-    const assignments = assignmentsSnap.docs.map(d => d.data() as {
-      responseId: string;
-      formId: string;
-      teamId: string;
-      timeSlot: 'morning' | 'afternoon';
-    });
+    const assignmentsSnap = await adminDb.collection('assignments').where('year', '==', year).get();
+    const assignments = assignmentsSnap.docs.map(
+      (d) =>
+        d.data() as {
+          responseId: string;
+          formId: string;
+          teamId: string;
+          timeSlot: 'morning' | 'afternoon';
+        },
+    );
 
     // formIdごとに responseId をまとめて responses をバルク取得
     const byForm: Record<string, Set<string>> = {};
@@ -68,8 +69,8 @@ export async function GET(request: NextRequest) {
     };
 
     for (const [formId, idSet] of Object.entries(byForm)) {
-      const refs = Array.from(idSet).map((rid) => adminDb
-        .collection('forms').doc(formId).collection('responses').doc(rid)
+      const refs = Array.from(idSet).map((rid) =>
+        adminDb.collection('forms').doc(formId).collection('responses').doc(rid),
       );
       const snaps = await getAllChunked(refs);
       for (const s of snaps) if (s.exists) responseMap[s.id] = { formId, data: s.data() };
@@ -83,7 +84,11 @@ export async function GET(request: NextRequest) {
       const rec = responseMap[a.responseId];
       if (!rec) continue;
       const pd = rec.data?.participantData || {};
-      const submittedAt = rec.data?.submittedAt?.toDate ? rec.data.submittedAt.toDate() : (rec.data?.submittedAt ? new Date(rec.data.submittedAt) : new Date());
+      const submittedAt = rec.data?.submittedAt?.toDate
+        ? rec.data.submittedAt.toDate()
+        : rec.data?.submittedAt
+          ? new Date(rec.data.submittedAt)
+          : new Date();
       const availableSlots = normalizeAvailabilitySlots(pd.availableSlots);
       memberMap.set(a.responseId, {
         memberId: a.responseId,

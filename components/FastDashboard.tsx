@@ -20,14 +20,10 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
   const { navigateWithPreload } = useFastPageTransition();
 
   // 段階的データ読み込み
-  const {
-    data,
-    error,
-    isInitialLoading,
-    isLoadingMore,
-    hasMore,
-    loadMore
-  } = useProgressiveData(year, isAdmin);
+  const { data, error, isInitialLoading, isLoadingMore, hasMore, loadMore } = useProgressiveData(
+    year,
+    isAdmin,
+  );
 
   const teams = data?.teams || [];
   const totalPages = Math.max(1, Math.ceil(teams.length / pageSize));
@@ -41,7 +37,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
     setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPages));
   }, [totalPages]);
 
-
   // 初期読み込み中のスケルトン表示
   if (isInitialLoading || (!data && !error)) {
     return <LoadingScreen />;
@@ -53,12 +48,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
       <div className="min-h-screen bg-red-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6 text-center">
           <div className="text-red-500 text-4xl mb-4">⚡💥</div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            高速読み込みに失敗
-          </h2>
-          <p className="text-sm text-gray-600 mb-4">
-            サーバーの応答が遅延しています
-          </p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">高速読み込みに失敗</h2>
+          <p className="text-sm text-gray-600 mb-4">サーバーの応答が遅延しています</p>
           <div className="flex space-x-3 justify-center">
             <button
               onClick={() => window.location.reload()}
@@ -76,31 +67,45 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
-
           {/* イベント情報カード */}
           {Boolean((data as Record<string, unknown> | undefined)?.event) && (
             <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">
-                    {String(((data as Record<string, unknown>)?.event as Record<string, unknown>)?.eventName) || `${year}年度イベント`}
+                    {String(
+                      ((data as Record<string, unknown>)?.event as Record<string, unknown>)
+                        ?.eventName,
+                    ) || `${year}年度イベント`}
                   </h2>
                   <p className="text-sm text-gray-600 mt-2">
-                    配布期間: {(() => {
-                      const eventData = (data as Record<string, unknown>)?.event as Record<string, unknown>;
-                      const start = formatDateOnly(eventData?.distributionStartDate as string | number | Date | null | undefined);
-                      const end = formatDateOnly(eventData?.distributionEndDate as string | number | Date | null | undefined);
+                    配布期間:{' '}
+                    {(() => {
+                      const eventData = (data as Record<string, unknown>)?.event as Record<
+                        string,
+                        unknown
+                      >;
+                      const start = formatDateOnly(
+                        eventData?.distributionStartDate as
+                          | string
+                          | number
+                          | Date
+                          | null
+                          | undefined,
+                      );
+                      const end = formatDateOnly(
+                        eventData?.distributionEndDate as string | number | Date | null | undefined,
+                      );
 
-                      if (start !== '-' && end !== '-' && start !== end) return `${start} 〜 ${end}`;
+                      if (start !== '-' && end !== '-' && start !== end)
+                        return `${start} 〜 ${end}`;
                       return start !== '-' ? start : '未設定';
                     })()}
                   </p>
                 </div>
 
                 <div className="flex items-center space-x-2">
-                {isLoadingMore && (
-                    <LoadingInline size="sm" />
-                  )}
+                  {isLoadingMore && <LoadingInline size="sm" />}
                 </div>
               </div>
             </div>
@@ -119,14 +124,14 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 label: 'エリア数',
                 value: data?.stats?.totalAreas || 0,
                 icon: '📍',
-                href: `/admin/event/areas`
+                href: `/admin/event/areas`,
               },
               {
                 label: 'イベント設定',
                 value: '',
                 icon: '⚙️',
-                href: `/admin/event/${year}/setting`
-              }
+                href: `/admin/event/${year}/setting`,
+              },
             ].map((stat, index) => (
               <MetricCard
                 key={stat.label}
@@ -135,7 +140,13 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 icon={stat.icon}
                 onClick={stat.href ? () => navigateWithPreload(stat.href!) : undefined}
                 className="animate-[fadeInUp_0.6s_ease-out_forwards]"
-                valueClassName={stat.label.includes('回答者数') ? 'text-green-600' : stat.label === 'エリア数' ? 'text-purple-600' : 'text-indigo-600'}
+                valueClassName={
+                  stat.label.includes('回答者数')
+                    ? 'text-green-600'
+                    : stat.label === 'エリア数'
+                      ? 'text-purple-600'
+                      : 'text-indigo-600'
+                }
                 style={{ animationDelay: `${index * 100}ms` } as CSSProperties}
               />
             ))}
@@ -145,14 +156,10 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
           <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  チーム一覧
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-900">チーム一覧</h3>
               </div>
               <div className="flex items-center space-x-3">
-                {data?.progressive?.isLoading && (
-                  <LoadingInline size="sm" />
-                )}
+                {data?.progressive?.isLoading && <LoadingInline size="sm" />}
                 <span className="text-sm text-gray-500">
                   {teams.length} / {data?.stats?.totalTeams || 0} 件
                 </span>
@@ -176,8 +183,11 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      {['チーム', 'エリア', 'メンバー数', 'アクセス期間'].map(header => (
-                        <th key={header} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {['チーム', 'エリア', 'メンバー数', 'アクセス期間'].map((header) => (
+                        <th
+                          key={header}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
                           {header}
                         </th>
                       ))}
@@ -188,19 +198,17 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                       <tr
                         key={team.teamId}
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
-                        onClick={() => navigateWithPreload(`/admin/event/${year}/team/${team.teamId}`)}
+                        onClick={() =>
+                          navigateWithPreload(`/admin/event/${year}/team/${team.teamId}`)
+                        }
                         style={{
                           animationDelay: `${index * 30}ms`,
-                          animation: 'slideInFromLeft 0.4s ease-out forwards'
+                          animation: 'slideInFromLeft 0.4s ease-out forwards',
                         }}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {team.teamCode}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {team.teamName}
-                          </div>
+                          <div className="text-sm font-medium text-gray-900">{team.teamCode}</div>
+                          <div className="text-sm text-gray-500">{team.teamName}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -214,9 +222,14 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {(() => {
-                            const start = formatDateOnly(team.validStartDate as string | number | Date | null | undefined);
-                            const end = formatDateOnly(team.validEndDate as string | number | Date | null | undefined);
-                            if (start !== '-' && end !== '-' && start !== end) return `${start}〜${end}`;
+                            const start = formatDateOnly(
+                              team.validStartDate as string | number | Date | null | undefined,
+                            );
+                            const end = formatDateOnly(
+                              team.validEndDate as string | number | Date | null | undefined,
+                            );
+                            if (start !== '-' && end !== '-' && start !== end)
+                              return `${start}〜${end}`;
                             return start !== '-' ? start : '-';
                           })()}
                         </td>
@@ -269,7 +282,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
             transform: translateY(0);
           }
         }
-        
+
         @keyframes slideInFromLeft {
           from {
             opacity: 0;

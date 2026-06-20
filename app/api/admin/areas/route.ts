@@ -15,11 +15,19 @@ export async function GET(request: NextRequest) {
     }
 
     const snap = await adminDb.collection('areas').get();
-    const areas = snap.docs.map((doc) => ({
-      areaId: doc.id,
-      ...(doc.data() as { areaCode?: string; areaName?: string; adjacentAreas?: string[]; description?: string; createdAt?: { toDate?: () => Date } | Date }),
-      createdAt: doc.data().createdAt?.toDate() || new Date()
-    })).sort((a, b) => String(a.areaCode || '').localeCompare(String(b.areaCode || ''), 'ja'));
+    const areas = snap.docs
+      .map((doc) => ({
+        areaId: doc.id,
+        ...(doc.data() as {
+          areaCode?: string;
+          areaName?: string;
+          adjacentAreas?: string[];
+          description?: string;
+          createdAt?: { toDate?: () => Date } | Date;
+        }),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+      }))
+      .sort((a, b) => String(a.areaCode || '').localeCompare(String(b.areaCode || ''), 'ja'));
 
     return NextResponse.json({ areas });
   } catch (error) {
@@ -43,20 +51,24 @@ export async function POST(request: NextRequest) {
     const { areaCode, areaName, adjacentAreas, description } = await request.json();
 
     if (!areaCode || !areaName) {
-      return NextResponse.json({
-        error: 'areaCode, areaName は必須です'
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'areaCode, areaName は必須です',
+        },
+        { status: 400 },
+      );
     }
 
     // 区域コードが重複していないかチェック
-    const existingSnap = await adminDb.collection('areas')
-      .where('areaCode', '==', areaCode)
-      .get();
+    const existingSnap = await adminDb.collection('areas').where('areaCode', '==', areaCode).get();
 
     if (!existingSnap.empty) {
-      return NextResponse.json({ 
-        error: 'この区域コードは既に使用されています' 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'この区域コードは既に使用されています',
+        },
+        { status: 400 },
+      );
     }
 
     const areaData = {
@@ -64,13 +76,13 @@ export async function POST(request: NextRequest) {
       areaName,
       adjacentAreas: normalizeAdjacentAreas(adjacentAreas),
       description: description || '',
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     const docRef = await adminDb.collection('areas').add(areaData);
     const newArea = {
       areaId: docRef.id,
-      ...areaData
+      ...areaData,
     };
 
     return NextResponse.json({ success: true, area: newArea });

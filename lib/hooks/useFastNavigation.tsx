@@ -16,7 +16,7 @@ export function useFastNavigation() {
   const [navState, setNavState] = useState<NavigationState>({
     isNavigating: false,
     targetPath: null,
-    startTime: 0
+    startTime: 0,
   });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prefetcher = SmartPrefetcher.getInstance();
@@ -24,69 +24,74 @@ export function useFastNavigation() {
   /**
    * 超高速ナビゲーション（即座UIフィードバック + プリロード）
    */
-  const fastNavigate = useCallback(async (path: string, options?: {
-    replace?: boolean;
-    preloadData?: boolean;
-    showLoading?: boolean;
-  }) => {
-    const { replace = false, preloadData = true, showLoading = true } = options || {};
-    const startTime = Date.now();
+  const fastNavigate = useCallback(
+    async (
+      path: string,
+      options?: {
+        replace?: boolean;
+        preloadData?: boolean;
+        showLoading?: boolean;
+      },
+    ) => {
+      const { replace = false, preloadData = true, showLoading = true } = options || {};
+      const startTime = Date.now();
 
-    // 1. 即座にローディング状態を表示
-    if (showLoading) {
-      setNavState({
-        isNavigating: true,
-        targetPath: path,
-        startTime
-      });
-    }
+      // 1. 即座にローディング状態を表示
+      if (showLoading) {
+        setNavState({
+          isNavigating: true,
+          targetPath: path,
+          startTime,
+        });
+      }
 
-    // 2. データプリロードを並行実行
-    if (preloadData) {
-      // 年度ページの場合はダッシュボードをプリロード
-      const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
-      if (yearMatch) {
-        const year = parseInt(yearMatch[1]);
-        try {
-          preloadDashboard(year);
-        } catch (error) {
-          console.warn('Preload error:', error);
+      // 2. データプリロードを並行実行
+      if (preloadData) {
+        // 年度ページの場合はダッシュボードをプリロード
+        const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
+        if (yearMatch) {
+          const year = parseInt(yearMatch[1]);
+          try {
+            preloadDashboard(year);
+          } catch (error) {
+            console.warn('Preload error:', error);
+          }
         }
-      }
-      
-      // スマートプリフェッチでパターン学習
-      prefetcher.recordAccess(path);
-    }
 
-    // 3. ナビゲーション実行（非ブロッキング）
-    try {
-      if (replace) {
-        router.replace(path);
-      } else {
-        router.push(path);
+        // スマートプリフェッチでパターン学習
+        prefetcher.recordAccess(path);
       }
 
-      // 4. 最低150msは表示してスムーズ感を演出
-      const elapsed = Date.now() - startTime;
-      const minDelay = Math.max(0, 150 - elapsed);
-      
-      timeoutRef.current = setTimeout(() => {
+      // 3. ナビゲーション実行（非ブロッキング）
+      try {
+        if (replace) {
+          router.replace(path);
+        } else {
+          router.push(path);
+        }
+
+        // 4. 最低150msは表示してスムーズ感を演出
+        const elapsed = Date.now() - startTime;
+        const minDelay = Math.max(0, 150 - elapsed);
+
+        timeoutRef.current = setTimeout(() => {
+          setNavState({
+            isNavigating: false,
+            targetPath: null,
+            startTime: 0,
+          });
+        }, minDelay);
+      } catch (error) {
+        console.error('ナビゲーションエラー:', error);
         setNavState({
           isNavigating: false,
           targetPath: null,
-          startTime: 0
+          startTime: 0,
         });
-      }, minDelay);
-
-    } catch (error) {
-      console.error('ナビゲーションエラー:', error);
-      setNavState({
-        isNavigating: false,
-        targetPath: null,
-        startTime: 0
-      });
-    }
-  }, [router, prefetcher]);
+      }
+    },
+    [router, prefetcher],
+  );
 
   /**
    * ボタンホバー時のプリロード
@@ -110,7 +115,7 @@ export function useFastNavigation() {
     setNavState({
       isNavigating: false,
       targetPath: null,
-      startTime: 0
+      startTime: 0,
     });
   }, []);
 
@@ -120,7 +125,7 @@ export function useFastNavigation() {
     cancelNavigation,
     isNavigating: navState.isNavigating,
     targetPath: navState.targetPath,
-    navigationDuration: navState.startTime > 0 ? Date.now() - navState.startTime : 0
+    navigationDuration: navState.startTime > 0 ? Date.now() - navState.startTime : 0,
   };
 }
 
@@ -142,7 +147,7 @@ export function FastNavButton({
   className = '',
   replace = false,
   preloadData = true,
-  onClick
+  onClick,
 }: FastNavButtonProps) {
   const { fastNavigate, preloadOnHover, isNavigating } = useFastNavigation();
 

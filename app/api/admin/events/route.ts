@@ -22,7 +22,12 @@ function serializeDateOnlyValue(value: unknown, timeZone = DEFAULT_TIME_ZONE): s
   if (typeof value === 'string') return value;
   if (value instanceof Date) return formatDateOnlyInTimeZone(value, timeZone);
   if (typeof value === 'number') return formatDateOnlyInTimeZone(new Date(value), timeZone);
-  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
     return formatDateOnlyInTimeZone((value as { toDate: () => Date }).toDate(), timeZone);
   }
   return value;
@@ -33,7 +38,12 @@ function serializeDateTimeValue(value: unknown): string | unknown {
   if (typeof value === 'string') return value;
   if (value instanceof Date) return value.toISOString();
   if (typeof value === 'number') return new Date(value).toISOString();
-  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
     return (value as { toDate: () => Date }).toDate().toISOString();
   }
   return value;
@@ -51,7 +61,9 @@ function serializeEventDoc(id: string, data: Record<string, unknown>) {
     updatedAt,
     distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
     distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
-    distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots) ? data.distributionAvailabilitySlots : undefined,
+    distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots)
+      ? data.distributionAvailabilitySlots
+      : undefined,
   };
 }
 
@@ -80,14 +92,15 @@ export async function GET(request: NextRequest) {
         .get();
       if (snap.empty) return NextResponse.json({ data: null });
       const d = snap.docs[0];
-      return NextResponse.json({ data: serializeEventDoc(d.id, d.data() as Record<string, unknown>) });
+      return NextResponse.json({
+        data: serializeEventDoc(d.id, d.data() as Record<string, unknown>),
+      });
     }
 
-    const snap = await adminDb
-      .collection('distributionEvents')
-      .orderBy('year', 'desc')
-      .get();
-    const events = snap.docs.map(d => serializeEventDoc(d.id, d.data() as Record<string, unknown>));
+    const snap = await adminDb.collection('distributionEvents').orderBy('year', 'desc').get();
+    const events = snap.docs.map((d) =>
+      serializeEventDoc(d.id, d.data() as Record<string, unknown>),
+    );
     const latest = events[0] || null;
     return NextResponse.json({ events, latest });
   } catch (error) {
@@ -109,10 +122,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { year, eventName, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, eventId } = await request.json();
+    const {
+      year,
+      eventName,
+      distributionStartDate,
+      distributionEndDate,
+      distributionTimeZone,
+      distributionAvailabilitySlots,
+      eventId,
+    } = await request.json();
 
     if (!year || !distributionStartDate) {
-      return NextResponse.json({ error: '年度と配布日（開始日）を入力してください' }, { status: 400 });
+      return NextResponse.json(
+        { error: '年度と配布日（開始日）を入力してください' },
+        { status: 400 },
+      );
     }
 
     const y = parseInt(String(year));
@@ -133,16 +157,20 @@ export async function POST(request: NextRequest) {
     const id = eventId || `kodai${y}`;
     const docRef = adminDb.collection('distributionEvents').doc(id);
 
-    const timeZone = typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
-      ? distributionTimeZone.trim()
-      : DEFAULT_TIME_ZONE;
+    const timeZone =
+      typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
+        ? distributionTimeZone.trim()
+        : DEFAULT_TIME_ZONE;
     const startDateStr = String(distributionStartDate || '').trim();
     const endDateStr = String(distributionEndDate || distributionStartDate || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
       return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
     }
     if (startDateStr > endDateStr) {
-      return NextResponse.json({ error: '配布開始日は配布終了日以前を指定してください' }, { status: 400 });
+      return NextResponse.json(
+        { error: '配布開始日は配布終了日以前を指定してください' },
+        { status: 400 },
+      );
     }
 
     const payload = {
@@ -150,9 +178,10 @@ export async function POST(request: NextRequest) {
       eventName: eventName || `工大祭${y}`,
       distributionStartDate: startDateStr,
       distributionEndDate: endDateStr,
-      distributionAvailabilitySlots: Array.isArray(distributionAvailabilitySlots) && distributionAvailabilitySlots.length > 0
-        ? distributionAvailabilitySlots
-        : buildAvailabilitySlotChoices(startDateStr, endDateStr).map((choice) => choice.key),
+      distributionAvailabilitySlots:
+        Array.isArray(distributionAvailabilitySlots) && distributionAvailabilitySlots.length > 0
+          ? distributionAvailabilitySlots
+          : buildAvailabilitySlotChoices(startDateStr, endDateStr).map((choice) => choice.key),
       distributionTimeZone: timeZone,
       year: y,
       isActive: true,
@@ -168,7 +197,7 @@ export async function POST(request: NextRequest) {
         ...payload,
         createdAt: payload.createdAt.toISOString(),
         updatedAt: payload.updatedAt.toISOString(),
-      }
+      },
     });
   } catch (error) {
     console.error('Create event error:', error);
@@ -188,7 +217,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { id, year, eventName, distributionStartDate, distributionEndDate, distributionTimeZone, distributionAvailabilitySlots, isActive } = await request.json();
+    const {
+      id,
+      year,
+      eventName,
+      distributionStartDate,
+      distributionEndDate,
+      distributionTimeZone,
+      distributionAvailabilitySlots,
+      isActive,
+    } = await request.json();
     if (!id && !year) {
       return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
     }
@@ -198,15 +236,24 @@ export async function PATCH(request: NextRequest) {
       docRef = adminDb.collection('distributionEvents').doc(String(id));
     } else {
       const y = parseInt(String(year));
-      const snap = await adminDb.collection('distributionEvents').where('year', '==', y).limit(1).get();
-      if (snap.empty) return NextResponse.json({ error: '対象の年度が見つかりません' }, { status: 404 });
+      const snap = await adminDb
+        .collection('distributionEvents')
+        .where('year', '==', y)
+        .limit(1)
+        .get();
+      if (snap.empty)
+        return NextResponse.json({ error: '対象の年度が見つかりません' }, { status: 404 });
       docRef = snap.docs[0].ref;
     }
 
-    const timeZone = typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
-      ? distributionTimeZone.trim()
-      : DEFAULT_TIME_ZONE;
-    const update: Record<string, unknown> = { updatedAt: new Date(), distributionTimeZone: timeZone };
+    const timeZone =
+      typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
+        ? distributionTimeZone.trim()
+        : DEFAULT_TIME_ZONE;
+    const update: Record<string, unknown> = {
+      updatedAt: new Date(),
+      distributionTimeZone: timeZone,
+    };
     if (typeof eventName === 'string') update.eventName = eventName;
     if (typeof isActive === 'boolean') update.isActive = isActive;
     if (distributionStartDate || distributionEndDate) {
@@ -216,18 +263,26 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
       }
       if (startDateStr > endDateStr) {
-        return NextResponse.json({ error: '配布開始日は配布終了日以前を指定してください' }, { status: 400 });
+        return NextResponse.json(
+          { error: '配布開始日は配布終了日以前を指定してください' },
+          { status: 400 },
+        );
       }
       update.distributionStartDate = startDateStr;
       update.distributionEndDate = endDateStr;
     }
     if (Array.isArray(distributionAvailabilitySlots)) {
-      update.distributionAvailabilitySlots = distributionAvailabilitySlots.filter((slot) => typeof slot === 'string');
+      update.distributionAvailabilitySlots = distributionAvailabilitySlots.filter(
+        (slot) => typeof slot === 'string',
+      );
     }
 
     await docRef.update(update);
     const doc = await docRef.get();
-    return NextResponse.json({ success: true, data: serializeEventDoc(doc.id, doc.data() as Record<string, unknown>) });
+    return NextResponse.json({
+      success: true,
+      data: serializeEventDoc(doc.id, doc.data() as Record<string, unknown>),
+    });
   } catch (error) {
     console.error('Update event error:', error);
     return NextResponse.json({ error: 'イベントの更新に失敗しました' }, { status: 500 });
@@ -247,27 +302,41 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { id, year } = await request.json();
-    if (!id && !year) return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
+    if (!id && !year)
+      return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
 
     let docRef;
     if (id) {
       docRef = adminDb.collection('distributionEvents').doc(String(id));
     } else {
       const y = parseInt(String(year));
-      const snap = await adminDb.collection('distributionEvents').where('year', '==', y).limit(1).get();
-      if (snap.empty) return NextResponse.json({ error: '対象の年度が見つかりません' }, { status: 404 });
+      const snap = await adminDb
+        .collection('distributionEvents')
+        .where('year', '==', y)
+        .limit(1)
+        .get();
+      if (snap.empty)
+        return NextResponse.json({ error: '対象の年度が見つかりません' }, { status: 404 });
       docRef = snap.docs[0].ref;
     }
 
     const doc = await docRef.get();
-    if (!doc.exists) return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 });
+    if (!doc.exists)
+      return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 });
     const eid = doc.id;
 
     // 依存データがある場合は削除不可
-    const storesSnap = await adminDb.collection('stores').where('eventId', '==', eid).limit(1).get();
+    const storesSnap = await adminDb
+      .collection('stores')
+      .where('eventId', '==', eid)
+      .limit(1)
+      .get();
     const teamsSnap = await adminDb.collection('teams').where('eventId', '==', eid).limit(1).get();
     if (!storesSnap.empty || !teamsSnap.empty) {
-      return NextResponse.json({ error: '関連データ（stores/teams）が存在するため削除できません' }, { status: 409 });
+      return NextResponse.json(
+        { error: '関連データ（stores/teams）が存在するため削除できません' },
+        { status: 409 },
+      );
     }
 
     await docRef.delete();

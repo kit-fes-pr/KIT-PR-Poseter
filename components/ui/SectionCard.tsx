@@ -28,10 +28,7 @@ export function SectionCard({
         </div>
         {actions && <div className="flex items-center gap-3">{actions}</div>}
       </div>
-      <div className={bodyClassName}>
-        {children}
-      </div>
+      <div className={bodyClassName}>{children}</div>
     </section>
   );
 }
-

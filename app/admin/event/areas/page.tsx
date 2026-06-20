@@ -129,12 +129,12 @@ export default function AreasPage() {
 
   const openEditModal = (area: Area) => {
     setEditingAreaId(area.areaId);
-      setEditForm({
-        areaCode: area.areaCode || '',
-        areaName: area.areaName || '',
-        adjacentAreas: Array.isArray(area.adjacentAreas) ? area.adjacentAreas.join(', ') : '',
-        description: area.description || '',
-      });
+    setEditForm({
+      areaCode: area.areaCode || '',
+      areaName: area.areaName || '',
+      adjacentAreas: Array.isArray(area.adjacentAreas) ? area.adjacentAreas.join(', ') : '',
+      description: area.description || '',
+    });
   };
 
   const closeEditModal = () => {
@@ -183,14 +183,14 @@ export default function AreasPage() {
         <YearPageSectionHeader
           title="配布区域管理"
           description="すべての年度で共通の配布区域を追加、編集、削除します。"
-          actions={(
+          actions={
             <button
               onClick={() => navigateWithPreload('/admin/event')}
               className="px-4 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50"
             >
               年度一覧へ
             </button>
-          )}
+          }
         />
 
         {error && (
@@ -222,7 +222,9 @@ export default function AreasPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  周辺区域（カンマ区切り）
+                </label>
                 <textarea
                   value={form.adjacentAreas}
                   onChange={(e) => setForm({ ...form, adjacentAreas: e.target.value })}
@@ -257,19 +259,27 @@ export default function AreasPage() {
             </div>
 
             {areas.length === 0 ? (
-              <div className="py-12 text-center text-gray-500">
-                配布区域が登録されていません
-              </div>
+              <div className="py-12 text-center text-gray-500">配布区域が登録されていません</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">区域コード</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">区域名</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">周辺区域</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">説明</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        区域コード
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        区域名
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        周辺区域
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        説明
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        操作
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -278,9 +288,13 @@ export default function AreasPage() {
                         <td className="px-4 py-3 text-sm text-gray-900">{area.areaCode}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{area.areaName}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {Array.isArray(area.adjacentAreas) && area.adjacentAreas.length > 0 ? area.adjacentAreas.join(', ') : '-'}
+                          {Array.isArray(area.adjacentAreas) && area.adjacentAreas.length > 0
+                            ? area.adjacentAreas.join(', ')
+                            : '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{area.description || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {area.description || '-'}
+                        </td>
                         <td className="px-4 py-3 text-right text-sm">
                           <div className="flex items-center justify-end gap-2">
                             <button
@@ -306,67 +320,65 @@ export default function AreasPage() {
           </div>
         </div>
 
-        <Modal
-          open={Boolean(editingAreaId)}
-          onClose={closeEditModal}
-          panelClassName="max-w-lg p-6"
-        >
-            <div className="w-full">
-              <h2 className="mb-4 text-lg font-medium text-gray-900">配布区域を編集</h2>
-              <form onSubmit={handleUpdate} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">区域コード *</label>
-                  <input
-                    value={editForm.areaCode}
-                    onChange={(e) => setEditForm({ ...editForm, areaCode: e.target.value })}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">区域名 *</label>
-                  <input
-                    value={editForm.areaName}
-                    onChange={(e) => setEditForm({ ...editForm, areaName: e.target.value })}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
-                  <textarea
-                    value={editForm.adjacentAreas}
-                    onChange={(e) => setEditForm({ ...editForm, adjacentAreas: e.target.value })}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2"
-                    rows={3}
-                    placeholder="A-02, A-03"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2"
-                    rows={4}
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={closeEditModal}
-                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={editingSubmitting}
-                    className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {editingSubmitting ? '更新中...' : '更新'}
-                  </button>
-                </div>
-              </form>
-            </div>
+        <Modal open={Boolean(editingAreaId)} onClose={closeEditModal} panelClassName="max-w-lg p-6">
+          <div className="w-full">
+            <h2 className="mb-4 text-lg font-medium text-gray-900">配布区域を編集</h2>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">区域コード *</label>
+                <input
+                  value={editForm.areaCode}
+                  onChange={(e) => setEditForm({ ...editForm, areaCode: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">区域名 *</label>
+                <input
+                  value={editForm.areaName}
+                  onChange={(e) => setEditForm({ ...editForm, areaName: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  周辺区域（カンマ区切り）
+                </label>
+                <textarea
+                  value={editForm.adjacentAreas}
+                  onChange={(e) => setEditForm({ ...editForm, adjacentAreas: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2"
+                  rows={3}
+                  placeholder="A-02, A-03"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2"
+                  rows={4}
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  disabled={editingSubmitting}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {editingSubmitting ? '更新中...' : '更新'}
+                </button>
+              </div>
+            </form>
+          </div>
         </Modal>
       </div>
     </div>

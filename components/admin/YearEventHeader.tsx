@@ -14,9 +14,7 @@ export default function YearEventHeader({ year }: YearEventHeaderProps) {
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-gray-500">
             学外配布管理
           </p>
-          <h1 className="truncate text-lg font-semibold text-gray-900">
-            {year} 年度
-          </h1>
+          <h1 className="truncate text-lg font-semibold text-gray-900">{year} 年度</h1>
         </div>
 
         <div className="flex items-center gap-2">

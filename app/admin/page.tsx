@@ -20,15 +20,15 @@ export default function AdminLogin() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       setAuthLoading(false);
-      
+
       // ログイン済みの場合は管理者権限をチェックしてからリダイレクト
       if (user) {
         try {
           const idToken = await user.getIdToken();
           const response = await fetch('/api/auth/verify', {
-            headers: { Authorization: `Bearer ${idToken}` }
+            headers: { Authorization: `Bearer ${idToken}` },
           });
-          
+
           if (response.ok) {
             const data = await response.json();
             if (data?.user?.isAdmin) {
@@ -81,18 +81,18 @@ export default function AdminLogin() {
         // カスタムトークンを使ってFirebase認証
         const { auth } = await import('@/lib/firebase');
         const { signInWithCustomToken, getIdToken } = await import('firebase/auth');
-        
+
         if (result.customToken) {
           try {
             // カスタムトークンでサインイン
             const userCredential = await signInWithCustomToken(auth, result.customToken);
             console.log('Signed in with custom token:', userCredential.user.uid);
-            
+
             // IDトークンを取得
             const idToken = await getIdToken(userCredential.user);
             localStorage.setItem('authToken', idToken);
             console.log('ID Token stored:', idToken.substring(0, 50) + '...');
-            
+
             router.push('/admin/event');
           } catch (authError) {
             console.error('Custom token authentication failed:', authError);
@@ -125,9 +125,7 @@ export default function AdminLogin() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          管理者ログイン
-        </h2>
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">管理者ログイン</h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           st.kanazawa-it.ac.jp ドメインのメールアドレスでログインしてください
         </p>
@@ -150,14 +148,12 @@ export default function AdminLogin() {
                     required: 'メールアドレスを入力してください',
                     pattern: {
                       value: /^[^\s@]+@st\.kanazawa-it\.ac\.jp$/,
-                      message: 'st.kanazawa-it.ac.jp ドメインのメールアドレスを入力してください'
-                    }
+                      message: 'st.kanazawa-it.ac.jp ドメインのメールアドレスを入力してください',
+                    },
                   })}
                 />
               </div>
-              {errors.email && (
-                <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>
@@ -173,8 +169,8 @@ export default function AdminLogin() {
                     required: 'パスワードを入力してください',
                     minLength: {
                       value: 6,
-                      message: 'パスワードは6文字以上で入力してください'
-                    }
+                      message: 'パスワードは6文字以上で入力してください',
+                    },
                   })}
                 />
               </div>

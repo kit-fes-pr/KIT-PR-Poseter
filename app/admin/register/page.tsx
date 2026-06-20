@@ -35,22 +35,22 @@ export default function AdminRegister() {
 
       if (response.ok) {
         setSuccess('管理者アカウントが作成されました！管理者ダッシュボードに移動します...');
-        
+
         // カスタムトークンを使ってFirebase認証
         const { auth } = await import('@/lib/firebase');
         const { signInWithCustomToken, getIdToken } = await import('firebase/auth');
-        
+
         if (result.customToken) {
           try {
             // カスタムトークンでサインイン
             const userCredential = await signInWithCustomToken(auth, result.customToken);
             console.log('Signed in with custom token after registration:', userCredential.user.uid);
-            
+
             // IDトークンを取得
             const idToken = await getIdToken(userCredential.user);
             localStorage.setItem('authToken', idToken);
             console.log('ID Token stored after registration:', idToken.substring(0, 50) + '...');
-            
+
             setTimeout(() => {
               router.push('/admin/dashboard');
             }, 2000);
@@ -104,14 +104,12 @@ export default function AdminRegister() {
                     required: 'メールアドレスを入力してください',
                     pattern: {
                       value: /^[^\s@]+@st\.kanazawa-it\.ac\.jp$/,
-                      message: 'st.kanazawa-it.ac.jp ドメインのメールアドレスを入力してください'
-                    }
+                      message: 'st.kanazawa-it.ac.jp ドメインのメールアドレスを入力してください',
+                    },
                   })}
                 />
               </div>
-              {errors.email && (
-                <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>
@@ -127,8 +125,8 @@ export default function AdminRegister() {
                     required: 'パスワードを入力してください',
                     minLength: {
                       value: 6,
-                      message: 'パスワードは6文字以上で入力してください'
-                    }
+                      message: 'パスワードは6文字以上で入力してください',
+                    },
                   })}
                 />
               </div>

@@ -33,19 +33,20 @@ export default function AdminEventYear() {
         const token = localStorage.getItem('authToken');
         if (!token) {
           if (mounted) {
-            navigateWithPreload('/admin', { replace: true,  });
+            navigateWithPreload('/admin', { replace: true });
           }
           return;
         }
 
         // 高速認証確認
         const authResponse = await retryOperation(
-          () => fetch('/api/auth/verify', {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 5000
-          } as RequestInit),
+          () =>
+            fetch('/api/auth/verify', {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 5000,
+            } as RequestInit),
           'fast-auth',
-          { maxRetries: 2 }
+          { maxRetries: 2 },
         );
 
         if (authResponse.ok) {
@@ -53,20 +54,19 @@ export default function AdminEventYear() {
           if (data?.user?.isAdmin && mounted) {
             setIsAdmin(true);
           } else if (mounted) {
-            navigateWithPreload('/admin', { replace: true,  });
+            navigateWithPreload('/admin', { replace: true });
           }
         } else if (mounted) {
           localStorage.removeItem('authToken');
-          navigateWithPreload('/admin', { replace: true,  });
+          navigateWithPreload('/admin', { replace: true });
         }
-
       } catch (error) {
         const diagnosis = handleError(error, 'fast-auth');
 
         if (mounted) {
           if (diagnosis.type === 'auth') {
             localStorage.removeItem('authToken');
-            navigateWithPreload('/admin', { replace: true,  });
+            navigateWithPreload('/admin', { replace: true });
           } else if (diagnosis.recoverable) {
             setAuthError('認証の確認中にエラーが発生しました');
           } else {
@@ -109,11 +109,7 @@ export default function AdminEventYear() {
 
   // 全画面ローディング
   if (authLoading || isNavigating) {
-    return (
-      <FastLoadingIndicator
-        message="読み込み中..."
-      />
-    );
+    return <FastLoadingIndicator message="読み込み中..." />;
   }
 
   // 認証エラー
@@ -122,12 +118,8 @@ export default function AdminEventYear() {
       <div className="min-h-screen bg-red-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6 text-center">
           <div className="text-red-500 text-4xl mb-4">🔒</div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            認証エラー
-          </h2>
-          <p className="text-sm text-gray-600 mb-4">
-            {authError}
-          </p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">認証エラー</h2>
+          <p className="text-sm text-gray-600 mb-4">{authError}</p>
           <div className="flex space-x-3 justify-center">
             <button
               onClick={() => window.location.reload()}
@@ -153,12 +145,8 @@ export default function AdminEventYear() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">⛔</div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">
-            アクセス権限がありません
-          </h2>
-          <p className="text-gray-500 mb-4">
-            管理者権限が必要です
-          </p>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">アクセス権限がありません</h2>
+          <p className="text-gray-500 mb-4">管理者権限が必要です</p>
           <button
             onClick={() => navigateWithPreload('/admin')}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
