@@ -74,7 +74,7 @@ export interface Member {
   availableSlots?: string[];
   teamId?: string;
   year?: number; // 年度
-  source: "csv" | "form";
+  source: "form";
   createdAt: Date | string;
   updatedAt?: Date | string;
 }

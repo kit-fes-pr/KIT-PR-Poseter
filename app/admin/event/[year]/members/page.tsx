@@ -14,7 +14,6 @@ interface Member {
   section: string;
   grade: number;
   availableSlots?: string[];
-  source: 'csv' | 'form' | 'manual';
   teamId?: string;
   createdAt: Date;
 }
@@ -80,20 +79,6 @@ export default function MembersPage() {
     init();
   }, [router, year, loadMembers]);
 
-  const getSourceBadge = (source: string) => {
-    const config = {
-      csv: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'CSV' },
-      form: { bg: 'bg-indigo-100', text: 'text-indigo-800', label: 'フォーム' },
-      manual: { bg: 'bg-gray-100', text: 'text-gray-800', label: '手動' }
-    };
-    const { bg, text, label } = config[source as keyof typeof config] || config.manual;
-    return (
-      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${bg} ${text}`}>
-        {label}
-      </span>
-    );
-  };
-
   if (!isAdmin || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -146,7 +131,6 @@ export default function MembersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学年</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">セクション</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参加可能時間帯</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">登録方法</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">チーム割り当て</th>
                 </tr>
               </thead>
@@ -181,9 +165,6 @@ export default function MembersPage() {
                             </span>
                           )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getSourceBadge(member.source)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {member.teamId ? (
