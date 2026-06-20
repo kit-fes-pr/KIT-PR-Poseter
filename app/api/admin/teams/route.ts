@@ -1,8 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { Team } from '@/types';
+import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
 
-const VALID_TIME_SLOTS = ['morning', 'afternoon', 'both', 'other'] as const;
+function normalizeAdjacentAreas(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
+  const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
+  if (!snap.exists) return [];
+  const data = snap.data() as Record<string, unknown>;
+  const stored = normalizeAvailabilitySlots(data.distributionAvailabilitySlots);
+  if (stored.length > 0) return stored;
+  return buildAvailabilitySlotChoices(data.distributionStartDate, data.distributionEndDate).map((choice) => choice.key);
+}
+
+async function loadAreaForTeam(areaId: unknown, assignedArea: unknown) {
+  if (typeof areaId === 'string' && areaId) {
+    const doc = await adminDb.collection('areas').doc(areaId).get();
+    if (doc.exists) return { areaId: doc.id, ...(doc.data() as Record<string, unknown>) };
+  }
+  if (typeof assignedArea === 'string' && assignedArea) {
+    const snap = await adminDb.collection('areas').where('areaCode', '==', assignedArea).limit(1).get();
+    if (!snap.empty) {
+      const doc = snap.docs[0];
+      return { areaId: doc.id, ...(doc.data() as Record<string, unknown>) };
+    }
+  }
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,14 +62,13 @@ export async function POST(request: NextRequest) {
       teamCode,
       teamName,
       timeSlot,
+      areaId,
       assignedArea,
-      adjacentAreas,
       eventId,
-      validStartDate,
-      validEndDate
+      year,
     } = await request.json();
 
-    if (!teamCode || !teamName || !assignedArea || !eventId) {
+    if (!teamCode || !teamName || !eventId) {
       return NextResponse.json(
         { error: '必須フィールドが不足しています' },
         { status: 400 }
@@ -57,18 +89,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const eventAvailabilitySlots = await loadEventAvailabilitySlots(String(eventId));
+    if (eventAvailabilitySlots.length === 0) {
+      return NextResponse.json(
+        { error: '配布枠が未設定です' },
+        { status: 400 }
+      );
+    }
+    if (typeof timeSlot !== 'string' || !eventAvailabilitySlots.includes(timeSlot)) {
+      return NextResponse.json(
+        { error: 'timeSlot は配布枠キーから選択してください' },
+        { status: 400 }
+      );
+    }
+
+    const area = await loadAreaForTeam(areaId, assignedArea);
+    if (!area) {
+      return NextResponse.json(
+        { error: '配布区域が見つかりません' },
+        { status: 400 }
+      );
+    }
+
     const teamRef = adminDb.collection('teams').doc();
     const teamData: Omit<Team, 'teamId'> = {
       teamCode,
       teamName,
-      timeSlot: VALID_TIME_SLOTS.includes(timeSlot) ? timeSlot : 'both',
-      assignedArea,
-      adjacentAreas: adjacentAreas || [],
+      timeSlot,
+      areaId: String((area as Record<string, unknown>).areaId || areaId || ''),
+      assignedArea: String((area as Record<string, unknown>).areaCode || assignedArea || ''),
+      adjacentAreas: normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas),
       eventId,
+      year: typeof year === 'number' && Number.isFinite(year) ? year : undefined,
       isActive: true,
-      validStartDate: validStartDate ? new Date(validStartDate) : undefined,
-      validEndDate: validEndDate ? new Date(validEndDate) : undefined,
-      createdAt: new Date()
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     await teamRef.set({
@@ -121,34 +176,45 @@ export async function GET(request: NextRequest) {
     const scope = searchParams.get('scope');
 
     if (scope === 'all') {
-      const teamsSnapshot = await adminDb.collection('teams')
-        .where('isActive', '==', true)
-        .get();
-
-      const teams = teamsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const teamsSnapshot = await adminDb.collection('teams').get();
+      const teams = teamsSnapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Record<string, unknown>),
+        }))
+        .filter((team) => (team as Record<string, unknown>).isActive !== false);
 
       return NextResponse.json({ teams });
     }
 
     let targetEventId = eventIdParam || 'kohdai2025';
+    let targetYear = Number.NaN;
     if (!eventIdParam && yearParam) {
       const y = parseInt(yearParam);
+      targetYear = y;
       const evSnap = await adminDb.collection('distributionEvents').where('year', '==', y).limit(1).get();
       if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
     }
 
-    const teamsSnapshot = await adminDb.collection('teams')
+    const snapshotMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    const byEventId = await adminDb.collection('teams')
       .where('eventId', '==', targetEventId)
-      .where('isActive', '==', true)
       .get();
+    byEventId.docs.forEach((doc) => snapshotMap.set(doc.id, doc));
 
-    const teams = teamsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    if (Number.isFinite(targetYear)) {
+      const byYear = await adminDb.collection('teams')
+        .where('year', '==', targetYear)
+        .get();
+      byYear.docs.forEach((doc) => snapshotMap.set(doc.id, doc));
+    }
+
+    const teams = Array.from(snapshotMap.values())
+      .map(doc => ({
+        id: doc.id,
+        ...(doc.data() as Record<string, unknown>)
+      }))
+      .filter((team) => (team as Record<string, unknown>).isActive !== false);
 
     return NextResponse.json({ teams });
 
@@ -174,7 +240,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { teamId, validDate, validStartDate, validEndDate } = await request.json();
+    const body = await request.json();
+    const { teamId } = body;
     if (!teamId) {
       return NextResponse.json({ error: 'teamId は必須です' }, { status: 400 });
     }
@@ -184,26 +251,33 @@ export async function PATCH(request: NextRequest) {
     if (!doc.exists) return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
 
     const update: Record<string, unknown> = { updatedAt: new Date() };
-    // 後方互換: validDate が来たら単日として両端にセット
-    if (validDate) {
-      const d = new Date(validDate);
-      if (isNaN(d.getTime())) return NextResponse.json({ error: 'validDate の形式が不正です' }, { status: 400 });
-      update.validStartDate = d;
-      update.validEndDate = d;
+    const currentTeam = doc.data() as Record<string, unknown>;
+    if (typeof body.year === 'number' && Number.isFinite(body.year)) {
+      update.year = body.year;
     }
-    if (validStartDate) {
-      const s = new Date(validStartDate);
-      if (isNaN(s.getTime())) return NextResponse.json({ error: 'validStartDate の形式が不正です' }, { status: 400 });
-      update.validStartDate = s;
+    if (typeof body.timeSlot === 'string') {
+      const eventId = currentTeam.eventId;
+      const eventAvailabilitySlots = typeof eventId === 'string'
+        ? await loadEventAvailabilitySlots(eventId)
+        : [];
+      if (eventAvailabilitySlots.length > 0 && !eventAvailabilitySlots.includes(body.timeSlot)) {
+        return NextResponse.json(
+          { error: 'timeSlot は配布枠キーから選択してください' },
+          { status: 400 }
+        );
+      }
+      update.timeSlot = body.timeSlot;
     }
-    if (validEndDate) {
-      const e = new Date(validEndDate);
-      if (isNaN(e.getTime())) return NextResponse.json({ error: 'validEndDate の形式が不正です' }, { status: 400 });
-      update.validEndDate = e;
-    }
-
-    if (!('validStartDate' in update) && !('validEndDate' in update)) {
-      return NextResponse.json({ error: '更新対象のフィールドがありません' }, { status: 400 });
+    if (typeof body.teamName === 'string') update.teamName = body.teamName;
+    if (typeof body.teamCode === 'string') update.teamCode = body.teamCode;
+    if (typeof body.assignedArea === 'string' || typeof body.areaId === 'string') {
+      const area = await loadAreaForTeam(body.areaId, body.assignedArea);
+      if (!area) {
+        return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
+      }
+      update.areaId = String((area as Record<string, unknown>).areaId || body.areaId || '');
+      update.assignedArea = String((area as Record<string, unknown>).areaCode || body.assignedArea || '');
+      update.adjacentAreas = normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas);
     }
 
     await ref.update(update);

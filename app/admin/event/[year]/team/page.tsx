@@ -6,17 +6,26 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
-import { getAvailabilitySummaryLabel, summarizeAvailabilitySlots } from '@/lib/utils/availability';
+import {
+  UNAVAILABLE_SLOT_KEY,
+  ALL_AVAILABLE_SLOT_KEY,
+  buildAvailabilitySlotChoices,
+  formatAvailabilitySlotLabel,
+  normalizeAvailabilitySlots,
+  getAvailabilityDateSlotKeys,
+  toggleAvailabilitySelection,
+} from '@/lib/utils/availability';
 import { LoadingInline } from '@/components/ui/Loading';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { Area } from '@/types';
+import type { FormAnswer } from '@/types/forms';
 
 interface Participant {
   responseId: string;
   name: string;
   grade: number;
   section: string;
-  availability: 'morning' | 'afternoon' | 'both' | 'other';
+  availableSlots: string[];
   submittedAt: Date;
 }
 
@@ -24,14 +33,11 @@ interface Team {
   teamId: string;
   teamCode: string;
   teamName: string;
-  timeSlot: 'morning' | 'afternoon' | 'both' | 'other';
+  timeSlot: string;
   areaId?: string;
   assignedArea: string;
-  adjacentAreas?: string[];
   maxMembers: number;
   preferredGrades?: number[];
-  validStartDate?: unknown;
-  validEndDate?: unknown;
 }
 
 interface Assignment {
@@ -39,7 +45,42 @@ interface Assignment {
   teamId: string;
   assignedAt: Date;
   assignedBy: 'auto' | 'manual';
-  timeSlot: 'morning' | 'afternoon';
+  timeSlot: string;
+}
+
+interface FormField {
+  fieldId: string;
+  type: 'text' | 'select' | 'radio' | 'checkbox' | 'textarea' | 'number';
+  label: string;
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+  validation?: {
+    minLength?: number;
+    maxLength?: number;
+    min?: number;
+    max?: number;
+    pattern?: string;
+  };
+  order: number;
+}
+
+interface CurrentForm {
+  formId: string;
+  title: string;
+  fields: FormField[];
+}
+
+interface ResponseRecord {
+  responseId: string;
+  participantData?: {
+    name: string;
+    grade: number;
+    section: string;
+    availableSlots?: string[];
+  };
+  answers?: FormAnswer[];
+  submittedAt: string | Date;
 }
 
 export default function TeamAssignmentPage({ params }: { params: Promise<{ year: string }> }) {
@@ -51,31 +92,40 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   const [teams, setTeams] = useState<Team[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [distributionSlots, setDistributionSlots] = useState<string[]>([]);
+  const [distributionEventId, setDistributionEventId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [assignmentMode, setAssignmentMode] = useState<'auto' | 'manual'>('auto');
   const [selectedForm, setSelectedForm] = useState<string>('');
-  const [availableForms, setAvailableForms] = useState<Array<{
-    formId: string;
-    title: string;
-    responseCount: number;
-  }>>([]);
+  const [selectedFormTitle, setSelectedFormTitle] = useState<string>('');
+  const [currentForm, setCurrentForm] = useState<CurrentForm | null>(null);
+  const [responseRecords, setResponseRecords] = useState<Record<string, ResponseRecord>>({});
   const [showManualModal, setShowManualModal] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
   const [manualAssignTeamId, setManualAssignTeamId] = useState<string>('');
   const [manualAssignLoading, setManualAssignLoading] = useState<boolean>(false);
+  const [showResponseEditModal, setShowResponseEditModal] = useState(false);
+  const [selectedResponseId, setSelectedResponseId] = useState<string>('');
+  const [editingResponseLoading, setEditingResponseLoading] = useState(false);
+  const [responseEditValues, setResponseEditValues] = useState<Record<string, string | string[]>>({});
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('');
-  const [includeOtherTeams, setIncludeOtherTeams] = useState<boolean>(false);
   const [showCreateTeamForm, setShowCreateTeamForm] = useState(false);
   const [createTeamSubmitting, setCreateTeamSubmitting] = useState(false);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [lastAutoAssignmentStats, setLastAutoAssignmentStats] = useState<{
+    total: number;
+    assigned: number;
+    unassigned: number;
+    skippedUnavailable: number;
+    skippedNoMatchingTeam: number;
+    skippedFull: number;
+  } | null>(null);
   const [createTeamForm, setCreateTeamForm] = useState({
     teamCode: '',
     teamName: '',
     areaId: '',
-    timeSlot: 'both' as 'morning' | 'afternoon' | 'both' | 'other',
-    adjacentAreas: '',
-    validStartDate: '',
-    validEndDate: '',
+    timeSlot: '',
   });
 
   useEffect(() => {
@@ -108,21 +158,54 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       setLoading(true);
       const token = await user.getIdToken();
 
-      // 利用可能なフォーム一覧を取得
-      const formsRes = await fetch(`/api/forms?eventId=kohdai${resolvedParams.year}`, {
+      const eventRes = await fetch(`/api/admin/events?year=${resolvedParams.year}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
-      if (formsRes.ok) {
-        const formsData = await formsRes.json();
-        setAvailableForms(formsData.forms || []);
+      let eventIdForYear = `kohdai${resolvedParams.year}`;
+      if (eventRes.ok) {
+        const eventJson = await eventRes.json();
+        const eventData = eventJson?.data as {
+          id?: string;
+          distributionAvailabilitySlots?: string[];
+          distributionStartDate?: string | Date;
+          distributionEndDate?: string | Date;
+        } | null;
+        eventIdForYear = eventData?.id || eventIdForYear;
+        setDistributionEventId(eventIdForYear);
+
+        const slots = Array.isArray(eventData?.distributionAvailabilitySlots) && eventData?.distributionAvailabilitySlots.length > 0
+          ? eventData!.distributionAvailabilitySlots!.filter((slot): slot is string => typeof slot === 'string')
+          : buildAvailabilitySlotChoices(eventData?.distributionStartDate, eventData?.distributionEndDate).map((choice) => choice.key);
+        setDistributionSlots(slots);
+        if (!createTeamForm.timeSlot && slots.length > 0) {
+          setCreateTeamForm((prev) => ({ ...prev, timeSlot: slots[0] }));
+        }
+      } else {
+        setDistributionEventId(eventIdForYear);
       }
 
-      // チーム一覧を取得
+      const formsRes = await fetch(`/api/forms?eventId=${encodeURIComponent(eventIdForYear)}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const formsData = formsRes.ok ? await formsRes.json() : null;
+      const nextForm = Array.isArray(formsData?.forms) && formsData.forms.length > 0 ? (formsData.forms[0] as CurrentForm) : null;
+      if (nextForm) {
+        setCurrentForm(nextForm);
+        setSelectedForm(nextForm.formId);
+        setSelectedFormTitle(nextForm.title || '');
+        await loadParticipants(nextForm.formId);
+      } else {
+        setCurrentForm(null);
+        setSelectedForm('');
+        setSelectedFormTitle('');
+        setParticipants([]);
+        setResponseRecords({});
+      }
+
       await loadTeams();
       await loadAreas();
-
-      // 既存の割り当てを取得
       await loadAssignments();
     } catch (err) {
       setError('データの取得に失敗しました');
@@ -132,31 +215,273 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     }
   };
 
-  const formatTeamPeriod = (t?: Team) => {
-    if (!t) return '-';
-    const parseAny = (v: unknown) => {
-      const obj = v as { _seconds?: number; toDate?: () => Date } | string | Date | undefined | null;
-      if (!obj) return undefined as unknown as Date;
-      if (typeof obj === 'string') return new Date(obj);
-      if (obj instanceof Date) return obj;
-      if (typeof obj === 'object') {
-        if (typeof obj._seconds === 'number') return new Date(obj._seconds * 1000);
-        if (typeof obj.toDate === 'function') return obj.toDate();
-      }
-      return new Date(obj as unknown as Date);
-    };
-    const s = t.validStartDate ? parseAny(t.validStartDate) : undefined;
-    const e = t.validEndDate ? parseAny(t.validEndDate) : undefined;
-    const fmt = (d?: Date) => (d && !isNaN(d.getTime()) ? d.toLocaleDateString('ja-JP') : '');
-    const fs = fmt(s);
-    const fe = fmt(e);
-    if (fs && fe && fs !== fe) return `${fs} 〜 ${fe}`;
-    if (fs) return fs;
-    return '-';
+  const getAvailabilityLabel = (slots: string[]) => {
+    const normalized = normalizeAvailabilitySlots(slots);
+    if (normalized.length === 0) return '-';
+    return normalized.map((slot) => formatAvailabilitySlotLabel(slot)).join(' / ');
   };
 
-  const getAvailabilityLabel = (availability: string) => {
-    return getAvailabilitySummaryLabel(availability);
+  const openResponseEditModal = (participant: Participant) => {
+    const record = responseRecords[participant.responseId];
+    const answerMap = new Map((record?.answers || []).map((answer) => [answer.fieldId, answer.value]));
+
+    setSelectedParticipant(participant);
+    setSelectedResponseId(participant.responseId);
+    setResponseEditValues({
+      participantName: record?.participantData?.name || participant.name || '',
+      participantGrade: String(record?.participantData?.grade || participant.grade || ''),
+      participantSection: record?.participantData?.section || participant.section || '',
+      availability: normalizeAvailabilitySlots(record?.participantData?.availableSlots || participant.availableSlots),
+      ...Object.fromEntries(answerMap.entries()),
+    });
+    setShowResponseEditModal(true);
+  };
+
+  const updateAvailabilityField = (fieldId: string, option: string, options: string[]) => {
+    const allDateSlotKeys = getAvailabilityDateSlotKeys(options.map((key) => ({ key })));
+    setResponseEditValues((current) => {
+      const currentValues = normalizeAvailabilitySlots(current[fieldId]);
+      const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+      return { ...current, [fieldId]: nextValues };
+    });
+  };
+
+  const saveResponseEdit = async () => {
+    if (!resolvedParams || !user || !selectedForm || !selectedResponseId || !currentForm) return;
+
+    const record = responseRecords[selectedResponseId];
+    if (!record) {
+      setError('編集対象の回答が見つかりません');
+      return;
+    }
+
+    const availability = normalizeAvailabilitySlots(responseEditValues.availability);
+    if (availability.length === 0) {
+      setError('参加可能日時は一つ以上選択してください');
+      return;
+    }
+
+    try {
+      setEditingResponseLoading(true);
+      setError('');
+      const token = await user.getIdToken();
+
+      const answers: FormAnswer[] = currentForm.fields.map((field) => {
+        const value = responseEditValues[field.fieldId];
+        return {
+          fieldId: field.fieldId,
+          value: value ?? (field.type === 'checkbox' ? [] : ''),
+        };
+      });
+
+      const res = await fetch(`/api/forms/${selectedForm}/responses/${selectedResponseId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          answers,
+          participantData: {
+            name: String(responseEditValues.participantName || ''),
+            grade: String(responseEditValues.participantGrade || ''),
+            section: String(responseEditValues.participantSection || ''),
+            availableSlots: availability,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '回答の更新に失敗しました');
+
+      await loadParticipants(selectedForm);
+      setShowResponseEditModal(false);
+      setSelectedResponseId('');
+      setSelectedParticipant(null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '回答の更新に失敗しました';
+      setError(msg);
+    } finally {
+      setEditingResponseLoading(false);
+    }
+  };
+
+  const renderResponseEditField = (field: FormField) => {
+    const fieldId = field.fieldId;
+    const isAvailabilityField = fieldId === 'availability';
+    const label = `${field.label}${field.required ? ' *' : ''}`;
+    const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
+    const value = responseEditValues[fieldId];
+
+    if (isAvailabilityField && field.type === 'checkbox') {
+      const selectedValues = normalizeAvailabilitySlots(value);
+      const options = field.options || [];
+      const specialOptions = options.filter((option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY);
+      const dateOptions = options.filter((option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY);
+
+      return (
+        <div key={fieldId} className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              {specialOptions.length > 0 && (
+                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {specialOptions.map((option, index) => {
+                    const selected = selectedValues.includes(option);
+                    return (
+                      <label
+                        key={`${option}-${index}`}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
+                          selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => updateAvailabilityField(fieldId, option, options)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                            selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
+                          }`}
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
+                          </svg>
+                        </span>
+                        <span>
+                          <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
+                          <span className="mt-1 block text-xs text-gray-500">
+                            {option === ALL_AVAILABLE_SLOT_KEY ? '配布期間内の全日時に対応可能です' : 'この日時には参加できません'}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {dateOptions.map((option, index) => {
+                  const selected = selectedValues.includes(option);
+                  return (
+                    <label
+                      key={`${option}-${index}`}
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
+                        selected ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 bg-white hover:border-indigo-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => updateAvailabilityField(fieldId, option, options)}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                          selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-transparent'
+                        }`}
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
+                        </svg>
+                      </span>
+                      <span>
+                        <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
+                        <span className="mt-1 block text-xs text-gray-500">複数選択できます</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === 'select' || field.type === 'radio') {
+      return (
+        <div key={fieldId}>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+          <select
+            value={typeof value === 'string' ? value : ''}
+            onChange={(e) => setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))}
+            className="block w-full rounded-md border border-gray-300 px-3 py-2"
+          >
+            <option value="">選択してください</option>
+            {field.options?.map((option) => (
+              <option key={option} value={option}>{optionLabel(option)}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    if (field.type === 'checkbox') {
+      const selectedValues = Array.isArray(value) ? value : [];
+      return (
+        <div key={fieldId}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {field.options?.map((option) => {
+              const selected = selectedValues.includes(option);
+              return (
+                <label
+                  key={option}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${
+                    selected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:border-indigo-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => {
+                      setResponseEditValues((current) => {
+                        const currentValues = Array.isArray(current[fieldId]) ? (current[fieldId] as string[]) : [];
+                        const nextValues = currentValues.includes(option)
+                          ? currentValues.filter((item) => item !== option)
+                          : [...currentValues, option];
+                        return { ...current, [fieldId]: nextValues };
+                      });
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700">{optionLabel(option)}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === 'number') {
+      return (
+        <div key={fieldId}>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+          <input
+            type="number"
+            value={typeof value === 'string' ? value : ''}
+            onChange={(e) => setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))}
+            className="block w-full rounded-md border border-gray-300 px-3 py-2"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div key={fieldId}>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <input
+          type="text"
+          value={typeof value === 'string' ? value : ''}
+          placeholder={field.placeholder}
+          onChange={(e) => setResponseEditValues((current) => ({ ...current, [fieldId]: e.target.value }))}
+          className="block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </div>
+    );
   };
 
   const loadTeams = async () => {
@@ -207,11 +532,16 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     return team.assignedArea || '-';
   };
 
+  const resolveAssignmentSlot = (team: Team | null | undefined) => {
+    if (!team) return '';
+    return team.timeSlot || '';
+  };
+
   const createTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resolvedParams || !user) return;
-    if (!createTeamForm.teamCode || !createTeamForm.teamName || !createTeamForm.areaId) {
-      setError('チームコード、チーム名、配布区域は必須です');
+    if (!createTeamForm.teamCode || !createTeamForm.teamName || !createTeamForm.areaId || !createTeamForm.timeSlot) {
+      setError('チームコード、チーム名、配布区域、配布枠は必須です');
       return;
     }
 
@@ -232,10 +562,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           timeSlot: createTeamForm.timeSlot,
           areaId: createTeamForm.areaId,
           assignedArea: selectedArea?.areaCode || '',
-          adjacentAreas: createTeamForm.adjacentAreas,
-          eventId: `kohdai${resolvedParams.year}`,
-          validStartDate: createTeamForm.validStartDate || undefined,
-          validEndDate: createTeamForm.validEndDate || undefined,
+          eventId: distributionEventId || `kohdai${resolvedParams.year}`,
+          year: Number(resolvedParams.year),
         }),
       });
 
@@ -247,10 +575,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         teamCode: '',
         teamName: '',
         areaId: '',
-        timeSlot: 'both',
-        adjacentAreas: '',
-        validStartDate: '',
-        validEndDate: '',
+        timeSlot: distributionSlots[0] || '',
       });
       setShowCreateTeamForm(false);
     } catch (err) {
@@ -271,14 +596,21 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
       if (res.ok) {
         const data = await res.json();
+        const recordMap: Record<string, ResponseRecord> = {};
         const participantList = data.responses.map((response: {
           responseId: string;
           participantData?: { name: string; grade: number; section: string; availableSlots?: string[] };
           answers?: Array<{ fieldId: string; value: string | string[] }>;
           submittedAt: string | Date;
         }) => {
+          recordMap[response.responseId] = {
+            responseId: response.responseId,
+            participantData: response.participantData,
+            answers: (response.answers || []) as FormAnswer[],
+            submittedAt: response.submittedAt,
+          };
           const raw = response.answers?.find((a) => a.fieldId === 'availability')?.value;
-          const availability = summarizeAvailabilitySlots(
+          const availableSlots = normalizeAvailabilitySlots(
             Array.isArray(raw)
               ? raw
               : typeof raw === 'string'
@@ -291,11 +623,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             name: response.participantData?.name || '',
             grade: response.participantData?.grade || 0,
             section: response.participantData?.section || '',
-            availability,
+            availableSlots,
             submittedAt: new Date(response.submittedAt),
           };
         });
-        setParticipants(participantList.filter((participant: Participant) => participant.availability !== 'other'));
+        setResponseRecords(recordMap);
+        setParticipants(participantList.filter((participant: Participant) => participant.availableSlots.length > 0));
       }
     } catch (err) {
       setError('参加者データの取得に失敗しました');
@@ -340,20 +673,28 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          year: resolvedParams?.year,
-          formId: selectedForm,
-          participants,
-          teams,
-          includeOther: includeOtherTeams,
-        }),
-      });
+          body: JSON.stringify({
+            year: resolvedParams?.year,
+            formId: selectedForm,
+            participants,
+            teams,
+          }),
+        });
 
       if (res.ok) {
         const data = await res.json();
 
-        setAssignments(data.assignments);
-        setError('');
+        setAssignments(data.assignments || []);
+        setLastAutoAssignmentStats(data.stats || null);
+        await loadAssignments();
+        if ((data?.stats?.assigned || 0) === 0) {
+          setError(
+            '自動割り当ては完了しましたが、割り当て可能な組み合わせがありませんでした。配布枠とチームの配布枠キーが一致しているか確認してください。'
+          );
+        }
+        if ((data?.stats?.assigned || 0) > 0) {
+          setError('');
+        }
       } else {
         const errorData = await res.json();
         setError(errorData.error || '自動割り当てに失敗しました');
@@ -429,7 +770,22 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   }
 
   const stats = getAssignmentStats();
+  const unavailableParticipants = participants.filter((p) => {
+    const normalized = normalizeAvailabilitySlots(p.availableSlots);
+    return normalized.length === 0 || normalized.includes(UNAVAILABLE_SLOT_KEY);
+  });
+  const unavailableCount = unavailableParticipants.length;
+  const availableParticipants = participants.filter((p) => {
+    const normalized = normalizeAvailabilitySlots(p.availableSlots);
+    return normalized.length > 0 && !normalized.includes(UNAVAILABLE_SLOT_KEY);
+  });
+  const matchingTeams = teams.filter((team) => distributionSlots.includes(team.timeSlot));
+  const participantsWithAllAvailable = participants.filter((p) =>
+    normalizeAvailabilitySlots(p.availableSlots).includes(ALL_AVAILABLE_SLOT_KEY)
+  );
   const filteredParticipants = participants.filter((p) => {
+    const normalized = normalizeAvailabilitySlots(p.availableSlots);
+    if (normalized.length === 0 || normalized.includes(UNAVAILABLE_SLOT_KEY)) return false;
     if (!selectedTeamFilter) return true;
     const a = getAssignmentForParticipant(p.responseId);
     return a?.teamId === selectedTeamFilter;
@@ -561,46 +917,28 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">時間帯</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">配布枠</label>
                 <select
                   value={createTeamForm.timeSlot}
-                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, timeSlot: e.target.value as 'morning' | 'afternoon' | 'both' | 'other' })}
+                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, timeSlot: e.target.value })}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  disabled={distributionSlots.length === 0}
                 >
-                  <option value="morning">午前</option>
-                  <option value="afternoon">午後</option>
-                  <option value="both">両方</option>
-                  <option value="other">その他</option>
+                  <option value="">配布枠を選択</option>
+                  {distributionSlots.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {formatAvailabilitySlotLabel(slot)}
+                    </option>
+                  ))}
                 </select>
+                {distributionSlots.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-500">先に配布設定で配布枠を登録してください。</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">周辺区域（カンマ区切り）</label>
-                <input
-                  value={createTeamForm.adjacentAreas}
-                  onChange={(e) => setCreateTeamForm({ ...createTeamForm, adjacentAreas: e.target.value })}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="A-02, A-03"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">開始日</label>
-                  <input
-                    type="date"
-                    value={createTeamForm.validStartDate}
-                    onChange={(e) => setCreateTeamForm({ ...createTeamForm, validStartDate: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">終了日</label>
-                  <input
-                    type="date"
-                    value={createTeamForm.validEndDate}
-                    onChange={(e) => setCreateTeamForm({ ...createTeamForm, validEndDate: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
+                <p className="text-xs text-gray-500">
+                  周辺区域は配布区域側で設定し、このチームには自動反映されます。
+                </p>
               </div>
               <div className="md:col-span-2 flex justify-end">
                 <button
@@ -620,28 +958,11 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           <h2 className="text-lg font-medium text-gray-900 mb-4">割り当て設定</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* フォーム選択 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                対象フォーム
-              </label>
-              <select
-                value={selectedForm}
-                onChange={(e) => {
-                  setSelectedForm(e.target.value);
-                  if (e.target.value) {
-                    loadParticipants(e.target.value);
-                  }
-                }}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">フォームを選択してください</option>
-                {availableForms.map(form => (
-                  <option key={form.formId} value={form.formId}>
-                    {form.title} ({form.responseCount}件の回答)
-                  </option>
-                ))}
-              </select>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p className="text-sm font-medium text-gray-700 mb-1">対象フォーム</p>
+              <p className="text-sm text-gray-900">
+                {selectedFormTitle || 'フォームが未設定です'}
+              </p>
             </div>
 
             {/* 割り当てモード */}
@@ -687,17 +1008,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                 </svg>
                 自動割り当てを実行
               </button>
-              {teams.some(t => t.timeSlot === 'other') && (
-                <label className="inline-flex items-center text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-2"
-                    checked={includeOtherTeams}
-                    onChange={(e) => setIncludeOtherTeams(e.target.checked)}
-                  />
-                  その他（other）チームも対象にする
-                </label>
-              )}
 
               {assignments.length > 0 && (
                 <button
@@ -716,7 +1026,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
         {/* 統計情報 */}
         {participants.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             <div className="bg-white overflow-hidden shadow rounded-lg">
               <div className="p-5">
                 <div className="flex items-center">
@@ -757,6 +1067,24 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">参加不可</dt>
+                      <dd className="text-lg font-medium text-gray-900">{unavailableCount}人</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
                     <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 17.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
@@ -772,6 +1100,117 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             </div>
           </div>
         )}
+
+        {/* デバッグ情報 */}
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-medium text-gray-900">デバッグ確認</h2>
+              <p className="text-sm text-gray-500">配布枠、チーム、参加者の可用性を同じ画面で確認できます。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDebugInfo((prev) => !prev)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              {showDebugInfo ? '閉じる' : '開く'}
+            </button>
+          </div>
+
+          {showDebugInfo && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-medium text-gray-500">イベント配布枠</p>
+                  <p className="mt-1 text-lg font-semibold text-gray-900">{distributionSlots.length}件</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-medium text-gray-500">枠一致チーム</p>
+                  <p className="mt-1 text-lg font-semibold text-gray-900">{matchingTeams.length}件 / {teams.length}件</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-medium text-gray-500">参加可能者</p>
+                  <p className="mt-1 text-lg font-semibold text-gray-900">{availableParticipants.length}人 / {participants.length}人</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-medium text-gray-500">全日可能</p>
+                  <p className="mt-1 text-lg font-semibold text-gray-900">{participantsWithAllAvailable.length}人</p>
+                </div>
+              </div>
+
+              {lastAutoAssignmentStats && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+                  <p className="text-sm font-medium text-indigo-900">直近の自動割り当て結果</p>
+                  <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-indigo-900 md:grid-cols-3">
+                    <div>割り当て: {lastAutoAssignmentStats.assigned}件</div>
+                    <div>未割り当て: {lastAutoAssignmentStats.unassigned}人</div>
+                    <div>参加不可: {lastAutoAssignmentStats.skippedUnavailable}人</div>
+                    <div>不一致: {lastAutoAssignmentStats.skippedNoMatchingTeam}人</div>
+                    <div>定員超過: {lastAutoAssignmentStats.skippedFull}人</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <h3 className="text-sm font-medium text-gray-900">配布枠キー</h3>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {distributionSlots.length > 0 ? distributionSlots.map((slot) => (
+                      <span key={slot} className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700">
+                        {formatAvailabilitySlotLabel(slot)}
+                      </span>
+                    )) : (
+                      <span className="text-sm text-gray-500">未設定</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 p-4">
+                  <h3 className="text-sm font-medium text-gray-900">チーム枠</h3>
+                  <div className="mt-2 space-y-2">
+                    {teams.length > 0 ? teams.slice(0, 12).map((team) => (
+                      <div key={team.teamId} className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm">
+                        <span className="font-medium text-gray-900">{team.teamName || team.teamCode}</span>
+                        <span className={distributionSlots.includes(team.timeSlot) ? 'text-emerald-600' : 'text-rose-600'}>
+                          {formatAvailabilitySlotLabel(team.timeSlot)}
+                        </span>
+                      </div>
+                    )) : (
+                      <span className="text-sm text-gray-500">チーム未作成</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 p-4">
+                <h3 className="text-sm font-medium text-gray-900">参加者の availableSlots</h3>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500">氏名</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500">学年</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-500">希望時間帯</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {participants.slice(0, 12).map((participant) => (
+                        <tr key={participant.responseId}>
+                          <td className="px-3 py-2 text-gray-900">{participant.name}</td>
+                          <td className="px-3 py-2 text-gray-700">{participant.grade}年</td>
+                          <td className="px-3 py-2 text-gray-700">{getAvailabilityLabel(participant.availableSlots)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {participants.length > 12 && (
+                  <p className="mt-2 text-xs text-gray-500">先頭12件のみ表示しています。</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 参加者一覧と割り当て結果 */}
         {participants.length > 0 && (
@@ -843,7 +1282,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {getAvailabilityLabel(participant.availability)}
+                          {getAvailabilityLabel(participant.availableSlots)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(participant.submittedAt)}
@@ -853,7 +1292,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                             <div className="text-sm">
                               <div className="font-medium text-gray-900">{team.teamName}</div>
                               <div className="text-gray-500">{getTeamAreaLabel(team)}</div>
-                              <div className="text-gray-400 text-xs">アクセス可能日: {formatTeamPeriod(team)}</div>
+                              <div className="text-gray-400 text-xs">配布枠: {formatAvailabilitySlotLabel(team.timeSlot)}</div>
                               <div className="flex space-x-2 mt-1">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.assignedBy === 'auto'
                                   ? 'bg-blue-100 text-blue-800'
@@ -862,11 +1301,14 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                                   {assignment.assignedBy === 'auto' ? '自動' : '手動'}
                                 </span>
                                 {assignment.timeSlot && (
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${assignment.timeSlot === 'morning'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-purple-100 text-purple-800'
-                                    }`}>
-                                    {assignment.timeSlot === 'morning' ? '午前' : '午後'}
+                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    assignment.timeSlot.endsWith('_am')
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : assignment.timeSlot.endsWith('_pm')
+                                        ? 'bg-purple-100 text-purple-800'
+                                        : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {formatAvailabilitySlotLabel(assignment.timeSlot)}
                                   </span>
                                 )}
                               </div>
@@ -878,15 +1320,23 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => {
-                              setSelectedParticipant(participant);
-                              setShowManualModal(true);
-                            }}
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            変更
-                          </button>
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => openResponseEditModal(participant)}
+                              className="text-emerald-600 hover:text-emerald-900"
+                            >
+                              回答変更
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedParticipant(participant);
+                                setShowManualModal(true);
+                              }}
+                              className="text-indigo-600 hover:text-indigo-900"
+                            >
+                              割り当て変更
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -897,23 +1347,70 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           </div>
         )}
 
+        {selectedForm && unavailableParticipants.length > 0 && (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md mt-8">
+            <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">参加不可メンバー</h3>
+              <p className="mt-1 text-sm text-gray-500">参加不可を選んだ回答者を別枠で表示します。手動割り当ては可能です。</p>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {unavailableParticipants.map((participant) => {
+                const assignment = getAssignmentForParticipant(participant.responseId);
+                const team = assignment ? getTeamById(assignment.teamId) : null;
+
+                return (
+                  <div key={participant.responseId} className="px-4 py-4 sm:px-6 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{participant.name}</div>
+                      <div className="text-sm text-gray-500">{participant.grade}年 - {participant.section}</div>
+                      <div className="text-xs text-gray-400 mt-1">{getAvailabilityLabel(participant.availableSlots)}</div>
+                      {assignment && team && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          割り当て先: {team.teamName} / {formatAvailabilitySlotLabel(assignment.timeSlot)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => openResponseEditModal(participant)}
+                        className="text-emerald-600 hover:text-emerald-900 text-sm font-medium"
+                      >
+                        回答変更
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedParticipant(participant);
+                          setShowManualModal(true);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                      >
+                        割り当て変更
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* フォーム未選択時のメッセージ */}
         {participants.length === 0 && selectedForm === '' && (
           <div className="text-center py-12">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">フォームを選択してください</h3>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">フォームが未設定です</h3>
             <p className="mt-1 text-sm text-gray-500">
-              チーム割り当てを行うアンケートフォームを選択してください。
+              この年度のフォームが作成されると、自動で読み込まれます。
             </p>
           </div>
         )}
 
         {/* 手動割り当てモーダル */}
         {showManualModal && selectedParticipant && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-black/10 backdrop-blur-sm">
+            <div className="relative top-20 mx-auto w-full max-w-lg overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium text-gray-900">
@@ -938,7 +1435,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       {selectedParticipant.grade}年 - {selectedParticipant.section}
                     </div>
                     <div className="text-sm text-gray-500">
-                      希望時間帯: {getAvailabilityLabel(selectedParticipant.availability)}
+                      希望時間帯: {getAvailabilityLabel(selectedParticipant.availableSlots)}
                     </div>
                   </div>
 
@@ -951,7 +1448,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       <option value="">チームを選択</option>
                       {teams.map(team => (
                         <option key={team.teamId} value={team.teamId}>
-                          {team.teamName} - {getTeamAreaLabel(team)}（{formatTeamPeriod(team)}）(最大{team.maxMembers || 10}人)
+                          {team.teamName} - {getTeamAreaLabel(team)} / {formatAvailabilitySlotLabel(team.timeSlot)} (最大{team.maxMembers || 10}人)
                         </option>
                       ))}
                     </select>
@@ -978,19 +1475,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         const token = await user!.getIdToken();
                         // 時間帯の自動決定
                         const team = teams.find(t => t.teamId === manualAssignTeamId);
-                        const teamAssignments = assignments.filter(a => a.teamId === manualAssignTeamId);
-                        const teamMorningCount = teamAssignments.filter(a => a.timeSlot === 'morning').length;
-                        const teamAfternoonCount = teamAssignments.filter(a => a.timeSlot === 'afternoon').length;
-                        const hash = Array.from(selectedParticipant.responseId).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-                        let ts: 'morning' | 'afternoon' = 'morning';
-                        if (team?.timeSlot === 'morning') ts = 'morning';
-                        else if (team?.timeSlot === 'afternoon') ts = 'afternoon';
-                        else if (selectedParticipant.availability === 'morning') ts = 'morning';
-                        else if (selectedParticipant.availability === 'afternoon') ts = 'afternoon';
-                        else if (teamMorningCount < teamAfternoonCount) ts = 'morning';
-                        else if (teamAfternoonCount < teamMorningCount) ts = 'afternoon';
-                        else {
-                          ts = hash % 2 === 0 ? 'morning' : 'afternoon';
+                        const ts = resolveAssignmentSlot(team);
+                        if (!ts) {
+                          throw new Error('選択されたチームに対応する参加可能時間が見つかりません');
                         }
                         const res = await fetch('/api/admin/assignments', {
                           method: 'POST',
@@ -1020,6 +1507,109 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                   >
                     {manualAssignLoading ? '保存中...' : '割り当てを保存'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showResponseEditModal && selectedParticipant && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/10 backdrop-blur-sm">
+            <div className="mx-auto mt-10 w-full max-w-3xl px-4 pb-10">
+              <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">回答を編集</h3>
+                    <p className="text-sm text-gray-500">後から連絡があった場合の修正に使います。</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowResponseEditModal(false);
+                      setSelectedResponseId('');
+                      setSelectedParticipant(null);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-6 px-6 py-6">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-sm font-medium text-gray-900">{selectedParticipant.name}</div>
+                    <div className="text-sm text-gray-500">{selectedParticipant.grade}年 - {selectedParticipant.section}</div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      現在の希望時間帯: {getAvailabilityLabel(selectedParticipant.availableSlots)}
+                    </div>
+                  </div>
+
+                  {!currentForm ? (
+                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                      フォーム情報が読み込まれていません。
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">お名前 *</label>
+                          <input
+                            value={String(responseEditValues.participantName || '')}
+                            onChange={(e) => setResponseEditValues((current) => ({ ...current, participantName: e.target.value }))}
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">学年 *</label>
+                          <select
+                            value={String(responseEditValues.participantGrade || '')}
+                            onChange={(e) => setResponseEditValues((current) => ({ ...current, participantGrade: e.target.value }))}
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2"
+                          >
+                            <option value="">選択してください</option>
+                            <option value="1">1年生</option>
+                            <option value="2">2年生</option>
+                            <option value="3">3年生</option>
+                            <option value="4">4年生</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">所属セクション *</label>
+                          <input
+                            value={String(responseEditValues.participantSection || '')}
+                            onChange={(e) => setResponseEditValues((current) => ({ ...current, participantSection: e.target.value }))}
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2"
+                          />
+                        </div>
+                      </div>
+
+                      {currentForm.fields
+                        .slice()
+                        .sort((a, b) => a.order - b.order)
+                        .map((field) => renderResponseEditField(field))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+                  <button
+                    onClick={() => {
+                      setShowResponseEditModal(false);
+                      setSelectedResponseId('');
+                      setSelectedParticipant(null);
+                    }}
+                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={saveResponseEdit}
+                    disabled={editingResponseLoading || !currentForm}
+                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {editingResponseLoading ? '保存中...' : '回答を保存'}
                   </button>
                 </div>
               </div>
