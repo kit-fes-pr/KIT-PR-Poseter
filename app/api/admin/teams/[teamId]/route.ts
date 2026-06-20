@@ -1,7 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
 
-const VALID_TIME_SLOTS = ['morning', 'afternoon', 'both', 'other'] as const;
+function normalizeAdjacentAreas(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
+  const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
+  if (!snap.exists) return [];
+  const data = snap.data() as Record<string, unknown>;
+  const stored = normalizeAvailabilitySlots(data.distributionAvailabilitySlots);
+  if (stored.length > 0) return stored;
+  return buildAvailabilitySlotChoices(data.distributionStartDate, data.distributionEndDate).map((choice) => choice.key);
+}
+
+async function loadAreaForTeam(areaId: unknown, assignedArea: unknown) {
+  if (typeof areaId === 'string' && areaId) {
+    const doc = await adminDb.collection('areas').doc(areaId).get();
+    if (doc.exists) return { areaId: doc.id, ...(doc.data() as Record<string, unknown>) };
+  }
+  if (typeof assignedArea === 'string' && assignedArea) {
+    const snap = await adminDb.collection('areas').where('areaCode', '==', assignedArea).limit(1).get();
+    if (!snap.empty) {
+      const doc = snap.docs[0];
+      return { areaId: doc.id, ...(doc.data() as Record<string, unknown>) };
+    }
+  }
+  return null;
+}
 
 export async function GET(
   request: NextRequest,
@@ -88,36 +121,29 @@ export async function PATCH(
     const update: Record<string, unknown> = { updatedAt: new Date() };
     if (typeof body.teamName === 'string') update.teamName = body.teamName;
     if (typeof body.teamCode === 'string') update.teamCode = body.teamCode;
-    if (typeof body.assignedArea === 'string') update.assignedArea = body.assignedArea;
+    if (typeof body.assignedArea === 'string' || typeof body.areaId === 'string') {
+      const area = await loadAreaForTeam(body.areaId, body.assignedArea);
+      if (!area) {
+        return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
+      }
+      update.areaId = String((area as Record<string, unknown>).areaId || body.areaId || '');
+      update.assignedArea = String((area as Record<string, unknown>).areaCode || body.assignedArea || '');
+      update.adjacentAreas = normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas);
+    }
     if (typeof body.timeSlot === 'string') {
-      if (!VALID_TIME_SLOTS.includes(body.timeSlot)) {
+      const eventId = (doc.data() as Record<string, unknown>).eventId;
+      const eventAvailabilitySlots = typeof eventId === 'string'
+        ? await loadEventAvailabilitySlots(eventId)
+        : [];
+      if (eventAvailabilitySlots.length > 0 && !eventAvailabilitySlots.includes(body.timeSlot)) {
         return NextResponse.json(
-          { error: 'timeSlot は morning/afternoon/both/other のいずれかです' },
+          { error: 'timeSlot は配布枠キーから選択してください' },
           { status: 400 }
         );
       }
       update.timeSlot = body.timeSlot;
     }
     if (typeof body.isActive === 'boolean') update.isActive = body.isActive;
-    if (Array.isArray(body.adjacentAreas)) update.adjacentAreas = body.adjacentAreas;
-    if (typeof body.adjacentAreas === 'string') update.adjacentAreas = body.adjacentAreas.split(',').map((s: string) => s.trim());
-    // validStartDate / validEndDate に対応（後方互換で validDate が来たら両端に同じ日を設定）
-    if (body.validDate) {
-      const d = new Date(body.validDate);
-      if (isNaN(d.getTime())) return NextResponse.json({ error: 'validDate の形式が不正です' }, { status: 400 });
-      update.validStartDate = d;
-      update.validEndDate = d;
-    }
-    if (body.validStartDate) {
-      const s = new Date(body.validStartDate);
-      if (isNaN(s.getTime())) return NextResponse.json({ error: 'validStartDate の形式が不正です' }, { status: 400 });
-      update.validStartDate = s;
-    }
-    if (body.validEndDate) {
-      const e = new Date(body.validEndDate);
-      if (isNaN(e.getTime())) return NextResponse.json({ error: 'validEndDate の形式が不正です' }, { status: 400 });
-      update.validEndDate = e;
-    }
 
     await ref.update(update);
     const updated = await ref.get();

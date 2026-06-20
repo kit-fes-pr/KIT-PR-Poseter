@@ -7,7 +7,7 @@ type MemberItem = {
   name: string;
   grade: number;
   section: string;
-  timeSlot: 'morning' | 'afternoon';
+  timeSlot: string;
   formId: string;
 };
 
@@ -49,7 +49,7 @@ export async function GET(
     const normalAssignments = assignmentsSnap.docs.map(d => d.data() as {
       responseId: string;
       formId: string;
-      timeSlot: 'morning' | 'afternoon';
+      timeSlot: string;
     });
 
     // 3) 回答ドキュメントをまとめて取得
@@ -98,7 +98,7 @@ export async function GET(
         name: pd.name || '-',
         grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
         section: pd.section || '-',
-        timeSlot: a.timeSlot as 'morning' | 'afternoon',
+        timeSlot: String(a.timeSlot || ''),
         formId: rec.formId || a.formId || 'unknown',
       });
     };

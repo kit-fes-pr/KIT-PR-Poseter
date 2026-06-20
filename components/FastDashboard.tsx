@@ -32,6 +32,8 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * pageSize;
   const visibleTeams = teams.slice(startIndex, startIndex + pageSize);
+  const totalResponses = data?.stats?.totalResponses ?? data?.stats?.totalMembers ?? 0;
+  const availableResponses = data?.stats?.availableResponses ?? 0;
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPages));
@@ -103,7 +105,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
           )}
 
           {/* リアルタイム統計カード */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
               {
                 label: '総チーム数',
@@ -114,11 +116,11 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                 href: `/admin/event/${year}/team`
               },
               {
-                label: '総メンバー数',
-                value: data?.stats?.totalMembers || 0,
+                label: '回答者数(参加可能 / 全体)',
+                value: `${availableResponses}/${totalResponses}人`,
                 icon: '🎓',
                 color: 'green',
-                href: `/admin/event/${year}/members`,
+                href: `/admin/event/${year}/form`,
               },
               {
                 label: 'エリア数',
@@ -129,7 +131,7 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
               },
               {
                 label: '配布日時設定',
-                value: 1,
+                value: ' ',
                 icon: '⏰',
                 color: 'indigo',
                 href: `/admin/event/${year}/distribution`
@@ -164,14 +166,19 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
                         <dt className="text-sm font-medium text-gray-500 truncate">
                           {stat.label}
                         </dt>
-                        <dd className={`text-2xl font-bold text-${stat.color}-600 flex items-center`}>
+                        <dd className={`text-2xl font-bold text-${stat.color}-600 flex items-center gap-2`}>
                           <span>{stat.value}</span>
-                          {'loaded' in stat && stat.loaded !== undefined && stat.loaded < stat.value && (
+                          {typeof stat.value === 'number' && 'loaded' in stat && stat.loaded !== undefined && stat.loaded < stat.value && (
                             <span className="ml-2 text-sm text-gray-400">
                               ({stat.loaded}件表示中)
                             </span>
                           )}
                         </dd>
+                        {'detail' in stat && typeof stat.detail === 'string' && stat.detail && (
+                          <dd className="mt-1 text-xs font-medium text-gray-500">
+                            {stat.detail}
+                          </dd>
+                        )}
                       </dl>
                     </div>
                   </div>

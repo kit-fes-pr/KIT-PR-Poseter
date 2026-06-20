@@ -17,6 +17,8 @@ interface ProgressiveDataState {
     stats?: {
       totalTeams: number;
       totalMembers: number;
+      totalResponses?: number;
+      availableResponses?: number;
       totalAreas?: number;
       isMinimal?: boolean;
     };
@@ -147,7 +149,7 @@ export function useProgressiveData(year: number | null, enabled = true) {
 
   // 2. 段階的にチーム詳細データを取得
   const loadProgressiveData = useCallback(async (offset = 0, limit = 10) => {
-    if (!year || !state.hasMore) return;
+    if (!year || state.totalExpected === 0 || offset >= state.totalExpected) return;
 
     setState(prev => ({ ...prev, isLoadingProgressive: true }));
 
@@ -202,14 +204,14 @@ export function useProgressiveData(year: number | null, enabled = true) {
         isLoadingProgressive: false
       }));
     }
-  }, [year, state.hasMore]);
+  }, [year, state.totalExpected]);
 
   // Type the minimal data
   const typedMinimalData = minimalData as ProgressiveDataState['minimalData'];
 
   // 3. 最小限データ取得後に段階的読み込み開始
   useEffect(() => {
-    if (typedMinimalData && state.hasMore && state.progressiveTeams.length === 0) {
+    if (typedMinimalData && state.totalExpected > state.progressiveTeams.length && state.progressiveTeams.length === 0) {
       // 500ms後に段階的読み込み開始（初期表示を優先）
       const timer = setTimeout(() => {
         loadProgressiveData(0, 10);
@@ -217,14 +219,14 @@ export function useProgressiveData(year: number | null, enabled = true) {
       
       return () => clearTimeout(timer);
     }
-  }, [typedMinimalData, loadProgressiveData, state.hasMore, state.progressiveTeams.length]);
+  }, [typedMinimalData, loadProgressiveData, state.totalExpected, state.progressiveTeams.length]);
 
   // 4. 手動での追加読み込み
   const loadMore = useCallback(() => {
-    if (!state.isLoadingProgressive && state.hasMore) {
+    if (!state.isLoadingProgressive && state.totalExpected > state.progressiveTeams.length) {
       loadProgressiveData(state.progressiveTeams.length, 10);
     }
-  }, [loadProgressiveData, state.isLoadingProgressive, state.hasMore, state.progressiveTeams.length]);
+  }, [loadProgressiveData, state.isLoadingProgressive, state.progressiveTeams.length, state.totalExpected]);
 
   // 5. データマージ
   const combinedData = typedMinimalData ? {
@@ -233,6 +235,8 @@ export function useProgressiveData(year: number | null, enabled = true) {
     stats: {
       totalTeams: state.totalExpected,
       totalMembers: typedMinimalData.stats?.totalMembers || 0,
+      totalResponses: typedMinimalData.stats?.totalResponses || typedMinimalData.stats?.totalMembers || 0,
+      availableResponses: typedMinimalData.stats?.availableResponses || 0,
       totalAreas: typedMinimalData.stats?.totalAreas,
       isMinimal: typedMinimalData.stats?.isMinimal,
       loadedTeams: state.progressiveTeams.length

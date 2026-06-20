@@ -83,12 +83,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['morning', 'afternoon'].includes(timeSlot)) {
+    if (typeof timeSlot !== 'string' || !timeSlot.trim()) {
       return NextResponse.json(
-        { error: 'timeSlot は morning/afternoon のいずれかが必要です' },
+        { error: 'timeSlot が必要です' },
         { status: 400 }
       );
     }
+    const normalizedTimeSlot = timeSlot.trim();
 
     // 既存の同一参加者の割り当てを削除（同一年度・フォーム内で一意に）
     const query = await adminDb.collection('assignments')
@@ -101,15 +102,15 @@ export async function POST(request: NextRequest) {
 
     // 新しい割り当てを追加
     const docRef = adminDb.collection('assignments').doc();
-    batch.set(docRef, {
-      responseId,
-      teamId,
-      assignedAt: new Date(),
-      assignedBy: 'manual',
-      timeSlot,
-      year: parseInt(year),
-      formId,
-    });
+      batch.set(docRef, {
+        responseId,
+        teamId,
+        assignedAt: new Date(),
+        assignedBy: 'manual',
+        timeSlot: normalizedTimeSlot,
+        year: parseInt(year),
+        formId,
+      });
 
     await batch.commit();
 
