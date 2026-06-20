@@ -4,6 +4,15 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
 import { normalizeAvailabilitySlots, validateAvailabilitySelection } from '@/lib/utils/availability';
 
+function resolveAvailabilitySlots(
+  participantAvailableSlots: unknown,
+  answers: FormAnswer[]
+): string[] {
+  return normalizeAvailabilitySlots(
+    participantAvailableSlots ?? (answers.find((answer) => answer.fieldId === 'availability')?.value as unknown)
+  );
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ formId: string; responseId: string }> }
@@ -98,12 +107,12 @@ export async function PATCH(
         participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
       }
       
-      const availableSlots = normalizeAvailabilitySlots(participantData.availableSlots);
+      const availableSlots = resolveAvailabilitySlots(participantData.availableSlots, answers);
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
       const availabilitySelectionError = validateAvailabilitySelection(
-        participantData.availableSlots
+        availableSlots
       );
       if (availabilitySelectionError) {
         participantValidationErrors.push(availabilitySelectionError);
@@ -207,9 +216,9 @@ export async function PATCH(
     let updateData: { [key: string]: any };
     
     if (participantData) {
-      const availableSlots = normalizeAvailabilitySlots(participantData.availableSlots);
+      const availableSlots = resolveAvailabilitySlots(participantData.availableSlots, answers);
       const availabilitySelectionError = validateAvailabilitySelection(
-        participantData.availableSlots
+        availableSlots
       );
       if (availabilitySelectionError) {
         return NextResponse.json(
