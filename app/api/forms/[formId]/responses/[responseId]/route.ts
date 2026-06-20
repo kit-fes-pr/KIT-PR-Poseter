@@ -9,28 +9,8 @@ export async function PATCH(
   { params }: { params: Promise<{ formId: string; responseId: string }> }
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
-    }
-
-    const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-
-    // 管理者のみ回答を更新可能
-    if (decodedToken.role !== 'admin') {
-      return NextResponse.json(
-        { error: '管理者権限が必要です' },
-        { status: 403 }
-      );
-    }
-
     const resolvedParams = await params;
-    
+
     // フォームの存在確認
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
     
@@ -59,7 +39,31 @@ export async function PATCH(
       );
     }
 
-    const { answers, participantData } = await request.json();
+    const body = await request.json();
+    const { answers, participantData } = body;
+
+    let isAdmin = false;
+    const authHeader = request.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const idToken = authHeader.split('Bearer ')[1];
+      try {
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        isAdmin = decodedToken.role === 'admin';
+      } catch (error) {
+        console.error('管理者認証エラー:', error);
+      }
+    }
+
+    const responseData = responseDoc.data() as Record<string, unknown>;
+    const editToken = typeof body.editToken === 'string' ? body.editToken : '';
+    if (!isAdmin) {
+      if (!editToken || editToken !== responseData.editToken) {
+        return NextResponse.json(
+          { error: '編集権限がありません' },
+          { status: 403 }
+        );
+      }
+    }
 
     // 回答データのバリデーション
     if (!answers || !Array.isArray(answers)) {
@@ -225,6 +229,7 @@ export async function PATCH(
           grade: parseInt(participantData.grade),
           availableSlots,
         },
+        editToken: responseData.editToken,
       };
     } else {
       updateData = {
@@ -233,6 +238,7 @@ export async function PATCH(
           value: answer.value,
         })),
         updatedAt: now,
+        editToken: responseData.editToken,
       };
     }
 

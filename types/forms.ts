@@ -40,6 +40,7 @@ export interface FormResponse {
   formId: string;
   answers: FormAnswer[];
   submittedAt: Date;
+  editToken?: string;
   submitterInfo?: {
     name?: string;
     email?: string;
@@ -94,7 +95,7 @@ export interface FormStats {
   participantStats?: {
     bySection: { [section: string]: number };
     byGrade: { [grade: string]: number };
-    byAvailableTime: {
+    byAvailabilitySummary: {
       morning: number;
       afternoon: number;
       both: number;

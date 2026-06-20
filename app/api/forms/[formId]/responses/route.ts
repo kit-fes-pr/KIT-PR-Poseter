@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
@@ -235,6 +236,7 @@ export async function POST(
 
     // 回答データを保存
     const now = new Date();
+    const editToken = randomUUID();
     
     // 参加者データがある場合はParticipantSurveyResponseとして保存
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
@@ -259,6 +261,7 @@ export async function POST(
           value: answer.value,
         })),
         submittedAt: now,
+        editToken,
         submitterInfo: submitterInfo || {},
         participantData: {
           name: participantData.name,
@@ -275,6 +278,7 @@ export async function POST(
           value: answer.value,
         })),
         submittedAt: now,
+        editToken,
         submitterInfo: submitterInfo || {},
       } as Omit<FormResponse, 'responseId'>;
     }
@@ -300,6 +304,7 @@ export async function POST(
     return NextResponse.json({
       message: '回答を送信しました',
       responseId: responseRef.id,
+      editToken,
     });
   } catch (error) {
     console.error('回答送信エラー:', error);

@@ -96,6 +96,27 @@ export function buildAvailabilitySlotChoices(
   return choices;
 }
 
+export function buildAvailabilitySlotKeysForDateRange(
+  startDate: unknown,
+  endDate: unknown,
+  timeSlot: 'morning' | 'afternoon' | 'both' | 'other' = 'both'
+): string[] {
+  const start = toSafeDate(startDate) || toSafeDate(endDate);
+  const end = toSafeDate(endDate) || start;
+  const choices = buildAvailabilitySlotChoices(start, end);
+  if (choices.length === 0) return [];
+
+  if (timeSlot === 'morning') {
+    return choices.filter((choice) => choice.period === 'am').map((choice) => choice.key);
+  }
+
+  if (timeSlot === 'afternoon') {
+    return choices.filter((choice) => choice.period === 'pm').map((choice) => choice.key);
+  }
+
+  return choices.map((choice) => choice.key);
+}
+
 export function formatAvailabilitySlotLabel(key: string): string {
   if (key === 'morning') return '午前';
   if (key === 'afternoon') return '午後';
@@ -206,4 +227,9 @@ export function summarizeAvailabilitySlots(slots: string[]): AvailabilitySummary
   if (hasAm) return 'morning';
   if (hasPm) return 'afternoon';
   return 'other';
+}
+
+export function isAvailableForAnySlot(slots: unknown): boolean {
+  const normalized = normalizeAvailabilitySlots(slots);
+  return normalized.length > 0 && !normalized.includes(UNAVAILABLE_SLOT_KEY);
 }

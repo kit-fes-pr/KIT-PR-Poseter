@@ -11,7 +11,12 @@ import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
 import {
   buildAvailabilitySlotChoices,
   formatAvailabilitySlotLabel,
+  getAvailabilityDateSlotKeys,
   SPECIAL_AVAILABILITY_SLOT_CHOICES,
+  normalizeAvailabilitySlots,
+  toggleAvailabilitySelection,
+  UNAVAILABLE_SLOT_KEY,
+  ALL_AVAILABLE_SLOT_KEY,
 } from '@/lib/utils/availability';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability';
@@ -89,6 +94,10 @@ function renderResponseValue(field: FormField, value: string | string[] | undefi
   return values.join(' / ');
 }
 
+function isAvailabilityField(field: FormField) {
+  return field.fieldId === 'availability';
+}
+
 export default function FormDashboardPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
@@ -106,6 +115,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const [draftDescription, setDraftDescription] = useState(DEFAULT_DESCRIPTION);
   const [draftIsActive, setDraftIsActive] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [editingResponse, setEditingResponse] = useState<(FormResponse | ParticipantSurveyResponse) | null>(null);
+  const [editFormData, setEditFormData] = useState<{ [key: string]: string | string[] }>({});
+  const [editSaving, setEditSaving] = useState(false);
   const hasLoadedFormRef = useRef(false);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const responsesCardRef = useRef<HTMLDivElement | null>(null);
@@ -356,6 +368,81 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftTitle, draftDescription, draftIsActive, currentForm?.formId]);
 
+  const openEditModal = (response: FormResponse | ParticipantSurveyResponse) => {
+    setEditingResponse(response);
+
+    const participantResponse = response as ParticipantSurveyResponse;
+    const formData: { [key: string]: string | string[] } = {
+      participantName: participantResponse.participantData?.name || '',
+      participantGrade: participantResponse.participantData?.grade?.toString() || '',
+      participantSection: participantResponse.participantData?.section || '',
+    };
+
+    response.answers.forEach((answer) => {
+      formData[answer.fieldId] = answer.value;
+    });
+
+    if (participantResponse.participantData?.availableSlots) {
+      formData.availability = participantResponse.participantData.availableSlots;
+    }
+
+    setEditFormData(formData);
+  };
+
+  const closeEditModal = () => {
+    setEditingResponse(null);
+    setEditFormData({});
+    setEditSaving(false);
+  };
+
+  const updateResponse = async () => {
+    if (!editingResponse || !currentForm || !resolvedParams || !user) return;
+
+    try {
+      setEditSaving(true);
+      setError('');
+
+      const token = await user.getIdToken();
+      const answers = currentForm.fields.map((field) => ({
+        fieldId: field.fieldId,
+        value: editFormData[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
+      }));
+
+      const availableSlots = normalizeAvailabilitySlots(editFormData.availability);
+
+      const res = await fetch(`/api/forms/${currentForm.formId}/responses/${editingResponse.responseId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          answers,
+          participantData: {
+            name: String(editFormData.participantName || ''),
+            section: String(editFormData.participantSection || ''),
+            grade: parseInt(String(editFormData.participantGrade || '0'), 10),
+            availableSlots,
+          },
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error || '回答の更新に失敗しました');
+        return;
+      }
+
+      await loadDashboard();
+      closeEditModal();
+    } catch (err) {
+      console.error(err);
+      setError('回答の更新に失敗しました');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const deleteForm = async () => {
     if (!resolvedParams || !user || !currentForm) return;
 
@@ -446,6 +533,137 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         type={field.type === 'number' ? 'number' : 'text'}
         placeholder={field.placeholder || ''}
         className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+      />
+    );
+  };
+
+  const renderEditableField = (field: FormField) => {
+    const fieldValue = editFormData[field.fieldId];
+    const optionLabel = (option: string) => (isAvailabilityField(field) ? formatAvailabilitySlotLabel(option) : option);
+
+    if (isAvailabilityField(field)) {
+      const selectedValues = Array.isArray(fieldValue) ? fieldValue : [];
+      const allDateSlotKeys = getAvailabilityDateSlotKeys(
+        (field.options || []).map((option) => ({
+          key: option,
+          label: option,
+        }))
+      );
+      const specialOptions = (field.options || []).filter(
+        (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY
+      );
+      const dateOptions = (field.options || []).filter(
+        (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY
+      );
+
+      const renderOptionCard = (option: string, index: number, tone: 'date' | 'special' = 'date') => {
+        const selected = selectedValues.includes(option);
+        const isSpecial = tone === 'special';
+        return (
+          <label
+            key={`${option}-${index}`}
+            className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${
+              selected
+                ? 'border-indigo-500 bg-indigo-50 shadow-sm ring-2 ring-indigo-200'
+                : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50'
+            }`}
+          >
+            <input
+              type="checkbox"
+              value={option}
+              checked={selected}
+              onChange={() => {
+                const currentValues = Array.isArray(editFormData.availability) ? editFormData.availability : [];
+                const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+                setEditFormData((current) => ({
+                  ...current,
+                  availability: nextValues,
+                }));
+              }}
+              className="sr-only"
+            />
+            <span
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                selected
+                  ? 'border-indigo-600 bg-indigo-600 text-white'
+                  : 'border-gray-300 bg-white text-transparent group-hover:border-indigo-400'
+              }`}
+              aria-hidden="true"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-gray-900">
+                {optionLabel(option)}
+              </span>
+              <span className="mt-1 block text-xs text-gray-500">
+                {isSpecial
+                  ? option === ALL_AVAILABLE_SLOT_KEY
+                    ? '配布期間内の全日時に対応可能です'
+                    : 'この日時には参加できません'
+                  : '複数選択できます'}
+              </span>
+            </span>
+          </label>
+        );
+      };
+
+      return (
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-gray-600">参加可能な日時を選択してください。</p>
+            <p className="text-xs text-gray-500">複数選択可</p>
+          </div>
+
+          {specialOptions.length > 0 && (
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {specialOptions.map((option, index) => renderOptionCard(option, index, 'special'))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {dateOptions.map((option, index) => renderOptionCard(option, index))}
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <textarea
+          value={typeof fieldValue === 'string' ? fieldValue : ''}
+          onChange={(e) => setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))}
+          rows={4}
+          className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
+        />
+      );
+    }
+
+    if (field.type === 'select' || field.type === 'radio') {
+      return (
+        <select
+          value={typeof fieldValue === 'string' ? fieldValue : ''}
+          onChange={(e) => setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))}
+          className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
+        >
+          <option value="">選択してください</option>
+          {(field.options || []).map((option) => (
+            <option key={option} value={option}>
+              {optionLabel(option)}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <input
+        type={field.type === 'number' ? 'number' : 'text'}
+        value={typeof fieldValue === 'string' ? fieldValue : ''}
+        onChange={(e) => setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))}
+        className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
       />
     );
   };
@@ -797,9 +1015,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">回答</h3>
-                      <p className="mt-2 text-sm text-gray-500">
-                        このカード内で回答一覧を確認できます。
-                      </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-2xl bg-gray-50 px-4 py-3">
@@ -833,6 +1048,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                                   {field.label}
                                 </th>
                               ))}
+                              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">操作</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200 bg-white">
@@ -852,16 +1068,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                                       {participantResponse.participantData?.grade ? `${participantResponse.participantData.grade}年 ` : ''}
                                       {participantResponse.participantData?.section || ''}
                                     </div>
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      {(participantResponse.participantData?.availableSlots || []).map((item) => (
-                                        <span
-                                          key={item}
-                                          className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700"
-                                        >
-                                          {formatAvailabilitySlotLabel(item)}
-                                        </span>
-                                      ))}
-                                    </div>
                                   </td>
                                   {currentForm.fields.map((field) => {
                                     const answer = response.answers.find((item) => item.fieldId === field.fieldId);
@@ -873,6 +1079,15 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                                       </td>
                                     );
                                   })}
+                                  <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
+                                    <button
+                                      type="button"
+                                      onClick={() => openEditModal(response)}
+                                      className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                    >
+                                      編集
+                                    </button>
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -901,6 +1116,109 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           </div>
         </div>
       </div>
+
+      {editingResponse && currentForm && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/10 backdrop-blur-sm p-4">
+          <div className="mx-auto my-8 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">回答を編集</h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-6">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">お名前 *</label>
+                    <input
+                      type="text"
+                      value={editFormData.participantName || ''}
+                      onChange={(e) => setEditFormData((current) => ({ ...current, participantName: e.target.value }))}
+                      className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">学年 *</label>
+                    <select
+                      value={editFormData.participantGrade || ''}
+                      onChange={(e) => setEditFormData((current) => ({ ...current, participantGrade: e.target.value }))}
+                      className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
+                    >
+                      <option value="">選択してください</option>
+                      <option value="1">1年生</option>
+                      <option value="2">2年生</option>
+                      <option value="3">3年生</option>
+                      <option value="4">4年生</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">所属セクション *</label>
+                    <select
+                      value={editFormData.participantSection || ''}
+                      onChange={(e) => setEditFormData((current) => ({ ...current, participantSection: e.target.value }))}
+                      disabled={editFormData.participantGrade === '4'}
+                      className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500 disabled:bg-gray-100"
+                    >
+                      <option value="">選択してください</option>
+                      {(editFormData.participantGrade === '4'
+                        ? ['4年']
+                        : ['企画系', '技術系', '警備系', 'Web系', 'PR系']
+                      ).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {currentForm.fields.map((field) => (
+                  <div key={field.fieldId} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
+                        <p className="text-xs text-gray-500">
+                          {field.type}
+                          {field.required ? ' ・ 必須' : ' ・ 任意'}
+                        </p>
+                      </div>
+                    </div>
+                    {renderEditableField(field)}
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeEditModal}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="button"
+                    onClick={updateResponse}
+                    disabled={editSaving}
+                    className="rounded-lg border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {editSaving ? '保存中...' : '変更を保存'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

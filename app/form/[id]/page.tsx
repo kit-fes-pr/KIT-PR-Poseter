@@ -8,6 +8,8 @@ import {
   getAvailabilityDateSlotKeys,
   formatAvailabilitySlotLabel,
   normalizeAvailabilitySlots,
+  UNAVAILABLE_SLOT_KEY,
+  ALL_AVAILABLE_SLOT_KEY,
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability';
 
@@ -19,15 +21,25 @@ interface FormData {
   participantSection: string;
 }
 
+interface SavedResponseDraft {
+  responseId: string;
+  editToken: string;
+  values: FormData;
+}
+
 export default function FormResponsePage({ params }: { params: Promise<{ id: string }> }) {
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null);
   const [form, setForm] = useState<SurveyForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submissionMode, setSubmissionMode] = useState<'submit' | 'update'>('submit');
+  const [savedResponseDraft, setSavedResponseDraft] = useState<SavedResponseDraft | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues } = useForm<FormData>();
+  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues, reset } = useForm<FormData>();
   const participantGrade = watch('participantGrade');
 
   useEffect(() => {
@@ -78,6 +90,54 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
     loadForm();
   }, [resolvedParams]);
 
+  useEffect(() => {
+    if (!resolvedParams || !form) return;
+
+    const storageKey = `form-response-${resolvedParams.id}`;
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<SavedResponseDraft>;
+      if (!parsed.responseId || !parsed.editToken || !parsed.values) return;
+      setSavedResponseDraft({
+        responseId: parsed.responseId,
+        editToken: parsed.editToken,
+        values: parsed.values as FormData,
+      });
+      setSubmitted(true);
+      setSubmissionMode('submit');
+    } catch (err) {
+      console.error('保存済み回答の読み込みに失敗しました', err);
+    }
+  }, [resolvedParams, form]);
+
+  const storageKey = resolvedParams ? `form-response-${resolvedParams.id}` : '';
+
+  const persistSavedResponseDraft = (draft: SavedResponseDraft) => {
+    setSavedResponseDraft(draft);
+    if (!storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify(draft));
+  };
+
+  const clearSavedResponseDraft = () => {
+    setSavedResponseDraft(null);
+    setEditingResponseId(null);
+    setSubmitted(false);
+    if (storageKey) {
+      localStorage.removeItem(storageKey);
+    }
+  };
+
+  const openEditModal = () => {
+    if (!savedResponseDraft) return;
+    reset(savedResponseDraft.values);
+    setEditingResponseId(savedResponseDraft.responseId);
+    setShowEditModal(true);
+    setSubmitted(false);
+    setError('');
+  };
+
   const onSubmit = async (data: FormData) => {
     if (!form || !resolvedParams) return;
 
@@ -121,8 +181,13 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         return;
       }
 
-      const res = await fetch(`/api/forms/${resolvedParams.id}/responses`, {
-        method: 'POST',
+      const isUpdating = Boolean(editingResponseId && savedResponseDraft?.responseId === editingResponseId && savedResponseDraft?.editToken);
+      const res = await fetch(
+        isUpdating
+          ? `/api/forms/${resolvedParams.id}/responses/${editingResponseId}`
+          : `/api/forms/${resolvedParams.id}/responses`,
+        {
+        method: isUpdating ? 'PATCH' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -134,6 +199,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             grade: data.participantGrade,
             availableSlots,
           },
+          editToken: isUpdating ? savedResponseDraft?.editToken : undefined,
           submitterInfo: {
             submittedAt: new Date().toISOString(),
           },
@@ -143,7 +209,23 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       const result = await res.json();
 
       if (res.ok) {
+        const responseId = typeof result.responseId === 'string'
+          ? result.responseId
+          : editingResponseId || '';
+        const editToken = typeof result.editToken === 'string'
+          ? result.editToken
+          : savedResponseDraft?.editToken || '';
+        if (responseId && editToken) {
+          persistSavedResponseDraft({
+            responseId,
+            editToken,
+            values: data,
+          });
+        }
+        setSubmissionMode(isUpdating ? 'update' : 'submit');
         setSubmitted(true);
+        setShowEditModal(false);
+        setEditingResponseId(null);
       } else {
         setError(result.error || '回答の送信に失敗しました');
         if (result.details) {
@@ -311,49 +393,110 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       case 'checkbox':
         return (
           <div key={fieldId}>
-            <fieldset>
-              <legend className="block text-sm font-medium text-gray-700 mb-2">{label}</legend>
-              <div className="space-y-2">
-                {(() => {
-                  const selectedValues = (watch(fieldId) as string[]) || [];
-                  const allDateSlotKeys = getAvailabilityDateSlotKeys(
-                    (field.options || []).map((option) => ({
-                      key: option,
-                      label: option,
-                    }))
-                  );
-                  const checkboxRegistration = register(fieldId, {
-                    validate: (value) => {
-                      if (!isRequired) return true;
-                      if (Array.isArray(value)) return value.length > 0 || '一つ以上選択してください';
-                      return value ? true : '一つ以上選択してください';
-                    },
-                  });
+            {(() => {
+              const selectedValues = (watch(fieldId) as string[]) || [];
+              const allDateSlotKeys = getAvailabilityDateSlotKeys(
+                (field.options || []).map((option) => ({
+                  key: option,
+                  label: option,
+                }))
+              );
+              const checkboxRegistration = register(fieldId, {
+                validate: (value) => {
+                  if (!isRequired) return true;
+                  if (Array.isArray(value)) return value.length > 0 || '一つ以上選択してください';
+                  return value ? true : '一つ以上選択してください';
+                },
+              });
+              const specialOptions = (field.options || []).filter(
+                (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY
+              );
+              const dateOptions = (field.options || []).filter(
+                (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY
+              );
 
-                  return field.options?.map((option: string, index: number) => (
-                    <label key={index} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        value={option}
-                        checked={selectedValues.includes(option)}
-                        {...checkboxRegistration}
-                        onChange={() => {
-                          const currentValues = (getValues(fieldId) as string[]) || [];
-                          const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
-                          setValue(fieldId as never, nextValues as never, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                            shouldValidate: true,
-                          });
-                        }}
-                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{optionLabel(option)}</span>
-                    </label>
-                  ));
-                })()}
-              </div>
-            </fieldset>
+              const renderOptionCard = (option: string, index: number, tone: 'date' | 'special' = 'date') => {
+                const selected = selectedValues.includes(option);
+                const isSpecial = tone === 'special';
+                return (
+                  <label
+                    key={`${option}-${index}`}
+                    className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${
+                      selected
+                        ? 'border-indigo-500 bg-indigo-50 shadow-sm ring-2 ring-indigo-200'
+                        : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      value={option}
+                      checked={selected}
+                      {...checkboxRegistration}
+                      onChange={() => {
+                        const currentValues = (getValues(fieldId) as string[]) || [];
+                        const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+                        setValue(fieldId as never, nextValues as never, {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: true,
+                        });
+                      }}
+                      className="sr-only"
+                    />
+                    <span
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                        selected
+                          ? 'border-indigo-600 bg-indigo-600 text-white'
+                          : 'border-gray-300 bg-white text-transparent group-hover:border-indigo-400'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M16.704 5.29a1 1 0 0 1 0 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z" />
+                      </svg>
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-gray-900">
+                        {optionLabel(option)}
+                      </span>
+                      {isSpecial ? (
+                        <span className="mt-1 block text-xs text-gray-500">
+                          {option === ALL_AVAILABLE_SLOT_KEY
+                            ? '配布期間内の全日時に対応可能です'
+                            : 'この日時には参加できません'}
+                        </span>
+                      ) : (
+                        <span className="mt-1 block text-xs text-gray-500">
+                          複数選択できます
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                );
+              };
+
+              return (
+                <fieldset>
+                  <legend className="block text-sm font-medium text-gray-700 mb-2">{label}</legend>
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-sm text-gray-600">参加可能な日時を選択してください。</p>
+                      <p className="text-xs text-gray-500">複数選択可</p>
+                    </div>
+
+                    {specialOptions.length > 0 && (
+                      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {specialOptions.map((option, index) => renderOptionCard(option, index, 'special'))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {dateOptions.map((option, index) => renderOptionCard(option, index))}
+                    </div>
+                  </div>
+                </fieldset>
+              );
+            })()}
             {errors[fieldId] && (
               <p className="mt-1 text-sm text-red-600">{errors[fieldId]?.message}</p>
             )}
@@ -364,6 +507,90 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         return null;
     }
   };
+
+  const renderResponseForm = (submitLabel: string) => (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="participantName" className="block text-sm font-medium text-gray-700">
+            お名前 *
+          </label>
+          <input
+            id="participantName"
+            type="text"
+            {...register('participantName', {
+              required: 'お名前は必須です',
+            })}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          {errors.participantName && (
+            <p className="mt-1 text-sm text-red-600">{errors.participantName.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="participantGrade" className="block text-sm font-medium text-gray-700">
+            学年 *
+          </label>
+          <select
+            id="participantGrade"
+            {...register('participantGrade', {
+              required: '学年は必須です',
+            })}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="">選択してください</option>
+            <option value="1">1年生</option>
+            <option value="2">2年生</option>
+            <option value="3">3年生</option>
+            <option value="4">4年生</option>
+          </select>
+          {errors.participantGrade && (
+            <p className="mt-1 text-sm text-red-600">{errors.participantGrade.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="participantSection" className="block text-sm font-medium text-gray-700">
+            所属セクション *
+          </label>
+          <select
+            id="participantSection"
+            disabled={participantGrade === '4'}
+            {...register('participantSection', {
+              required: '所属セクションは必須です',
+            })}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="">選択してください</option>
+            {(participantGrade === '4'
+              ? ['4年']
+              : ['企画系', '技術系', '警備系', 'Web系', 'PR系']
+            ).map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+          {errors.participantSection && (
+            <p className="mt-1 text-sm text-red-600">{errors.participantSection.message}</p>
+          )}
+        </div>
+      </div>
+
+      {form?.fields
+        .sort((a, b) => a.order - b.order)
+        .map(field => renderField(field))}
+
+      <div className="pt-6">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+        >
+          {submitting ? '送信中...' : submitLabel}
+        </button>
+      </div>
+    </form>
+  );
 
   if (loading) {
     return (
@@ -400,11 +627,31 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                 </svg>
               </div>
             </div>
-            <h2 className="text-lg font-medium text-green-900 mb-2">回答を送信しました</h2>
+            <h2 className="text-lg font-medium text-green-900 mb-2">
+              {submissionMode === 'update' ? '回答を更新しました' : '回答を送信しました'}
+            </h2>
             <p className="text-sm text-green-700">
               ご協力ありがとうございました。<br />
-              工大祭の準備に活用させていただきます。
+              {savedResponseDraft ? 'この端末では引き続き回答の変更ができます。' : '工大祭の準備に活用させていただきます。'}
             </p>
+            {savedResponseDraft && (
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button
+                  type="button"
+                  onClick={openEditModal}
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                >
+                  回答を変更する
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSavedResponseDraft}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  この端末の保存を削除
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -530,6 +777,41 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      {showEditModal && form && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/10 backdrop-blur-sm p-4">
+          <div className="mx-auto my-8 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">回答を変更</h2>
+                <p className="text-sm text-gray-500">送信済みの内容を修正して保存できます。</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSubmitted(true);
+                  if (savedResponseDraft) {
+                    reset(savedResponseDraft.values);
+                  }
+                }}
+                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-6">
+              <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                {savedResponseDraft ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。' : '回答内容を入力してください。'}
+              </div>
+              {renderResponseForm('変更を保存')}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

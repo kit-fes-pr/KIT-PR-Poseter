@@ -551,8 +551,8 @@ export default function FormResponsesPage({
 
         {/* 編集モーダル */}
         {editingResponse && form && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+          <div className="fixed inset-0 z-50 h-full w-full overflow-y-auto bg-black/10 backdrop-blur-sm">
+            <div className="relative top-20 mx-auto w-full max-w-3xl overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-medium text-gray-900">回答を編集</h3>
@@ -594,12 +594,20 @@ export default function FormResponsesPage({
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700">所属セクション *</label>
-                      <input
-                        type="text"
+                      <select
                         value={editFormData.participantSection || ''}
                         onChange={(e) => setEditFormData({...editFormData, participantSection: e.target.value})}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
+                        disabled={editFormData.participantGrade === '4'}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
+                      >
+                        <option value="">選択してください</option>
+                        {(editFormData.participantGrade === '4'
+                          ? ['4年']
+                          : ['企画系', '技術系', '警備系', 'Web系', 'PR系']
+                        ).map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
