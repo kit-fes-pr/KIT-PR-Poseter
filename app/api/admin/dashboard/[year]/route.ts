@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import {
+  buildDashboardAreaStats,
+  buildDashboardEventData,
+  buildDashboardMemberStats,
+  buildDashboardTeamStats,
+} from '@/lib/utils/dashboard-route';
 import { FirestoreOptimizer } from '@/lib/utils/firestore-optimizer';
 
 export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {
@@ -62,23 +68,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
         id: string;
         data: () => unknown;
       };
-      event = {
+      event = buildDashboardEventData({
         id: doc.id,
         ...(doc.data() as Record<string, unknown>),
-        // Timestamp を ISO string に変換
-        createdAt:
-          (doc.data() as Record<string, { toDate?: () => Date }>).createdAt
-            ?.toDate?.()
-            ?.toISOString() || (doc.data() as Record<string, unknown>).createdAt,
-        distributionStartDate:
-          (doc.data() as Record<string, { toDate?: () => Date }>).distributionStartDate
-            ?.toDate?.()
-            ?.toISOString() || (doc.data() as Record<string, unknown>).distributionStartDate,
-        distributionEndDate:
-          (doc.data() as Record<string, { toDate?: () => Date }>).distributionEndDate
-            ?.toDate?.()
-            ?.toISOString() || (doc.data() as Record<string, unknown>).distributionEndDate,
-      };
+      });
     }
 
     // チームデータの処理
@@ -87,95 +80,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
     ).docs.map((doc) => ({
       teamId: doc.id,
       ...doc.data(),
-      createdAt:
-        (doc.data() as Record<string, { toDate?: () => Date }>).createdAt
-          ?.toDate?.()
-          ?.toISOString() || doc.data().createdAt,
-      updatedAt:
-        (doc.data() as Record<string, { toDate?: () => Date }>).updatedAt
-          ?.toDate?.()
-          ?.toISOString() || doc.data().updatedAt,
-      validStartDate:
-        (doc.data() as Record<string, { toDate?: () => Date }>).validStartDate
-          ?.toDate?.()
-          ?.toISOString() || doc.data().validStartDate,
-      validEndDate:
-        (doc.data() as Record<string, { toDate?: () => Date }>).validEndDate
-          ?.toDate?.()
-          ?.toISOString() || doc.data().validEndDate,
-      validDate:
-        (doc.data() as Record<string, { toDate?: () => Date }>).validDate
-          ?.toDate?.()
-          ?.toISOString() || doc.data().validDate,
-    }));
+    })) as Array<Record<string, unknown> & { teamId: string }>;
 
     // メンバー統計の計算
     const members = (
       membersSnapshot as { docs: { data: () => Record<string, unknown> }[] }
     ).docs.map((doc) => doc.data());
-    const memberStats = {
-      totalMembers: members.length,
-      byTeam: members.reduce(
-        (acc, member) => {
-          const teamId = String((member as Record<string, unknown>).teamId);
-          if (!acc[teamId]) {
-            acc[teamId] = { count: 0, members: [] };
-          }
-          (
-            acc[teamId] as {
-              count: number;
-              members: Array<{
-                name: string;
-                studentId: string;
-                grade: string;
-                department: string;
-              }>;
-            }
-          ).count++;
-          (
-            acc[teamId] as {
-              count: number;
-              members: Array<{
-                name: string;
-                studentId: string;
-                grade: string;
-                department: string;
-              }>;
-            }
-          ).members.push({
-            name: String(
-              (member as Record<string, unknown>).name ||
-                (member as Record<string, unknown>).displayName,
-            ),
-            studentId: String((member as Record<string, unknown>).studentId),
-            grade: String((member as Record<string, unknown>).grade),
-            department: String((member as Record<string, unknown>).department),
-          });
-          return acc;
-        },
-        {} as Record<
-          string,
-          {
-            count: number;
-            members: Array<{ name: string; studentId: string; grade: string; department: string }>;
-          }
-        >,
-      ),
-    };
+    const memberStats = buildDashboardMemberStats(members);
 
     // チーム統計の計算
-    const teamStats = teams.map((team) => {
-      const teamMembers = (memberStats.byTeam[team.teamId] as
-        | {
-            count: number;
-            members: Array<{ name: string; studentId: string; grade: string; department: string }>;
-          }
-        | undefined) || { count: 0, members: [] };
-      return {
-        ...team,
-        memberCount: teamMembers.count,
-        members: teamMembers.members,
-      };
+    const teamStats = buildDashboardTeamStats({
+      teams,
+      memberStatsByTeam: memberStats.byTeam,
     });
 
     const areasCountSnapshot = await adminDb
@@ -185,22 +101,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
       .then((snapshot) => snapshot.data().count);
 
     // エリア別統計
-    const areaStats = teams.reduce(
-      (acc, team) => {
-        const area = String((team as Record<string, unknown>).assignedArea || '未設定');
-        if (!acc[area]) {
-          acc[area] = { teamCount: 0, memberCount: 0, teams: [] };
-        }
-        const teamMembers = (memberStats.byTeam[team.teamId] as { count: number } | undefined) || {
-          count: 0,
-        };
-        acc[area].teamCount++;
-        acc[area].memberCount += teamMembers.count;
-        acc[area].teams.push(String((team as Record<string, unknown>).teamCode));
-        return acc;
-      },
-      {} as Record<string, { teamCount: number; memberCount: number; teams: string[] }>,
-    );
+    const areaStats = buildDashboardAreaStats({
+      teams,
+      memberStatsByTeam: memberStats.byTeam,
+    });
 
     const responseTime = Date.now() - startTime;
     console.log(`ダッシュボードデータ取得完了: ${responseTime}ms`);
