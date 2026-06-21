@@ -114,6 +114,7 @@ export default function AreasPage() {
   const handleDelete = async (areaId: string) => {
     if (!user || !confirm('この配布区域を削除しますか？')) return;
     try {
+      setError('');
       const token = await user.getIdToken();
       const res = await fetch(`/api/admin/areas/${areaId}`, {
         method: 'DELETE',
@@ -122,8 +123,11 @@ export default function AreasPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '削除に失敗しました');
       await refreshAreas();
+      alert('配布区域を削除しました。');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '削除に失敗しました');
+      const errMsg = err instanceof Error ? err.message : '削除に失敗しました';
+      setError(errMsg);
+      alert(errMsg);
     }
   };
 
