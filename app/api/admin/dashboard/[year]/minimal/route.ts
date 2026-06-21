@@ -6,6 +6,7 @@ import {
   extractAvailabilitySlots,
   serializeDateLikeValue,
 } from '@/lib/utils/availability-api';
+import { buildMinimalDashboardResponseData } from '@/lib/utils/availability-route';
 import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {
@@ -142,16 +143,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
         totalAreas: number;
       };
 
-    // 最小限の統計
-    const minimalStats = {
-      totalTeams,
-      totalMembers,
-      totalResponses: totalResponses || totalMembers,
-      availableResponses: availableResponses || 0,
-      totalAreas,
-      isMinimal: true, // 最小限データであることを示す
-    };
-
     const responseTime = Date.now() - startTime;
     logPerformance('minimal-dashboard-complete', responseTime, {
       component: 'minimal-dashboard-api',
@@ -159,22 +150,21 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
       operation: 'complete',
     });
 
-    return NextResponse.json(
+    const responseData = buildMinimalDashboardResponseData(
+      year,
       {
         event,
-        stats: minimalStats,
-        teams: [], // 空配列（後で段階的読み込み）
-        performance: {
-          responseTime,
-          dataFreshnessTime: new Date().toISOString(),
-          isMinimalResponse: true,
-        },
-        loadingStrategy: {
-          nextEndpoint: `/api/admin/dashboard/${year}/progressive`,
-          chunkSize: 10,
-          totalItems: totalTeams,
-        },
+        totalTeams,
+        totalMembers,
+        totalResponses,
+        availableResponses,
+        totalAreas,
       },
+      responseTime,
+    );
+
+    return NextResponse.json(
+      responseData,
       {
         headers: {
           'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
