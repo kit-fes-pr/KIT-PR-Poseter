@@ -38,12 +38,13 @@ export async function POST(request: NextRequest) {
     // イベント情報取得（あれば年度を使う）
     const eventDoc = await adminDb.collection('distributionEvents').doc(targetEventId).get();
     const eventData = eventDoc.exists ? (eventDoc.data() as Record<string, unknown>) : null;
-    const year =
+    const parsedYear =
       typeof eventData?.year === 'number'
         ? eventData.year
         : typeof eventData?.year === 'string' && eventData.year.trim()
           ? Number(eventData.year)
-          : new Date().getFullYear();
+          : NaN;
+    const year = Number.isFinite(parsedYear) ? parsedYear : new Date().getFullYear();
 
     const storesSnapshot = await adminDb
       .collection('stores')
@@ -93,7 +94,13 @@ export async function GET(request: NextRequest) {
       const eventDoc = await adminDb.collection('distributionEvents').doc(eventId).get();
       if (eventDoc.exists) {
         const eventData = eventDoc.data() as Record<string, unknown>;
-        year = eventData.year as number;
+        const parsedYear =
+          typeof eventData.year === 'number'
+            ? eventData.year
+            : typeof eventData.year === 'string' && eventData.year.trim()
+              ? Number(eventData.year)
+              : NaN;
+        year = Number.isFinite(parsedYear) ? parsedYear : undefined;
       }
     }
 
