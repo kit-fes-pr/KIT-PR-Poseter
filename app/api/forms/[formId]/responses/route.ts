@@ -257,8 +257,7 @@ export async function POST(
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
 
     if (participantData) {
-      let gradeNum = 0;
-      gradeNum = normalizeGrade(participantData.grade);
+      const gradeNum = normalizeGrade(participantData.grade);
       const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
