@@ -13,7 +13,7 @@ type MemberItem = {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ teamId: string }> }
+  { params }: { params: Promise<{ teamId: string }> },
 ) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -46,11 +46,14 @@ export async function GET(
       .where('teamId', '==', teamId)
       .get();
 
-    const normalAssignments = assignmentsSnap.docs.map(d => d.data() as {
-      responseId: string;
-      formId: string;
-      timeSlot: string;
-    });
+    const normalAssignments = assignmentsSnap.docs.map(
+      (d) =>
+        d.data() as {
+          responseId: string;
+          formId: string;
+          timeSlot: string;
+        },
+    );
 
     // 3) 回答ドキュメントをまとめて取得
     // 3-1) 通常割り当ては formId があるのでダイレクト参照で取得
@@ -77,7 +80,7 @@ export async function GET(
     // Fetch normal assignment responses
     for (const [formId, idSet] of Object.entries(byForm)) {
       const refs = Array.from(idSet).map((rid) =>
-        adminDb.collection('forms').doc(formId).collection('responses').doc(rid)
+        adminDb.collection('forms').doc(formId).collection('responses').doc(rid),
       );
       const snaps = await getAllChunked(refs);
       for (const s of snaps) {
@@ -103,7 +106,7 @@ export async function GET(
       });
     };
 
-    normalAssignments.forEach(a => pushMember(a));
+    normalAssignments.forEach((a) => pushMember(a));
 
     return NextResponse.json({ members });
   } catch (error) {

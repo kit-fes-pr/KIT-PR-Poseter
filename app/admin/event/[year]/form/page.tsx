@@ -45,19 +45,28 @@ function toDateDisplay(value: Parameters<typeof formatDateOnly>[0]): string {
   return formatDateOnly(value);
 }
 
-function buildAvailabilityChoices(eventData: EventSummary | null, form: FormRecord | null): AvailabilitySlotChoice[] {
+function buildAvailabilityChoices(
+  eventData: EventSummary | null,
+  form: FormRecord | null,
+): AvailabilitySlotChoice[] {
   if (eventData?.distributionStartDate && eventData?.distributionEndDate) {
-    const allChoices = buildAvailabilitySlotChoices(eventData.distributionStartDate, eventData.distributionEndDate);
-    const selectedKeys = Array.isArray(eventData.distributionAvailabilitySlots) && eventData.distributionAvailabilitySlots.length > 0
-      ? eventData.distributionAvailabilitySlots
-      : allChoices.map((choice) => choice.key);
+    const allChoices = buildAvailabilitySlotChoices(
+      eventData.distributionStartDate,
+      eventData.distributionEndDate,
+    );
+    const selectedKeys =
+      Array.isArray(eventData.distributionAvailabilitySlots) &&
+      eventData.distributionAvailabilitySlots.length > 0
+        ? eventData.distributionAvailabilitySlots
+        : allChoices.map((choice) => choice.key);
     return [
       ...allChoices.filter((choice) => selectedKeys.includes(choice.key)),
       ...SPECIAL_AVAILABILITY_SLOT_CHOICES,
     ];
   }
 
-  const existingOptions = form?.fields.find((field) => field.fieldId === 'availability')?.options || [];
+  const existingOptions =
+    form?.fields.find((field) => field.fieldId === 'availability')?.options || [];
   return existingOptions.map((option) => ({
     key: option as AvailabilitySlotChoice['key'],
     label: formatAvailabilitySlotLabel(option),
@@ -108,7 +117,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const [draftDescription, setDraftDescription] = useState(DEFAULT_DESCRIPTION);
   const [draftIsActive, setDraftIsActive] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-  const [editingResponse, setEditingResponse] = useState<(FormResponse | ParticipantSurveyResponse) | null>(null);
+  const [editingResponse, setEditingResponse] = useState<
+    (FormResponse | ParticipantSurveyResponse) | null
+  >(null);
   const [editFormData, setEditFormData] = useState<{ [key: string]: string | string[] }>({});
   const [editSaving, setEditSaving] = useState(false);
   const hasLoadedFormRef = useRef(false);
@@ -132,14 +143,23 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   }, [router]);
 
   const currentForm = forms[0] ?? null;
-  const allAvailabilityChoices = useMemo(() => buildAvailabilityChoices(eventData, currentForm), [eventData, currentForm]);
+  const allAvailabilityChoices = useMemo(
+    () => buildAvailabilityChoices(eventData, currentForm),
+    [eventData, currentForm],
+  );
   const latestResponse = useMemo(
-    () => [...responses].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0] || null,
-    [responses]
+    () =>
+      [...responses].sort(
+        (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+      )[0] || null,
+    [responses],
   );
   const sortedResponses = useMemo(
-    () => [...responses].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()),
-    [responses]
+    () =>
+      [...responses].sort(
+        (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+      ),
+    [responses],
   );
   useEffect(() => {
     if (currentForm) {
@@ -211,7 +231,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       const responsesData = await responsesRes.json().catch(() => null);
 
       if (responsesRes.ok) {
-        setResponses((responsesData?.responses || []) as (FormResponse | ParticipantSurveyResponse)[]);
+        setResponses(
+          (responsesData?.responses || []) as (FormResponse | ParticipantSurveyResponse)[],
+        );
       } else {
         setResponses([]);
         setError(responsesData?.error || '回答情報の取得に失敗しました');
@@ -403,22 +425,25 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
       const availableSlots = normalizeAvailabilitySlots(editFormData.availability);
 
-      const res = await fetch(`/api/forms/${currentForm.formId}/responses/${editingResponse.responseId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          answers,
-          participantData: {
-            name: String(editFormData.participantName || ''),
-            section: String(editFormData.participantSection || ''),
-            grade: parseInt(String(editFormData.participantGrade || '0'), 10),
-            availableSlots,
+      const res = await fetch(
+        `/api/forms/${currentForm.formId}/responses/${editingResponse.responseId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-        }),
-      });
+          body: JSON.stringify({
+            answers,
+            participantData: {
+              name: String(editFormData.participantName || ''),
+              section: String(editFormData.participantSection || ''),
+              grade: parseInt(String(editFormData.participantGrade || '0'), 10),
+              availableSlots,
+            },
+          }),
+        },
+      );
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -478,7 +503,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
   const renderEditableField = (field: FormField) => {
     const fieldValue = editFormData[field.fieldId];
-    const optionLabel = (option: string) => (isAvailabilityField(field) ? formatAvailabilitySlotLabel(option) : option);
+    const optionLabel = (option: string) =>
+      isAvailabilityField(field) ? formatAvailabilitySlotLabel(option) : option;
 
     if (isAvailabilityField(field)) {
       const selectedValues = Array.isArray(fieldValue) ? fieldValue : [];
@@ -486,33 +512,44 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         (field.options || []).map((option) => ({
           key: option,
           label: option,
-        }))
+        })),
       );
       const specialOptions = (field.options || []).filter(
-        (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY
+        (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY,
       );
       const dateOptions = (field.options || []).filter(
-        (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY
+        (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
       );
 
-      const renderOptionCard = (option: string, index: number, tone: 'date' | 'special' = 'date') => {
+      const renderOptionCard = (
+        option: string,
+        index: number,
+        tone: 'date' | 'special' = 'date',
+      ) => {
         const selected = selectedValues.includes(option);
         const isSpecial = tone === 'special';
         return (
           <label
             key={`${option}-${index}`}
-            className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${selected
+            className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${
+              selected
                 ? 'border-indigo-500 bg-indigo-50 shadow-sm ring-2 ring-indigo-200'
                 : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50'
-              }`}
+            }`}
           >
             <input
               type="checkbox"
               value={option}
               checked={selected}
               onChange={() => {
-                const currentValues = Array.isArray(editFormData.availability) ? editFormData.availability : [];
-                const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+                const currentValues = Array.isArray(editFormData.availability)
+                  ? editFormData.availability
+                  : [];
+                const nextValues = toggleAvailabilitySelection(
+                  currentValues,
+                  option,
+                  allDateSlotKeys,
+                );
                 setEditFormData((current) => ({
                   ...current,
                   availability: nextValues,
@@ -521,10 +558,11 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
               className="sr-only"
             />
             <span
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${selected
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                selected
                   ? 'border-indigo-600 bg-indigo-600 text-white'
                   : 'border-gray-300 bg-white text-transparent group-hover:border-indigo-400'
-                }`}
+              }`}
               aria-hidden="true"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -532,9 +570,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
               </svg>
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-gray-900">
-                {optionLabel(option)}
-              </span>
+              <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
               <span className="mt-1 block text-xs text-gray-500">
                 {isSpecial
                   ? option === ALL_AVAILABLE_SLOT_KEY
@@ -571,7 +607,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       return (
         <textarea
           value={typeof fieldValue === 'string' ? fieldValue : ''}
-          onChange={(e) => setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))}
+          onChange={(e) =>
+            setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))
+          }
           rows={4}
           className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
         />
@@ -582,7 +620,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       return (
         <select
           value={typeof fieldValue === 'string' ? fieldValue : ''}
-          onChange={(e) => setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))}
+          onChange={(e) =>
+            setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))
+          }
           className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
         >
           <option value="">選択してください</option>
@@ -599,7 +639,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       <input
         type={field.type === 'number' ? 'number' : 'text'}
         value={typeof fieldValue === 'string' ? fieldValue : ''}
-        onChange={(e) => setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))}
+        onChange={(e) =>
+          setEditFormData((current) => ({ ...current, [field.fieldId]: e.target.value }))
+        }
         className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
       />
     );
@@ -690,7 +732,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   </div>
 
                   <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700"
+                    >
                       説明文
                     </label>
                     <textarea
@@ -719,7 +764,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   <div className="mt-4 flex flex-wrap gap-2">
                     {allAvailabilityChoices.length > 0 ? (
                       allAvailabilityChoices.map((choice) => (
-                        <span key={choice.key} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                        <span
+                          key={choice.key}
+                          className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
+                        >
                           {choice.label}
                         </span>
                       ))
@@ -783,22 +831,40 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-semibold text-gray-900">{draftTitle || currentForm.title}</h1>
+                  <h1 className="text-2xl font-semibold text-gray-900">
+                    {draftTitle || currentForm.title}
+                  </h1>
                   <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${draftIsActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
-                      }`}
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                      draftIsActive
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
                   >
                     {draftIsActive ? '公開中' : '非公開'}
                   </span>
                 </div>
-                {draftDescription && <p className="max-w-3xl text-sm leading-6 text-gray-600">{draftDescription}</p>}
+                {draftDescription && (
+                  <p className="max-w-3xl text-sm leading-6 text-gray-600">{draftDescription}</p>
+                )}
                 <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                   <span>回答数: {responses.length}</span>
-                  <span>最終回答: {latestResponse ? formatDate(latestResponse.submittedAt) : '-'}</span>
-                  <span>配布期間: {eventData?.distributionStartDate && eventData?.distributionEndDate ? `${toDateDisplay(eventData.distributionStartDate)} 〜 ${toDateDisplay(eventData.distributionEndDate)}` : '未設定'}</span>
+                  <span>
+                    最終回答: {latestResponse ? formatDate(latestResponse.submittedAt) : '-'}
+                  </span>
+                  <span>
+                    配布期間:{' '}
+                    {eventData?.distributionStartDate && eventData?.distributionEndDate
+                      ? `${toDateDisplay(eventData.distributionStartDate)} 〜 ${toDateDisplay(eventData.distributionEndDate)}`
+                      : '未設定'}
+                  </span>
                   <span>
                     自動保存:{' '}
-                    {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
+                    {saveStatus === 'saving'
+                      ? '保存中'
+                      : saveStatus === 'saved'
+                        ? '保存済み'
+                        : '保存エラー'}
                   </span>
                 </div>
               </div>
@@ -807,10 +873,11 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                 <button
                   type="button"
                   onClick={() => setActiveTab('content')}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'content'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    activeTab === 'content'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
                   フォーム内容
                 </button>
@@ -818,12 +885,16 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   type="button"
                   onClick={() => {
                     setActiveTab('overview');
-                    responsesCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    responsesCardRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    });
                   }}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${activeTab === 'overview'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    activeTab === 'overview'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
                   回答・各種設定
                 </button>
@@ -870,9 +941,15 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           name={String(editFormData.participantName || '')}
           grade={String(editFormData.participantGrade || '')}
           section={String(editFormData.participantSection || '')}
-          onNameChange={(value) => setEditFormData((current) => ({ ...current, participantName: value }))}
-          onGradeChange={(value) => setEditFormData((current) => ({ ...current, participantGrade: value }))}
-          onSectionChange={(value) => setEditFormData((current) => ({ ...current, participantSection: value }))}
+          onNameChange={(value) =>
+            setEditFormData((current) => ({ ...current, participantName: value }))
+          }
+          onGradeChange={(value) =>
+            setEditFormData((current) => ({ ...current, participantGrade: value }))
+          }
+          onSectionChange={(value) =>
+            setEditFormData((current) => ({ ...current, participantSection: value }))
+          }
           onSubmit={updateResponse}
           submitLabel="変更を保存"
           submitting={editSaving}

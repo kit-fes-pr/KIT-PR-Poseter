@@ -65,7 +65,10 @@ export function FormOverviewTab({
         <div className="mt-4 flex flex-wrap gap-2">
           {allAvailabilityChoices.length > 0 ? (
             allAvailabilityChoices.map((choice) => (
-              <span key={choice.key} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+              <span
+                key={choice.key}
+                className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
+              >
                 {choice.label}
               </span>
             ))
@@ -75,18 +78,25 @@ export function FormOverviewTab({
         </div>
       </div>
 
-      <div ref={responsesCardRef} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div
+        ref={responsesCardRef}
+        className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+      >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">回答</h3>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl bg-gray-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">回答数</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                回答数
+              </p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">{responses.length}</p>
             </div>
             <div className="rounded-2xl bg-gray-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">最新回答</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
+                最新回答
+              </p>
               <p className="mt-1 text-sm font-medium text-gray-900">
                 {latestResponse ? formatDate(latestResponse.submittedAt) : 'まだ回答がありません'}
               </p>
@@ -97,7 +107,9 @@ export function FormOverviewTab({
         {responses.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center">
             <p className="text-lg font-medium text-gray-900">回答がありません</p>
-            <p className="mt-2 text-sm text-gray-500">フォームを公開すると、このカード内に回答が表示されます。</p>
+            <p className="mt-2 text-sm text-gray-500">
+              フォームを公開すると、このカード内に回答が表示されます。
+            </p>
           </div>
         ) : (
           <div className="mt-6 overflow-hidden rounded-2xl border border-gray-200">
@@ -105,14 +117,23 @@ export function FormOverviewTab({
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">回答日時</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">参加者情報</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      回答日時
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      参加者情報
+                    </th>
                     {currentForm.fields.map((field) => (
-                      <th key={field.fieldId} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th
+                        key={field.fieldId}
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500"
+                      >
                         {field.label}
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">操作</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      操作
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
@@ -129,16 +150,23 @@ export function FormOverviewTab({
                             {participantResponse.participantData?.name || '名前未入力'}
                           </div>
                           <div className="mt-1 text-gray-500">
-                            {participantResponse.participantData?.grade ? `${participantResponse.participantData.grade}年 ` : ''}
+                            {participantResponse.participantData?.grade
+                              ? `${participantResponse.participantData.grade}年 `
+                              : ''}
                             {participantResponse.participantData?.section || ''}
                           </div>
                         </td>
                         {currentForm.fields.map((field) => {
-                          const answer = response.answers.find((item) => item.fieldId === field.fieldId);
+                          const answer = response.answers.find(
+                            (item) => item.fieldId === field.fieldId,
+                          );
                           return (
                             <td key={field.fieldId} className="px-4 py-4 text-sm text-gray-900">
                               <div className="max-w-[18rem] whitespace-pre-wrap break-words">
-                                {renderResponseValue(field, answer?.value as string | string[] | undefined)}
+                                {renderResponseValue(
+                                  field,
+                                  answer?.value as string | string[] | undefined,
+                                )}
                               </div>
                             </td>
                           );
@@ -173,7 +201,8 @@ export function FormOverviewTab({
         </button>
       </div>
       <p className="text-sm text-gray-500">
-        保存状態: {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
+        保存状態:{' '}
+        {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
       </p>
     </div>
   );

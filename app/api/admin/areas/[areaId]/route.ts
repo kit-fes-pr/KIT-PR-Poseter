@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { normalizeAdjacentAreas } from '@/lib/utils/area';
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ areaId: string }> }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ areaId: string }> },
+) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -19,9 +22,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { areaCode, areaName, adjacentAreas, description } = await request.json();
 
     if (!areaCode || !areaName) {
-      return NextResponse.json({
-        error: 'areaCode, areaName は必須です'
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'areaCode, areaName は必須です',
+        },
+        { status: 400 },
+      );
     }
 
     // 区域の存在確認
@@ -33,15 +39,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const currentArea = areaDoc.data() as Record<string, unknown>;
 
     // 区域コードは全体で一意にする
-    const existingSnap = await adminDb.collection('areas')
-      .where('areaCode', '==', areaCode)
-      .get();
+    const existingSnap = await adminDb.collection('areas').where('areaCode', '==', areaCode).get();
 
-    const conflictDocs = existingSnap.docs.filter(doc => doc.id !== areaId);
+    const conflictDocs = existingSnap.docs.filter((doc) => doc.id !== areaId);
     if (conflictDocs.length > 0) {
-      return NextResponse.json({ 
-        error: 'この区域コードは既に他の区域で使用されています' 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'この区域コードは既に他の区域で使用されています',
+        },
+        { status: 400 },
+      );
     }
 
     const nextAdjacentAreas = normalizeAdjacentAreas(adjacentAreas);
@@ -50,22 +57,28 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       areaName,
       adjacentAreas: nextAdjacentAreas,
       description: description || '',
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas).sort((a, b) => a.localeCompare(b, 'ja'));
+    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas).sort((a, b) =>
+      a.localeCompare(b, 'ja'),
+    );
     const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
-    const adjacentChanged = JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
+    const adjacentChanged =
+      JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
     if (previousAreaCode !== areaCode || adjacentChanged) {
       const teamsSnap = await adminDb.collection('teams').get();
       const batch = adminDb.batch();
       let touched = 0;
       teamsSnap.docs.forEach((teamDoc) => {
         const teamData = teamDoc.data() as Record<string, unknown>;
-        if (String(teamData.areaId || '') === areaId || String(teamData.assignedArea || '') === previousAreaCode) {
+        if (
+          String(teamData.areaId || '') === areaId ||
+          String(teamData.assignedArea || '') === previousAreaCode
+        ) {
           batch.update(teamDoc.ref, {
             areaId,
             assignedArea: areaCode,
@@ -87,7 +100,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ areaId: string }> }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ areaId: string }> },
+) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -113,10 +129,16 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const teamsSnap = await adminDb.collection('teams').get();
     const linkedTeams = teamsSnap.docs.filter((teamDoc) => {
       const teamData = teamDoc.data() as Record<string, unknown>;
-      return String(teamData.areaId || '') === areaId || String(teamData.assignedArea || '') === String(currentArea.areaCode || '');
+      return (
+        String(teamData.areaId || '') === areaId ||
+        String(teamData.assignedArea || '') === String(currentArea.areaCode || '')
+      );
     });
     if (linkedTeams.length > 0) {
-      return NextResponse.json({ error: 'この配布区域に紐づくチームがあるため削除できません' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'この配布区域に紐づくチームがあるため削除できません' },
+        { status: 400 },
+      );
     }
     await areaRef.delete();
 

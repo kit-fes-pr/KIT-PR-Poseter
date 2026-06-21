@@ -19,13 +19,17 @@ export async function POST(request: NextRequest) {
     const yearBody = body?.year as number | undefined;
     let targetEventId = eventIdBody || 'kodai2025';
     if (!eventIdBody && yearBody) {
-      const evSnap = await adminDb.collection('distributionEvents').where('year', '==', yearBody).limit(1).get();
+      const evSnap = await adminDb
+        .collection('distributionEvents')
+        .where('year', '==', yearBody)
+        .limit(1)
+        .get();
       if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
     }
 
     // イベント情報取得（あれば年度を使う）
     const eventDoc = await adminDb.collection('distributionEvents').doc(targetEventId).get();
-    const eventData = eventDoc.exists ? eventDoc.data() as Record<string, unknown> : null;
+    const eventData = eventDoc.exists ? (eventDoc.data() as Record<string, unknown>) : null;
     const year = eventData?.year || new Date().getFullYear();
 
     const storesSnapshot = await adminDb
@@ -33,13 +37,16 @@ export async function POST(request: NextRequest) {
       .where('eventId', '==', targetEventId)
       .get();
 
-    const stores = storesSnapshot.docs.map(d => d.data()) as Record<string, unknown>[];
+    const stores = storesSnapshot.docs.map((d) => d.data()) as Record<string, unknown>[];
     const totalStores = stores.length;
-    const completedStores = stores.filter(s => s.distributionStatus === 'completed').length;
-    const failedStores = stores.filter(s => s.distributionStatus === 'failed').length;
-    const revisitStores = stores.filter(s => s.distributionStatus === 'revisit').length;
-    const pendingStores = stores.filter(s => s.distributionStatus === 'pending').length;
-    const totalDistributedCount = stores.reduce((sum, s) => sum + ((s.distributedCount as number) || 0), 0);
+    const completedStores = stores.filter((s) => s.distributionStatus === 'completed').length;
+    const failedStores = stores.filter((s) => s.distributionStatus === 'failed').length;
+    const revisitStores = stores.filter((s) => s.distributionStatus === 'revisit').length;
+    const pendingStores = stores.filter((s) => s.distributionStatus === 'pending').length;
+    const totalDistributedCount = stores.reduce(
+      (sum, s) => sum + ((s.distributedCount as number) || 0),
+      0,
+    );
 
     const payload = {
       eventId: targetEventId,
@@ -79,7 +86,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const yearParam = searchParams.get('year');
     const eventId = searchParams.get('eventId') || 'kodai2025';
-    const includeStores = ['1', 'true', 'yes'].includes((searchParams.get('includeStores') || '').toLowerCase());
+    const includeStores = ['1', 'true', 'yes'].includes(
+      (searchParams.get('includeStores') || '').toLowerCase(),
+    );
 
     let year = yearParam ? parseInt(yearParam) : undefined;
     if (!year) {
@@ -94,7 +103,11 @@ export async function GET(request: NextRequest) {
     if (year) {
       doc = await adminDb.collection('currentYearTotals').doc(String(year)).get();
     } else {
-      const snap = await adminDb.collection('currentYearTotals').orderBy('year', 'desc').limit(1).get();
+      const snap = await adminDb
+        .collection('currentYearTotals')
+        .orderBy('year', 'desc')
+        .limit(1)
+        .get();
       doc = snap.docs[0];
     }
 
@@ -103,41 +116,49 @@ export async function GET(request: NextRequest) {
       if (includeStores) {
         let eid = eventId;
         if (year) {
-          const evSnap = await adminDb.collection('distributionEvents').where('year', '==', year).limit(1).get();
+          const evSnap = await adminDb
+            .collection('distributionEvents')
+            .where('year', '==', year)
+            .limit(1)
+            .get();
           if (!evSnap.empty) eid = evSnap.docs[0].id;
         }
-        const storesSnapshot = await adminDb
-          .collection('stores')
-          .where('eventId', '==', eid)
-          .get();
-        const stores = storesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const storesSnapshot = await adminDb.collection('stores').where('eventId', '==', eid).get();
+        const stores = storesSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        const teamsSnapshot = await adminDb
-          .collection('teams')
-          .where('eventId', '==', eid)
-          .get();
+        const teamsSnapshot = await adminDb.collection('teams').where('eventId', '==', eid).get();
         const teamsByCode: Record<string, string> = {};
         const teamsByArea: Record<string, Array<{ code: string; name: string }>> = {};
-        teamsSnapshot.docs.forEach(doc => {
+        teamsSnapshot.docs.forEach((doc) => {
           const t = doc.data() as Record<string, unknown>;
-          if (t.teamCode) teamsByCode[t.teamCode as string] = (t.teamName as string) || (t.teamCode as string);
+          if (t.teamCode)
+            teamsByCode[t.teamCode as string] = (t.teamName as string) || (t.teamCode as string);
           if (t.assignedArea) {
             if (!teamsByArea[t.assignedArea as string]) teamsByArea[t.assignedArea as string] = [];
-            teamsByArea[t.assignedArea as string].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
+            teamsByArea[t.assignedArea as string].push({
+              code: t.teamCode as string,
+              name: (t.teamName as string) || (t.teamCode as string),
+            });
           }
           if (Array.isArray(t.adjacentAreas)) {
             t.adjacentAreas.forEach((area: string) => {
               if (!teamsByArea[area]) teamsByArea[area] = [];
-              teamsByArea[area].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
+              teamsByArea[area].push({
+                code: t.teamCode as string,
+                name: (t.teamName as string) || (t.teamCode as string),
+              });
             });
           }
         });
 
         const storesWithNames = stores.map((s: Record<string, unknown>) => {
-          const distributedByName = s.distributedBy ? (teamsByCode[s.distributedBy as string] || null) : null;
-          const assignedTeams = s.areaCode && teamsByArea[s.areaCode as string]
-            ? teamsByArea[s.areaCode as string].map(t => `${t.name}（${t.code}）`)
-            : [];
+          const distributedByName = s.distributedBy
+            ? teamsByCode[s.distributedBy as string] || null
+            : null;
+          const assignedTeams =
+            s.areaCode && teamsByArea[s.areaCode as string]
+              ? teamsByArea[s.areaCode as string].map((t) => `${t.name}（${t.code}）`)
+              : [];
           return {
             ...s,
             distributedByName,
@@ -149,43 +170,50 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: null });
     }
 
-    const base = { id: doc.id, ...(doc.data() as Record<string, unknown>) } as Record<string, unknown>;
+    const base = { id: doc.id, ...(doc.data() as Record<string, unknown>) } as Record<
+      string,
+      unknown
+    >;
 
     if (includeStores) {
       const eid = base.eventId || eventId;
-      const storesSnapshot = await adminDb
-        .collection('stores')
-        .where('eventId', '==', eid)
-        .get();
-      const stores = storesSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const storesSnapshot = await adminDb.collection('stores').where('eventId', '==', eid).get();
+      const stores = storesSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       // チーム名の解決用に teams を取得
-      const teamsSnapshot = await adminDb
-        .collection('teams')
-        .where('eventId', '==', eid)
-        .get();
+      const teamsSnapshot = await adminDb.collection('teams').where('eventId', '==', eid).get();
       const teamsByCode: Record<string, string> = {};
       const teamsByArea: Record<string, Array<{ code: string; name: string }>> = {};
-      teamsSnapshot.docs.forEach(doc => {
+      teamsSnapshot.docs.forEach((doc) => {
         const t = doc.data() as Record<string, unknown>;
-        if (t.teamCode) teamsByCode[t.teamCode as string] = (t.teamName as string) || (t.teamCode as string);
+        if (t.teamCode)
+          teamsByCode[t.teamCode as string] = (t.teamName as string) || (t.teamCode as string);
         if (t.assignedArea) {
           if (!teamsByArea[t.assignedArea as string]) teamsByArea[t.assignedArea as string] = [];
-          teamsByArea[t.assignedArea as string].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
+          teamsByArea[t.assignedArea as string].push({
+            code: t.teamCode as string,
+            name: (t.teamName as string) || (t.teamCode as string),
+          });
         }
         if (Array.isArray(t.adjacentAreas)) {
           t.adjacentAreas.forEach((area: string) => {
             if (!teamsByArea[area]) teamsByArea[area] = [];
-            teamsByArea[area].push({ code: t.teamCode as string, name: (t.teamName as string) || (t.teamCode as string) });
+            teamsByArea[area].push({
+              code: t.teamCode as string,
+              name: (t.teamName as string) || (t.teamCode as string),
+            });
           });
         }
       });
 
       const storesWithNames = stores.map((s: Record<string, unknown>) => {
-        const distributedByName = s.distributedBy ? (teamsByCode[s.distributedBy as string] || null) : null;
-        const assignedTeams = s.areaCode && teamsByArea[s.areaCode as string]
-          ? teamsByArea[s.areaCode as string].map(t => `${t.name}（${t.code}）`)
-          : [];
+        const distributedByName = s.distributedBy
+          ? teamsByCode[s.distributedBy as string] || null
+          : null;
+        const assignedTeams =
+          s.areaCode && teamsByArea[s.areaCode as string]
+            ? teamsByArea[s.areaCode as string].map((t) => `${t.name}（${t.code}）`)
+            : [];
         return {
           ...s,
           distributedByName,

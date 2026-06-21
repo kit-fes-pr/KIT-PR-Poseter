@@ -69,9 +69,7 @@ export function Modal({
         aria-modal="true"
         className={`${panelBase} ${panelClassName}`}
       >
-        <div className={contentClassName}>
-          {children}
-        </div>
+        <div className={contentClassName}>{children}</div>
       </div>
     </div>
   );

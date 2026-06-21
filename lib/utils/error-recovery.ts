@@ -9,7 +9,7 @@ export class ErrorRecoverySystem {
   private retryAttempts = new Map<string, number>();
   private maxRetries = 3;
   private baseDelay = 1000;
-  
+
   static getInstance(): ErrorRecoverySystem {
     if (!this.instance) {
       this.instance = new ErrorRecoverySystem();
@@ -27,16 +27,12 @@ export class ErrorRecoverySystem {
       maxRetries?: number;
       baseDelay?: number;
       onRetry?: (attempt: number, error: unknown) => void;
-    } = {}
+    } = {},
   ): Promise<T> {
-    const { 
-      maxRetries = this.maxRetries, 
-      baseDelay = this.baseDelay,
-      onRetry
-    } = options;
-    
+    const { maxRetries = this.maxRetries, baseDelay = this.baseDelay, onRetry } = options;
+
     const attempts = this.retryAttempts.get(key) || 0;
-    
+
     try {
       const result = await operation();
       // 成功時はカウンターをリセット
@@ -48,17 +44,17 @@ export class ErrorRecoverySystem {
         this.retryAttempts.delete(key);
         throw new Error(`最大リトライ回数(${maxRetries})に達しました: ${error}`);
       }
-      
+
       const nextAttempt = attempts + 1;
       this.retryAttempts.set(key, nextAttempt);
-      
+
       // コールバック実行
       onRetry?.(nextAttempt, error);
-      
+
       // 指数バックオフで待機
       const delay = baseDelay * Math.pow(2, attempts) + Math.random() * 1000;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
       // 再帰的にリトライ
       return this.retryWithBackoff(operation, key, options);
     }
@@ -78,7 +74,7 @@ export class ErrorRecoverySystem {
         type: 'network',
         message: 'インターネット接続がありません',
         suggestion: 'ネットワーク接続を確認してください',
-        recoverable: true
+        recoverable: true,
       };
     }
 
@@ -88,7 +84,7 @@ export class ErrorRecoverySystem {
         type: 'auth',
         message: '認証エラーが発生しました',
         suggestion: '再ログインが必要です',
-        recoverable: false
+        recoverable: false,
       };
     }
 
@@ -97,16 +93,19 @@ export class ErrorRecoverySystem {
         type: 'server',
         message: 'サーバーエラーが発生しました',
         suggestion: 'しばらく待ってから再試行してください',
-        recoverable: true
+        recoverable: true,
       };
     }
 
-    if ((error as { name?: string })?.name === 'TimeoutError' || (error as { code?: string })?.code === 'TIMEOUT') {
+    if (
+      (error as { name?: string })?.name === 'TimeoutError' ||
+      (error as { code?: string })?.code === 'TIMEOUT'
+    ) {
       return {
         type: 'timeout',
         message: '通信がタイムアウトしました',
         suggestion: '接続が遅い可能性があります。再試行してください',
-        recoverable: true
+        recoverable: true,
       };
     }
 
@@ -114,7 +113,7 @@ export class ErrorRecoverySystem {
       type: 'unknown',
       message: '不明なエラーが発生しました',
       suggestion: 'ページを更新してみてください',
-      recoverable: true
+      recoverable: true,
     };
   }
 
@@ -123,15 +122,11 @@ export class ErrorRecoverySystem {
    */
   createRecoveryFetcher(originalFetcher: (url: string) => Promise<unknown>) {
     return async (url: string) => {
-      return this.retryWithBackoff(
-        () => originalFetcher(url),
-        `fetcher_${url}`,
-        {
-          onRetry: (attempt, error) => {
-            console.warn(`🔄 リトライ ${attempt}回目: ${url}`, error);
-          }
-        }
-      );
+      return this.retryWithBackoff(() => originalFetcher(url), `fetcher_${url}`, {
+        onRetry: (attempt, error) => {
+          console.warn(`🔄 リトライ ${attempt}回目: ${url}`, error);
+        },
+      });
     };
   }
 
@@ -141,10 +136,10 @@ export class ErrorRecoverySystem {
   enableOfflineMode(urls: string[]) {
     if ('serviceWorker' in navigator) {
       // Service Worker経由でオフラインキャッシュを有効化
-      navigator.serviceWorker.ready.then(registration => {
+      navigator.serviceWorker.ready.then((registration) => {
         registration.active?.postMessage({
           type: 'ENABLE_OFFLINE_CACHE',
-          urls
+          urls,
         });
       });
     }
@@ -157,9 +152,9 @@ export class ErrorRecoverySystem {
     return {
       activeRetries: Array.from(this.retryAttempts.entries()).map(([key, attempts]) => ({
         key,
-        attempts
+        attempts,
       })),
-      totalRetrying: this.retryAttempts.size
+      totalRetrying: this.retryAttempts.size,
     };
   }
 }
@@ -170,37 +165,46 @@ export class ErrorRecoverySystem {
 export function useErrorRecovery() {
   const recovery = ErrorRecoverySystem.getInstance();
 
-  const handleError = useCallback((error: unknown, context?: string) => {
-    const diagnosis = recovery.diagnoseNetworkError(error);
-    
-    console.error(`エラー発生 [${context || 'unknown'}]:`, {
-      error,
-      diagnosis
-    });
+  const handleError = useCallback(
+    (error: unknown, context?: string) => {
+      const diagnosis = recovery.diagnoseNetworkError(error);
 
-    return diagnosis;
-  }, [recovery]);
+      console.error(`エラー発生 [${context || 'unknown'}]:`, {
+        error,
+        diagnosis,
+      });
 
-  const retryOperation = useCallback(async <T,>(
-    operation: () => Promise<T>,
-    key: string,
-    options?: {
-      maxRetries?: number;
-      onRetry?: (attempt: number, error: unknown) => void;
-    }
-  ) => {
-    return recovery.retryWithBackoff(operation, key, options);
-  }, [recovery]);
+      return diagnosis;
+    },
+    [recovery],
+  );
 
-  const createRobustFetcher = useCallback((baseFetcher: (url: string) => Promise<unknown>) => {
-    return recovery.createRecoveryFetcher(baseFetcher);
-  }, [recovery]);
+  const retryOperation = useCallback(
+    async <T>(
+      operation: () => Promise<T>,
+      key: string,
+      options?: {
+        maxRetries?: number;
+        onRetry?: (attempt: number, error: unknown) => void;
+      },
+    ) => {
+      return recovery.retryWithBackoff(operation, key, options);
+    },
+    [recovery],
+  );
+
+  const createRobustFetcher = useCallback(
+    (baseFetcher: (url: string) => Promise<unknown>) => {
+      return recovery.createRecoveryFetcher(baseFetcher);
+    },
+    [recovery],
+  );
 
   return {
     handleError,
     retryOperation,
     createRobustFetcher,
-    getRetryStats: () => recovery.getRetryStats()
+    getRetryStats: () => recovery.getRetryStats(),
   };
 }
 
@@ -222,7 +226,7 @@ export class ErrorReporter {
       error,
       context,
       userAgent: navigator.userAgent,
-      url: window.location.href
+      url: window.location.href,
     });
 
     // 開発環境では詳細ログ

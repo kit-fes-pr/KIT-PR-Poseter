@@ -27,33 +27,42 @@ type SurveyFieldBlockProps = {
 export function buildSurveyFieldRules(field: FormField): RegisterOptions {
   return {
     required: field.required ? `${field.label}は必須です` : false,
-    minLength: field.validation?.minLength ? {
-      value: field.validation.minLength,
-      message: `${field.label}は${field.validation.minLength}文字以上で入力してください`,
-    } : undefined,
-    maxLength: field.validation?.maxLength ? {
-      value: field.validation.maxLength,
-      message: `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
-    } : undefined,
-    pattern: field.validation?.pattern ? {
-      value: new RegExp(field.validation.pattern),
-      message: `${field.label}の形式が正しくありません`,
-    } : undefined,
-    validate: field.type === 'checkbox' ? (rawValue: unknown) => {
-      if (rawValue == null) {
-        return field.required ? '一つ以上選択してください' : true;
-      }
+    minLength: field.validation?.minLength
+      ? {
+          value: field.validation.minLength,
+          message: `${field.label}は${field.validation.minLength}文字以上で入力してください`,
+        }
+      : undefined,
+    maxLength: field.validation?.maxLength
+      ? {
+          value: field.validation.maxLength,
+          message: `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
+        }
+      : undefined,
+    pattern: field.validation?.pattern
+      ? {
+          value: new RegExp(field.validation.pattern),
+          message: `${field.label}の形式が正しくありません`,
+        }
+      : undefined,
+    validate:
+      field.type === 'checkbox'
+        ? (rawValue: unknown) => {
+            if (rawValue == null) {
+              return field.required ? '一つ以上選択してください' : true;
+            }
 
-      if (!Array.isArray(rawValue)) {
-        return '配列で送信してください';
-      }
+            if (!Array.isArray(rawValue)) {
+              return '配列で送信してください';
+            }
 
-      if (!field.required) {
-        return true;
-      }
+            if (!field.required) {
+              return true;
+            }
 
-      return rawValue.length > 0 || '一つ以上選択してください';
-    } : undefined,
+            return rawValue.length > 0 || '一つ以上選択してください';
+          }
+        : undefined,
   };
 }
 
@@ -68,10 +77,12 @@ export function SurveyFieldBlock({
   const isRequired = field.required;
   const label = `${field.label}${isRequired ? ' *' : ''}`;
   const isAvailabilityField = fieldId === 'availability';
-  const optionLabel = (option: string) => (isAvailabilityField ? formatAvailabilitySlotLabel(option) : option);
+  const optionLabel = (option: string) =>
+    isAvailabilityField ? formatAvailabilitySlotLabel(option) : option;
   const availabilityIntro = availabilityCopy?.intro || '参加可能な日時を選択してください。';
   const availabilityMultiple = availabilityCopy?.multiple || '複数選択可';
-  const availabilityAllAvailable = availabilityCopy?.allAvailable || '配布期間内の全日時に対応可能です';
+  const availabilityAllAvailable =
+    availabilityCopy?.allAvailable || '配布期間内の全日時に対応可能です';
   const availabilityUnavailable = availabilityCopy?.unavailable || 'この日時には参加できません';
 
   const updateValue = (nextValue: string | string[]) => {
@@ -84,13 +95,13 @@ export function SurveyFieldBlock({
       (field.options || []).map((option) => ({
         key: option,
         label: option,
-      }))
+      })),
     );
     const specialOptions = (field.options || []).filter(
-      (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY
+      (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY,
     );
     const dateOptions = (field.options || []).filter(
-      (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY
+      (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
     );
 
     const renderOptionCard = (option: string, index: number, tone: 'date' | 'special' = 'date') => {
@@ -112,7 +123,11 @@ export function SurveyFieldBlock({
             checked={selected}
             onChange={() => {
               const currentValues = normalizeAvailabilitySlots(value);
-              const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);
+              const nextValues = toggleAvailabilitySelection(
+                currentValues,
+                option,
+                allDateSlotKeys,
+              );
               updateValue(nextValues);
             }}
             className="sr-only"
@@ -130,9 +145,7 @@ export function SurveyFieldBlock({
             </svg>
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium text-gray-900">
-              {optionLabel(option)}
-            </span>
+            <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
             <span className="mt-1 block text-xs text-gray-500">
               {isSpecial
                 ? option === ALL_AVAILABLE_SLOT_KEY

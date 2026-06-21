@@ -8,7 +8,11 @@ import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { LoadingInline } from '@/components/ui/Loading';
 import { formatDateOnly } from '@/lib/utils/dateUtils';
-import { buildAvailabilitySlotChoices, UNAVAILABLE_SLOT_KEY, ALL_AVAILABLE_SLOT_KEY } from '@/lib/utils/availability';
+import {
+  buildAvailabilitySlotChoices,
+  UNAVAILABLE_SLOT_KEY,
+  ALL_AVAILABLE_SLOT_KEY,
+} from '@/lib/utils/availability';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability';
 
 type EventSummary = {
@@ -38,7 +42,11 @@ function toInputDateValue(value: string | Date | undefined): string {
   return value.toISOString().slice(0, 10);
 }
 
-export default function DistributionSettingsPage({ params }: { params: Promise<{ year: string }> }) {
+export default function DistributionSettingsPage({
+  params,
+}: {
+  params: Promise<{ year: string }>;
+}) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -74,7 +82,7 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
 
   const allChoices = useMemo<AvailabilitySlotChoice[]>(
     () => buildAvailabilitySlotChoices(distributionStartDate, distributionEndDate),
-    [distributionStartDate, distributionEndDate]
+    [distributionStartDate, distributionEndDate],
   );
 
   useEffect(() => {
@@ -108,22 +116,38 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
         const nextEvent = eventJson?.data as EventSummary | null;
         setEventData(nextEvent);
         setEventName(nextEvent?.eventName || `工大祭${resolvedParams.year}`);
-        setDistributionStartDate(toInputDateValue(nextEvent?.distributionStartDate as string | Date | undefined));
-        setDistributionEndDate(toInputDateValue(nextEvent?.distributionEndDate as string | Date | undefined));
+        setDistributionStartDate(
+          toInputDateValue(nextEvent?.distributionStartDate as string | Date | undefined),
+        );
+        setDistributionEndDate(
+          toInputDateValue(nextEvent?.distributionEndDate as string | Date | undefined),
+        );
 
-        const slotsFromEvent = Array.isArray(nextEvent?.distributionAvailabilitySlots) && nextEvent?.distributionAvailabilitySlots!.length > 0
-          ? nextEvent!.distributionAvailabilitySlots!
-          : buildAvailabilitySlotChoices(nextEvent?.distributionStartDate, nextEvent?.distributionEndDate).map((choice) => choice.key);
+        const slotsFromEvent =
+          Array.isArray(nextEvent?.distributionAvailabilitySlots) &&
+          nextEvent?.distributionAvailabilitySlots!.length > 0
+            ? nextEvent!.distributionAvailabilitySlots!
+            : buildAvailabilitySlotChoices(
+                nextEvent?.distributionStartDate,
+                nextEvent?.distributionEndDate,
+              ).map((choice) => choice.key);
         setSelectedSlots(slotsFromEvent);
         lastSavedSnapshotRef.current = JSON.stringify({
           eventName: nextEvent?.eventName || `工大祭${resolvedParams.year}`,
-          distributionStartDate: toInputDateValue(nextEvent?.distributionStartDate as string | Date | undefined),
-          distributionEndDate: toInputDateValue(nextEvent?.distributionEndDate as string | Date | undefined),
+          distributionStartDate: toInputDateValue(
+            nextEvent?.distributionStartDate as string | Date | undefined,
+          ),
+          distributionEndDate: toInputDateValue(
+            nextEvent?.distributionEndDate as string | Date | undefined,
+          ),
           selectedSlots: slotsFromEvent,
         });
         hasLoadedRef.current = true;
 
-        const nextForm = Array.isArray(formsJson?.forms) && formsJson.forms.length > 0 ? (formsJson.forms[0] as CurrentForm) : null;
+        const nextForm =
+          Array.isArray(formsJson?.forms) && formsJson.forms.length > 0
+            ? (formsJson.forms[0] as CurrentForm)
+            : null;
         setCurrentForm(nextForm);
       } catch (err) {
         console.error(err);
@@ -145,125 +169,140 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
     });
   }, [allChoices]);
 
-  const persistSettings = useCallback(async (silent = false) => {
-    if (!resolvedParams || !user) return false;
+  const persistSettings = useCallback(
+    async (silent = false) => {
+      if (!resolvedParams || !user) return false;
 
-    if (!distributionStartDate || !distributionEndDate) {
-      if (!silent) {
-        setError('配布日を入力してください');
-      }
-      setSaveStatus('error');
-      return false;
-    }
-
-    const validSlots = selectedSlots.filter((slot) => allChoices.some((choice) => choice.key === slot));
-    if (validSlots.length === 0) {
-      if (!silent) {
-        setError('午前/午後を一つ以上選択してください');
-      }
-      setSaveStatus('error');
-      return false;
-    }
-
-    try {
-      if (!silent) {
-        setError('');
-      }
-      setSaveStatus('saving');
-
-      const token = await user.getIdToken();
-      const eventId = eventData?.id || `kodai${resolvedParams.year}`;
-
-      const eventRes = await fetch('/api/admin/events', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          id: eventId,
-          year: Number(resolvedParams.year),
-          eventName,
-          distributionStartDate,
-          distributionEndDate,
-          distributionAvailabilitySlots: validSlots,
-        }),
-      });
-
-      const eventJson = await eventRes.json().catch(() => null);
-      if (!eventRes.ok) {
-        setError(eventJson?.error || 'イベント設定の保存に失敗しました');
+      if (!distributionStartDate || !distributionEndDate) {
+        if (!silent) {
+          setError('配布日を入力してください');
+        }
         setSaveStatus('error');
         return false;
       }
 
-      setEventData(eventJson.data as EventSummary);
-      setSelectedSlots(validSlots);
+      const validSlots = selectedSlots.filter((slot) =>
+        allChoices.some((choice) => choice.key === slot),
+      );
+      if (validSlots.length === 0) {
+        if (!silent) {
+          setError('午前/午後を一つ以上選択してください');
+        }
+        setSaveStatus('error');
+        return false;
+      }
 
-      if (currentForm) {
-        const formRes = await fetch(`/api/forms/${currentForm.formId}`, {
+      try {
+        if (!silent) {
+          setError('');
+        }
+        setSaveStatus('saving');
+
+        const token = await user.getIdToken();
+        const eventId = eventData?.id || `kodai${resolvedParams.year}`;
+
+        const eventRes = await fetch('/api/admin/events', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            title: currentForm.title,
-            description: currentForm.description || '',
-            isActive: currentForm.isActive,
-            fields: [
-              {
-                fieldId: 'availability',
-                type: 'checkbox',
-                label: '参加可能日時',
-                placeholder: '参加可能な日時を選択してください',
-                required: true,
-                options: buildFormAvailabilityOptions(validSlots),
-                order: 0,
-              },
-              {
-                fieldId: 'remarks',
-                type: 'textarea',
-                label: '備考',
-                placeholder: 'その他連絡事項があればご記入ください',
-                required: false,
-                order: 1,
-              },
-            ],
+            id: eventId,
+            year: Number(resolvedParams.year),
+            eventName,
+            distributionStartDate,
+            distributionEndDate,
+            distributionAvailabilitySlots: validSlots,
           }),
         });
 
-        const formJson = await formRes.json().catch(() => null);
-        if (!formRes.ok) {
-          setError(formJson?.error || 'フォームの選択肢同期に失敗しました');
+        const eventJson = await eventRes.json().catch(() => null);
+        if (!eventRes.ok) {
+          setError(eventJson?.error || 'イベント設定の保存に失敗しました');
           setSaveStatus('error');
           return false;
         }
-      }
 
-      lastSavedSnapshotRef.current = JSON.stringify({
-        eventName,
-        distributionStartDate,
-        distributionEndDate,
-        selectedSlots: validSlots,
-      });
-      setSaveStatus('saved');
-      return true;
-    } catch (err) {
-      console.error(err);
-      setError('イベント設定の保存に失敗しました');
-      setSaveStatus('error');
-      return false;
-    } finally {
-    }
-  }, [allChoices, currentForm, distributionEndDate, distributionStartDate, eventData?.id, eventName, resolvedParams, selectedSlots, user]);
+        setEventData(eventJson.data as EventSummary);
+        setSelectedSlots(validSlots);
+
+        if (currentForm) {
+          const formRes = await fetch(`/api/forms/${currentForm.formId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              title: currentForm.title,
+              description: currentForm.description || '',
+              isActive: currentForm.isActive,
+              fields: [
+                {
+                  fieldId: 'availability',
+                  type: 'checkbox',
+                  label: '参加可能日時',
+                  placeholder: '参加可能な日時を選択してください',
+                  required: true,
+                  options: buildFormAvailabilityOptions(validSlots),
+                  order: 0,
+                },
+                {
+                  fieldId: 'remarks',
+                  type: 'textarea',
+                  label: '備考',
+                  placeholder: 'その他連絡事項があればご記入ください',
+                  required: false,
+                  order: 1,
+                },
+              ],
+            }),
+          });
+
+          const formJson = await formRes.json().catch(() => null);
+          if (!formRes.ok) {
+            setError(formJson?.error || 'フォームの選択肢同期に失敗しました');
+            setSaveStatus('error');
+            return false;
+          }
+        }
+
+        lastSavedSnapshotRef.current = JSON.stringify({
+          eventName,
+          distributionStartDate,
+          distributionEndDate,
+          selectedSlots: validSlots,
+        });
+        setSaveStatus('saved');
+        return true;
+      } catch (err) {
+        console.error(err);
+        setError('イベント設定の保存に失敗しました');
+        setSaveStatus('error');
+        return false;
+      } finally {
+      }
+    },
+    [
+      allChoices,
+      currentForm,
+      distributionEndDate,
+      distributionStartDate,
+      eventData?.id,
+      eventName,
+      resolvedParams,
+      selectedSlots,
+      user,
+    ],
+  );
 
   const toggleSlot = (slotKey: string) => {
-    setSelectedSlots((current) => (
+    setSelectedSlots((current) =>
       current.includes(slotKey)
         ? current.filter((value) => value !== slotKey)
-        : [...current, slotKey]
-    ));
+        : [...current, slotKey],
+    );
   };
 
   useEffect(() => {
@@ -291,7 +330,16 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [eventName, distributionStartDate, distributionEndDate, selectedSlots, resolvedParams, user, authLoading, persistSettings]);
+  }, [
+    eventName,
+    distributionStartDate,
+    distributionEndDate,
+    selectedSlots,
+    resolvedParams,
+    user,
+    authLoading,
+    persistSettings,
+  ]);
 
   if (authLoading || loading) {
     return (
@@ -310,7 +358,7 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <YearPageSectionHeader
           title={`イベント設定 (${resolvedParams.year}年度)`}
-          actions={(
+          actions={
             <>
               <Link
                 href={`/admin/event/${resolvedParams.year}`}
@@ -325,7 +373,7 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
                 フォーム管理へ
               </Link>
             </>
-          )}
+          }
         />
 
         {error && (
@@ -334,9 +382,9 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
           </div>
         )}
 
-
         <p className="mt-4 text-xs text-gray-500">
-          自動保存: {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
+          自動保存:{' '}
+          {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
         </p>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
@@ -388,7 +436,9 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
               </div>
 
               {allChoices.length === 0 ? (
-                <p className="mt-4 text-sm text-red-600">配布期間を設定すると選択肢が表示されます。</p>
+                <p className="mt-4 text-sm text-red-600">
+                  配布期間を設定すると選択肢が表示されます。
+                </p>
               ) : (
                 <div className="mt-4 grid gap-3">
                   {(() => {
@@ -401,7 +451,10 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
                     });
 
                     return Array.from(grouped.entries()).map(([dateKey, items]) => (
-                      <div key={dateKey} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <div
+                        key={dateKey}
+                        className="rounded-2xl border border-gray-200 bg-gray-50 p-4"
+                      >
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-gray-900">{dateKey}</p>
                           <p className="text-xs text-gray-500">{formatDateOnly(dateKey)}</p>
@@ -412,8 +465,11 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
                             return (
                               <label
                                 key={choice.key}
-                                className={`flex items-start gap-3 rounded-2xl border px-4 py-3 ${checked ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-white'
-                                  }`}
+                                className={`flex items-start gap-3 rounded-2xl border px-4 py-3 ${
+                                  checked
+                                    ? 'border-indigo-300 bg-indigo-50'
+                                    : 'border-gray-200 bg-white'
+                                }`}
                               >
                                 <input
                                   type="checkbox"
@@ -432,7 +488,6 @@ export default function DistributionSettingsPage({ params }: { params: Promise<{
                 </div>
               )}
             </div>
-
           </div>
         </div>
       </div>

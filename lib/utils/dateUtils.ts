@@ -26,8 +26,8 @@ export function formatDate(
     day: '2-digit',
     timeZone: DEFAULT_TIME_ZONE,
     hour: '2-digit',
-    minute: '2-digit'
-  }
+    minute: '2-digit',
+  },
 ): string {
   if (!dateValue) return '-';
 
@@ -75,7 +75,7 @@ export function formatDateOnly(dateValue: DateValue): string {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-    timeZone: DEFAULT_TIME_ZONE
+    timeZone: DEFAULT_TIME_ZONE,
   });
 }
 
@@ -86,7 +86,7 @@ export function formatTimeOnly(dateValue: DateValue): string {
   return formatDate(dateValue, {
     timeZone: DEFAULT_TIME_ZONE,
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 
@@ -110,7 +110,7 @@ export function formatRelativeTime(dateValue: DateValue): string {
     if (diffMinutes < 60) return `${diffMinutes}分前`;
     if (diffHours < 24) return `${diffHours}時間前`;
     if (diffDays < 7) return `${diffDays}日前`;
-    
+
     return formatDateOnly(dateValue);
   } catch (error) {
     console.error('Relative time formatting error:', error);

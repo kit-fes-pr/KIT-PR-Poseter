@@ -19,7 +19,9 @@ export const SPECIAL_AVAILABILITY_SLOT_CHOICES: AvailabilitySlotChoice[] = [
   { key: UNAVAILABLE_SLOT_KEY, label: '参加不可', period: 'special' },
 ];
 
-export function getAvailabilitySummaryLabel(value: AvailabilitySummary | string | null | undefined): string {
+export function getAvailabilitySummaryLabel(
+  value: AvailabilitySummary | string | null | undefined,
+): string {
   if (!value) return '-';
   if (value === 'morning') return '午前';
   if (value === 'afternoon') return '午後';
@@ -47,7 +49,12 @@ function toSafeDate(value: unknown): Date | null {
     return isNaN(date.getTime()) ? null : date;
   }
 
-  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
     const date = (value as { toDate: () => Date }).toDate();
     return isNaN(date.getTime()) ? null : date;
   }
@@ -57,7 +64,7 @@ function toSafeDate(value: unknown): Date | null {
 
 export function buildAvailabilitySlotChoices(
   startDate: unknown,
-  endDate: unknown
+  endDate: unknown,
 ): AvailabilitySlotChoice[] {
   const start = toSafeDate(startDate);
   const end = toSafeDate(endDate) || start;
@@ -67,7 +74,9 @@ export function buildAvailabilitySlotChoices(
   }
 
   const choices: AvailabilitySlotChoice[] = [];
-  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const cursor = new Date(
+    Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()),
+  );
   const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
 
   while (cursor.getTime() <= last.getTime()) {
@@ -100,7 +109,7 @@ export function buildAvailabilitySlotChoices(
 export function buildAvailabilitySlotKeysForDateRange(
   startDate: unknown,
   endDate: unknown,
-  timeSlot: 'morning' | 'afternoon' | 'both' | 'other' = 'both'
+  timeSlot: 'morning' | 'afternoon' | 'both' | 'other' = 'both',
 ): string[] {
   const start = toSafeDate(startDate) || toSafeDate(endDate);
   const end = toSafeDate(endDate) || start;
@@ -178,7 +187,7 @@ export function getAvailabilityDateSlotKeys(choices: Array<{ key: string }>): st
 export function toggleAvailabilitySelection(
   currentValues: string[],
   clickedValue: string,
-  allDateSlotKeys: string[]
+  allDateSlotKeys: string[],
 ): string[] {
   const current = Array.from(new Set(currentValues.filter(Boolean)));
 
@@ -198,7 +207,12 @@ export function toggleAvailabilitySelection(
 
   const nextValues = current.includes(clickedValue)
     ? current.filter((value) => value !== clickedValue)
-    : [...current.filter((value) => value !== ALL_AVAILABLE_SLOT_KEY && value !== UNAVAILABLE_SLOT_KEY), clickedValue];
+    : [
+        ...current.filter(
+          (value) => value !== ALL_AVAILABLE_SLOT_KEY && value !== UNAVAILABLE_SLOT_KEY,
+        ),
+        clickedValue,
+      ];
 
   return nextValues;
 }
@@ -217,8 +231,8 @@ export function normalizeAvailabilitySlots(input: unknown): string[] {
       new Set(
         input
           .map((value) => normalizeAvailabilitySlotValue(value))
-          .filter((value): value is string => Boolean(value))
-      )
+          .filter((value): value is string => Boolean(value)),
+      ),
     );
   }
 

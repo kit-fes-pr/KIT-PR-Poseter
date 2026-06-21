@@ -7,7 +7,12 @@ function serializeDate(value: unknown): string | unknown {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return new Date(value).toISOString();
-  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
     return (value as { toDate: () => Date }).toDate().toISOString();
   }
   return value;
@@ -15,42 +20,33 @@ function serializeDate(value: unknown): string | unknown {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ formId: string }> }
+  { params }: { params: Promise<{ formId: string }> },
 ) {
   try {
     const resolvedParams = await params;
-    
+
     // 公開されたフォームは認証なしでアクセス可能
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
-    
+
     if (!formDoc.exists) {
-      return NextResponse.json(
-        { error: 'フォームが見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'フォームが見つかりません' }, { status: 404 });
     }
 
     const formData = formDoc.data() as SurveyForm;
-    
+
     // フォームが非アクティブの場合は管理者のみアクセス可能
     if (!formData.isActive) {
       const authHeader = request.headers.get('authorization');
-      
+
       if (!authHeader?.startsWith('Bearer ')) {
-        return NextResponse.json(
-          { error: 'このフォームは現在利用できません' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'このフォームは現在利用できません' }, { status: 403 });
       }
 
       const idToken = authHeader.split('Bearer ')[1];
       const decodedToken = await adminAuth.verifyIdToken(idToken);
 
       if (decodedToken.role !== 'admin') {
-        return NextResponse.json(
-          { error: 'このフォームは現在利用できません' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'このフォームは現在利用できません' }, { status: 403 });
       }
     }
 
@@ -62,26 +58,19 @@ export async function GET(
     });
   } catch (error) {
     console.error('フォーム取得エラー:', error);
-    return NextResponse.json(
-      { error: 'フォームの取得に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'フォームの取得に失敗しました' }, { status: 500 });
   }
 }
 
-
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ formId: string }> }
+  { params }: { params: Promise<{ formId: string }> },
 ) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
@@ -89,10 +78,7 @@ export async function PATCH(
 
     // 管理者のみフォーム更新可能
     if (decodedToken.role !== 'admin') {
-      return NextResponse.json(
-        { error: '管理者権限が必要です' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
     const resolvedParams = await params;
@@ -100,12 +86,9 @@ export async function PATCH(
 
     // フォームの存在確認
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
-    
+
     if (!formDoc.exists) {
-      return NextResponse.json(
-        { error: 'フォームが見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'フォームが見つかりません' }, { status: 404 });
     }
 
     // 更新データの準備
@@ -116,10 +99,7 @@ export async function PATCH(
 
     if (updateData.title !== undefined) {
       if (!updateData.title.trim()) {
-        return NextResponse.json(
-          { error: 'フォームタイトルは必須です' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'フォームタイトルは必須です' }, { status: 400 });
       }
       updateFields.title = updateData.title.trim();
     }
@@ -139,13 +119,16 @@ export async function PATCH(
         if (!field.label?.trim()) {
           return NextResponse.json(
             { error: `フィールド${i + 1}のラベルは必須です` },
-            { status: 400 }
+            { status: 400 },
           );
         }
-        if (['select', 'radio', 'checkbox'].includes(field.type) && (!field.options || field.options.length === 0)) {
+        if (
+          ['select', 'radio', 'checkbox'].includes(field.type) &&
+          (!field.options || field.options.length === 0)
+        ) {
           return NextResponse.json(
             { error: `フィールド${i + 1}の選択肢を設定してください` },
-            { status: 400 }
+            { status: 400 },
           );
         }
       }
@@ -174,25 +157,19 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('フォーム更新エラー:', error);
-    return NextResponse.json(
-      { error: 'フォームの更新に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'フォームの更新に失敗しました' }, { status: 500 });
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ formId: string }> }
+  { params }: { params: Promise<{ formId: string }> },
 ) {
   try {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
@@ -200,22 +177,16 @@ export async function DELETE(
 
     // 管理者のみフォーム削除可能
     if (decodedToken.role !== 'admin') {
-      return NextResponse.json(
-        { error: '管理者権限が必要です' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
     const resolvedParams = await params;
-    
+
     // フォームの存在確認
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
-    
+
     if (!formDoc.exists) {
-      return NextResponse.json(
-        { error: 'フォームが見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'フォームが見つかりません' }, { status: 404 });
     }
 
     // 回答を含めて削除する
@@ -241,9 +212,6 @@ export async function DELETE(
     });
   } catch (error) {
     console.error('フォーム削除エラー:', error);
-    return NextResponse.json(
-      { error: 'フォームの削除に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'フォームの削除に失敗しました' }, { status: 500 });
   }
 }

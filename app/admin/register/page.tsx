@@ -3,13 +3,27 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { auth } from '@/lib/firebase';
+import { signInWithCustomToken, getIdToken, signOut } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
+
+const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
 
 export default function AdminRegister() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  const clearAuthState = async () => {
+    try {
+      await signOut(auth);
+    } catch (signOutError) {
+      console.error('サインアウトエラー:', signOutError);
+    } finally {
+      localStorage.removeItem('authToken');
+    }
+  };
 
   const {
     register,
@@ -34,33 +48,30 @@ export default function AdminRegister() {
       const result = await response.json();
 
       if (response.ok) {
-        setSuccess('管理者アカウントが作成されました！管理者ダッシュボードに移動します...');
-        
-        // カスタムトークンを使ってFirebase認証
-        const { auth } = await import('@/lib/firebase');
-        const { signInWithCustomToken, getIdToken } = await import('firebase/auth');
-        
+        setSuccess('管理者アカウントが作成されました！管理画面に移動します...');
+
         if (result.customToken) {
           try {
             // カスタムトークンでサインイン
             const userCredential = await signInWithCustomToken(auth, result.customToken);
             console.log('Signed in with custom token after registration:', userCredential.user.uid);
-            
+
             // IDトークンを取得
             const idToken = await getIdToken(userCredential.user);
             localStorage.setItem('authToken', idToken);
-            console.log('ID Token stored after registration:', idToken.substring(0, 50) + '...');
-            
+
             setTimeout(() => {
-              router.push('/admin/dashboard');
+              router.push('/admin/event');
             }, 2000);
           } catch (authError) {
             console.error('Custom token authentication failed after registration:', authError);
+            await clearAuthState();
             setTimeout(() => {
               router.push('/admin');
             }, 2000);
           }
         } else {
+          await clearAuthState();
           setTimeout(() => {
             router.push('/admin');
           }, 2000);
@@ -83,7 +94,7 @@ export default function AdminRegister() {
           管理者アカウント作成
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          st.kanazawa-it.ac.jp ドメインのメールアドレスで管理者アカウントを作成してください
+          kanazawa-it.ac.jp 配下のメールアドレスで管理者アカウントを作成してください
         </p>
       </div>
 
@@ -98,20 +109,18 @@ export default function AdminRegister() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="example@st.kanazawa-it.ac.jp"
+                  placeholder="example@sub.kanazawa-it.ac.jp"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   {...register('email', {
                     required: 'メールアドレスを入力してください',
                     pattern: {
-                      value: /^[^\s@]+@st\.kanazawa-it\.ac\.jp$/,
-                      message: 'st.kanazawa-it.ac.jp ドメインのメールアドレスを入力してください'
-                    }
+                      value: ADMIN_EMAIL_PATTERN,
+                      message: 'kanazawa-it.ac.jp 配下のメールアドレスを入力してください',
+                    },
                   })}
                 />
               </div>
-              {errors.email && (
-                <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>}
             </div>
 
             <div>
@@ -127,8 +136,8 @@ export default function AdminRegister() {
                     required: 'パスワードを入力してください',
                     minLength: {
                       value: 6,
-                      message: 'パスワードは6文字以上で入力してください'
-                    }
+                      message: 'パスワードは6文字以上で入力してください',
+                    },
                   })}
                 />
               </div>
@@ -173,7 +182,7 @@ export default function AdminRegister() {
             <div className="text-xs text-gray-500">
               <p className="mb-2">注意事項:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>st.kanazawa-it.ac.jp ドメインのメールアドレスのみ使用可能</li>
+                <li>kanazawa-it.ac.jp 配下のメールアドレスのみ使用可能</li>
                 <li>パスワードは6文字以上で設定してください</li>
                 <li>作成後は管理者権限が自動的に付与されます</li>
               </ul>

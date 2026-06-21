@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ teamId: string }> }
+  { params }: { params: Promise<{ teamId: string }> },
 ) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -24,17 +24,24 @@ export async function GET(
     }
     const teamData = teamDoc.data() as Record<string, unknown>;
 
-    const storesSnapshot = await adminDb.collection('stores')
+    const storesSnapshot = await adminDb
+      .collection('stores')
       .where('eventId', '==', teamData.eventId)
       .where('distributedBy', '==', teamData.teamCode)
       .get();
 
-    const stores = storesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const stores = storesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
     // 追加の集計
-    const completed = stores.filter((s: Record<string, unknown>) => s.distributionStatus === 'completed').length;
-    const failed = stores.filter((s: Record<string, unknown>) => s.distributionStatus === 'failed').length;
-    const revisit = stores.filter((s: Record<string, unknown>) => s.distributionStatus === 'revisit').length;
+    const completed = stores.filter(
+      (s: Record<string, unknown>) => s.distributionStatus === 'completed',
+    ).length;
+    const failed = stores.filter(
+      (s: Record<string, unknown>) => s.distributionStatus === 'failed',
+    ).length;
+    const revisit = stores.filter(
+      (s: Record<string, unknown>) => s.distributionStatus === 'revisit',
+    ).length;
     const total = stores.length;
 
     return NextResponse.json({
@@ -47,4 +54,3 @@ export async function GET(
     return NextResponse.json({ error: 'チーム店舗の取得に失敗しました' }, { status: 500 });
   }
 }
-

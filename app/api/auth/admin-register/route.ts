@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
+const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
@@ -8,14 +10,14 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return NextResponse.json(
         { error: 'メールアドレスとパスワードを入力してください' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (!email.endsWith('@st.kanazawa-it.ac.jp')) {
+    if (!ADMIN_EMAIL_PATTERN.test(email)) {
       return NextResponse.json(
-        { error: 'st.kanazawa-it.ac.jp ドメインのメールアドレスのみ使用可能です' },
-        { status: 403 }
+        { error: 'kanazawa-it.ac.jp のメールアドレスのみ使用可能です' },
+        { status: 403 },
       );
     }
 
@@ -75,12 +77,8 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
-
   } catch (error) {
     console.error('Admin register error:', error);
-    return NextResponse.json(
-      { error: '管理者アカウントの作成に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '管理者アカウントの作成に失敗しました' }, { status: 500 });
   }
 }

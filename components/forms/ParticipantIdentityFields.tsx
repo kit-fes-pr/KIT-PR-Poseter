@@ -49,13 +49,13 @@ export function ParticipantIdentityFields({
           value={grade}
           onChange={(e) => onGradeChange(e.target.value)}
           className="mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-indigo-500"
-          >
-            <option value="">選択してください</option>
-            <option value="1">1年生</option>
-            <option value="2">2年生</option>
-            <option value="3">3年生</option>
-            <option value="4">4年生</option>
-          </select>
+        >
+          <option value="">選択してください</option>
+          <option value="1">1年生</option>
+          <option value="2">2年生</option>
+          <option value="3">3年生</option>
+          <option value="4">4年生</option>
+        </select>
         {gradeError && <p className="mt-1 text-sm text-red-600">{gradeError}</p>}
       </div>
       <div className="md:col-span-2">

@@ -4,7 +4,10 @@ export function normalizeAdjacentAreas(value: unknown): string[] {
   }
 
   if (typeof value === 'string') {
-    return value.split(',').map((item) => item.trim()).filter(Boolean);
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   return [];

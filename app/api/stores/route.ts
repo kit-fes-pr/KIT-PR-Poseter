@@ -8,10 +8,7 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
@@ -22,8 +19,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const q = searchParams.get('q');
 
-    let query = adminDb.collection('stores')
-      .where('eventId', '==', 'kodai2025');
+    let query = adminDb.collection('stores').where('eventId', '==', 'kodai2025');
 
     const scope = (searchParams.get('scope') || '').toLowerCase();
     if (decodedToken.role === 'team' && scope !== 'all') {
@@ -48,16 +44,17 @@ export async function GET(request: NextRequest) {
     }
 
     const snapshot = await query.get();
-    let stores = snapshot.docs.map(doc => ({
+    let stores = snapshot.docs.map((doc) => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     })) as unknown as Store[];
 
     if (q) {
       const searchTerm = q.toLowerCase();
-      stores = stores.filter(store =>
-        store.storeName.toLowerCase().includes(searchTerm) ||
-        store.address.toLowerCase().includes(searchTerm)
+      stores = stores.filter(
+        (store) =>
+          store.storeName.toLowerCase().includes(searchTerm) ||
+          store.address.toLowerCase().includes(searchTerm),
       );
     }
 
@@ -78,7 +75,9 @@ export async function GET(request: NextRequest) {
       }
       // ログインコード（班）単位で管理: 自分が作成 or 自分が配布した店舗のみ表示
       const selfCode = decodedToken.teamCode;
-      stores = stores.filter((s: Store) => s.createdByTeamCode === selfCode || s.distributedBy === selfCode);
+      stores = stores.filter(
+        (s: Store) => s.createdByTeamCode === selfCode || s.distributedBy === selfCode,
+      );
     }
 
     stores.sort((a, b) => {
@@ -88,13 +87,9 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ stores });
-
   } catch (error) {
     console.error('Get stores error:', error);
-    return NextResponse.json(
-      { error: '店舗情報の取得に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '店舗情報の取得に失敗しました' }, { status: 500 });
   }
 }
 
@@ -103,10 +98,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
@@ -123,10 +115,7 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     if (!storeName || !address) {
-      return NextResponse.json(
-        { error: '店名と住所は必須です' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '店名と住所は必須です' }, { status: 400 });
     }
 
     // チームの担当区域を解決（areaCode が指定されない場合の既定値に使用）
@@ -159,12 +148,12 @@ export async function POST(request: NextRequest) {
       registrationMethod: 'manual',
       eventId: 'kodai2025',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     await storeRef.set({
       storeId: storeRef.id,
-      ...storeData
+      ...storeData,
     });
 
     return NextResponse.json({
@@ -172,15 +161,11 @@ export async function POST(request: NextRequest) {
       store: {
         id: storeRef.id,
         storeId: storeRef.id,
-        ...storeData
-      }
+        ...storeData,
+      },
     });
-
   } catch (error) {
     console.error('Create store error:', error);
-    return NextResponse.json(
-      { error: '店舗の登録に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '店舗の登録に失敗しました' }, { status: 500 });
   }
 }

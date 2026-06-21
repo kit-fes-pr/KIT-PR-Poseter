@@ -2,11 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
-import { normalizeAvailabilitySlots, validateAvailabilitySelection } from '@/lib/utils/availability';
+import {
+  normalizeAvailabilitySlots,
+  validateAvailabilitySelection,
+} from '@/lib/utils/availability';
 
 function resolveAvailabilitySlots(
   answers: FormAnswer[],
-  participantAvailableSlots: unknown
+  participantAvailableSlots: unknown,
 ): string[] {
   const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
   if (availabilityAnswer) {
@@ -18,19 +21,16 @@ function resolveAvailabilitySlots(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ formId: string; responseId: string }> }
+  { params }: { params: Promise<{ formId: string; responseId: string }> },
 ) {
   try {
     const resolvedParams = await params;
 
     // フォームの存在確認
     const formDoc = await adminDb.collection('forms').doc(resolvedParams.formId).get();
-    
+
     if (!formDoc.exists) {
-      return NextResponse.json(
-        { error: 'フォームが見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'フォームが見つかりません' }, { status: 404 });
     }
 
     const formData = formDoc.data() as SurveyForm;
@@ -43,12 +43,9 @@ export async function PATCH(
       .doc(resolvedParams.responseId);
 
     const responseDoc = await responseRef.get();
-    
+
     if (!responseDoc.exists) {
-      return NextResponse.json(
-        { error: '回答が見つかりません' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: '回答が見つかりません' }, { status: 404 });
     }
 
     const body = await request.json();
@@ -70,33 +67,35 @@ export async function PATCH(
     const editToken = typeof body.editToken === 'string' ? body.editToken : '';
     if (!isAdmin) {
       if (!editToken || editToken !== responseData.editToken) {
-        return NextResponse.json(
-          { error: '編集権限がありません' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: '編集権限がありません' }, { status: 403 });
       }
     }
 
     // 回答データのバリデーション
     if (!answers || !Array.isArray(answers)) {
-      return NextResponse.json(
-        { error: '回答データが正しくありません' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
     }
 
     // 参加者データのバリデーション
     if (participantData) {
       const participantValidationErrors: string[] = [];
-      
-      if (!participantData.name || typeof participantData.name !== 'string' || participantData.name.trim() === '') {
+
+      if (
+        !participantData.name ||
+        typeof participantData.name !== 'string' ||
+        participantData.name.trim() === ''
+      ) {
         participantValidationErrors.push('お名前は必須です');
       }
-      
-      if (!participantData.section || typeof participantData.section !== 'string' || participantData.section.trim() === '') {
+
+      if (
+        !participantData.section ||
+        typeof participantData.section !== 'string' ||
+        participantData.section.trim() === ''
+      ) {
         participantValidationErrors.push('所属セクションは必須です');
       }
-      
+
       const gradeNum = parseInt(participantData.grade);
       if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
@@ -109,37 +108,38 @@ export async function PATCH(
       if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
         participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
       }
-      
+
       const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
-      const availabilitySelectionError = validateAvailabilitySelection(
-        availableSlots
-      );
+      const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         participantValidationErrors.push(availabilitySelectionError);
       }
-      
+
       if (participantValidationErrors.length > 0) {
         return NextResponse.json(
           { error: '参加者情報の入力エラーがあります', details: participantValidationErrors },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
 
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
-    
+
     for (const field of formData.fields) {
       const answer = answers.find((a: FormAnswer) => a.fieldId === field.fieldId);
-      
+
       // 必須フィールドのチェック
       if (field.required) {
-        if (!answer || !answer.value || 
-            (Array.isArray(answer.value) && answer.value.length === 0) ||
-            (typeof answer.value === 'string' && answer.value.trim() === '')) {
+        if (
+          !answer ||
+          !answer.value ||
+          (Array.isArray(answer.value) && answer.value.length === 0) ||
+          (typeof answer.value === 'string' && answer.value.trim() === '')
+        ) {
           validationErrors.push(`${field.label}は必須です`);
           continue;
         }
@@ -154,10 +154,14 @@ export async function PATCH(
               validationErrors.push(`${field.label}は文字列で入力してください`);
             } else {
               if (field.validation?.minLength && answer.value.length < field.validation.minLength) {
-                validationErrors.push(`${field.label}は${field.validation.minLength}文字以上で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.minLength}文字以上で入力してください`,
+                );
               }
               if (field.validation?.maxLength && answer.value.length > field.validation.maxLength) {
-                validationErrors.push(`${field.label}は${field.validation.maxLength}文字以下で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.maxLength}文字以下で入力してください`,
+                );
               }
               if (field.validation?.pattern) {
                 const regex = new RegExp(field.validation.pattern);
@@ -174,10 +178,14 @@ export async function PATCH(
               validationErrors.push(`${field.label}は数値で入力してください`);
             } else {
               if (field.validation?.min !== undefined && numValue < field.validation.min) {
-                validationErrors.push(`${field.label}は${field.validation.min}以上で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.min}以上で入力してください`,
+                );
               }
               if (field.validation?.max !== undefined && numValue > field.validation.max) {
-                validationErrors.push(`${field.label}は${field.validation.max}以下で入力してください`);
+                validationErrors.push(
+                  `${field.label}は${field.validation.max}以下で入力してください`,
+                );
               }
             }
             break;
@@ -208,25 +216,23 @@ export async function PATCH(
     if (validationErrors.length > 0) {
       return NextResponse.json(
         { error: '入力エラーがあります', details: validationErrors },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // 回答データを更新
     const now = new Date();
-    
+
     // 更新データを構築
     let updateData: { [key: string]: any };
-    
+
     if (participantData) {
       const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
-      const availabilitySelectionError = validateAvailabilitySelection(
-        availableSlots
-      );
+      const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(
           { error: '参加者情報の入力エラーがあります', details: [availabilitySelectionError] },
-          { status: 400 }
+          { status: 400 },
         );
       }
       updateData = {
@@ -262,9 +268,6 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('回答更新エラー:', error);
-    return NextResponse.json(
-      { error: '回答の更新に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: '回答の更新に失敗しました' }, { status: 500 });
   }
 }

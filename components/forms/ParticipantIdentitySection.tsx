@@ -14,9 +14,7 @@ type ParticipantIdentitySectionProps = {
   control: Control<ParticipantIdentityFormValues>;
 };
 
-export function ParticipantIdentitySection({
-  control,
-}: ParticipantIdentitySectionProps) {
+export function ParticipantIdentitySection({ control }: ParticipantIdentitySectionProps) {
   const nameField = useController({
     control,
     name: 'participantName' as Path<ParticipantIdentityFormValues>,

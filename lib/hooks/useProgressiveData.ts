@@ -3,7 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
 import { useErrorRecovery } from '@/lib/utils/error-recovery';
-import { DashboardTeam, readDashboardCache, writeDashboardCache } from '@/lib/utils/dashboard-cache';
+import {
+  DashboardTeam,
+  readDashboardCache,
+  writeDashboardCache,
+} from '@/lib/utils/dashboard-cache';
 
 interface ProgressiveDataState {
   minimalData: {
@@ -51,7 +55,7 @@ export function useProgressiveData(year: number | null, enabled = true) {
         loadingProgress: 0,
         totalExpected: 0,
         error: null,
-        hasMore: false
+        hasMore: false,
       };
     }
 
@@ -64,32 +68,32 @@ export function useProgressiveData(year: number | null, enabled = true) {
       loadingProgress: cached?.loadingProgress || 0,
       totalExpected: cached?.totalExpected || 0,
       error: null,
-      hasMore: cached?.hasMore || false
+      hasMore: cached?.hasMore || false,
     };
   });
 
   const { createRobustFetcher } = useErrorRecovery();
-  
+
   // 1. 最小限データを超高速取得
   const minimalFetcher = createRobustFetcher(async (url: string) => {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('認証が必要');
-    
+
     const startTime = Date.now();
     const response = await fetch(url, {
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Priority': 'high' // 高優先度
-      }
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Priority: 'high', // 高優先度
+      },
     });
-    
+
     if (!response.ok) throw new Error('データ取得に失敗');
-    
+
     const data = await response.json();
     const clientTime = Date.now() - startTime;
-    
+
     console.log(`⚡ 最小限データ取得: ${clientTime}ms (API: ${data.performance?.responseTime}ms)`);
-    
+
     return data;
   });
 
@@ -101,12 +105,19 @@ export function useProgressiveData(year: number | null, enabled = true) {
       revalidateOnReconnect: false,
       dedupingInterval: 30000,
       onSuccess: (data) => {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           minimalData: data as ProgressiveDataState['minimalData'],
           isLoadingMinimal: false,
-          totalExpected: (data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0,
-          hasMore: ((data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0) > 0
+          totalExpected: (data as Record<string, unknown>)?.stats
+            ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
+                ?.totalTeams as number) || 0
+            : 0,
+          hasMore:
+            ((data as Record<string, unknown>)?.stats
+              ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
+                  ?.totalTeams as number) || 0
+              : 0) > 0,
         }));
 
         if (year) {
@@ -115,8 +126,15 @@ export function useProgressiveData(year: number | null, enabled = true) {
             minimalData: data as ProgressiveDataState['minimalData'],
             progressiveTeams: current?.progressiveTeams || [],
             loadingProgress: current?.loadingProgress || 0,
-            totalExpected: (data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0,
-            hasMore: ((data as Record<string, unknown>)?.stats ? ((data as Record<string, unknown>)?.stats as Record<string, unknown>)?.totalTeams as number || 0 : 0) > 0
+            totalExpected: (data as Record<string, unknown>)?.stats
+              ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
+                  ?.totalTeams as number) || 0
+              : 0,
+            hasMore:
+              ((data as Record<string, unknown>)?.stats
+                ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
+                    ?.totalTeams as number) || 0
+                : 0) > 0,
           });
         }
       },
@@ -124,7 +142,7 @@ export function useProgressiveData(year: number | null, enabled = true) {
         if (year) {
           const cached = readDashboardCache(year);
           if (cached?.minimalData) {
-            setState(prev => ({
+            setState((prev) => ({
               ...prev,
               minimalData: cached.minimalData,
               progressiveTeams: cached.progressiveTeams,
@@ -133,90 +151,100 @@ export function useProgressiveData(year: number | null, enabled = true) {
               loadingProgress: cached.loadingProgress,
               totalExpected: cached.totalExpected,
               hasMore: cached.hasMore,
-              error: null
+              error: null,
             }));
             return;
           }
         }
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           error,
-          isLoadingMinimal: false
+          isLoadingMinimal: false,
         }));
-      }
-    }
+      },
+    },
   );
 
   // 2. 段階的にチーム詳細データを取得
-  const loadProgressiveData = useCallback(async (offset = 0, limit = 10) => {
-    if (!year || state.totalExpected === 0 || offset >= state.totalExpected) return;
+  const loadProgressiveData = useCallback(
+    async (offset = 0, limit = 10) => {
+      if (!year || state.totalExpected === 0 || offset >= state.totalExpected) return;
 
-    setState(prev => ({ ...prev, isLoadingProgressive: true }));
+      setState((prev) => ({ ...prev, isLoadingProgressive: true }));
 
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('認証が必要');
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) throw new Error('認証が必要');
 
-      const url = `/api/admin/dashboard/${year}/progressive?offset=${offset}&limit=${limit}&includeMembers=true`;
-      const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+        const url = `/api/admin/dashboard/${year}/progressive?offset=${offset}&limit=${limit}&includeMembers=true`;
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      if (!response.ok) throw new Error('段階的データ取得に失敗');
+        if (!response.ok) throw new Error('段階的データ取得に失敗');
 
-      const data = await response.json() as { teams?: DashboardTeam[]; pagination: { hasMore: boolean; nextOffset: number } };
-      
-      setState(prev => {
-        const newTeams = [...prev.progressiveTeams, ...(data.teams || [])];
-        const progress = Math.min(100, (newTeams.length / prev.totalExpected) * 100);
+        const data = (await response.json()) as {
+          teams?: DashboardTeam[];
+          pagination: { hasMore: boolean; nextOffset: number };
+        };
 
-        if (year) {
-          writeDashboardCache(year, {
-            minimalData: prev.minimalData,
+        setState((prev) => {
+          const newTeams = [...prev.progressiveTeams, ...(data.teams || [])];
+          const progress = Math.min(100, (newTeams.length / prev.totalExpected) * 100);
+
+          if (year) {
+            writeDashboardCache(year, {
+              minimalData: prev.minimalData,
+              progressiveTeams: newTeams,
+              loadingProgress: progress,
+              totalExpected: prev.totalExpected,
+              hasMore: data.pagination.hasMore,
+            });
+          }
+
+          return {
+            ...prev,
             progressiveTeams: newTeams,
             loadingProgress: progress,
-            totalExpected: prev.totalExpected,
-            hasMore: data.pagination.hasMore
-          });
+            hasMore: data.pagination.hasMore,
+            isLoadingProgressive: false,
+          };
+        });
+
+        // 次のチャンクを自動読み込み（遅延付き）
+        if (data.pagination.hasMore && offset + limit < 50) {
+          // 最大50件まで自動読み込み
+          setTimeout(() => {
+            loadProgressiveData(data.pagination.nextOffset, limit);
+          }, 100); // 100ms間隔で段階的読み込み
         }
-        
-        return {
+      } catch (error) {
+        console.error('段階的データエラー:', error);
+        setState((prev) => ({
           ...prev,
-          progressiveTeams: newTeams,
-          loadingProgress: progress,
-          hasMore: data.pagination.hasMore,
-          isLoadingProgressive: false
-        };
-      });
-
-      // 次のチャンクを自動読み込み（遅延付き）
-      if (data.pagination.hasMore && offset + limit < 50) { // 最大50件まで自動読み込み
-        setTimeout(() => {
-          loadProgressiveData(data.pagination.nextOffset, limit);
-        }, 100); // 100ms間隔で段階的読み込み
+          error: error instanceof Error ? error : new Error(String(error)),
+          isLoadingProgressive: false,
+        }));
       }
-
-    } catch (error) {
-      console.error('段階的データエラー:', error);
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error : new Error(String(error)),
-        isLoadingProgressive: false
-      }));
-    }
-  }, [year, state.totalExpected]);
+    },
+    [year, state.totalExpected],
+  );
 
   // Type the minimal data
   const typedMinimalData = minimalData as ProgressiveDataState['minimalData'];
 
   // 3. 最小限データ取得後に段階的読み込み開始
   useEffect(() => {
-    if (typedMinimalData && state.totalExpected > state.progressiveTeams.length && state.progressiveTeams.length === 0) {
+    if (
+      typedMinimalData &&
+      state.totalExpected > state.progressiveTeams.length &&
+      state.progressiveTeams.length === 0
+    ) {
       // 500ms後に段階的読み込み開始（初期表示を優先）
       const timer = setTimeout(() => {
         loadProgressiveData(0, 10);
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [typedMinimalData, loadProgressiveData, state.totalExpected, state.progressiveTeams.length]);
@@ -226,27 +254,35 @@ export function useProgressiveData(year: number | null, enabled = true) {
     if (!state.isLoadingProgressive && state.totalExpected > state.progressiveTeams.length) {
       loadProgressiveData(state.progressiveTeams.length, 10);
     }
-  }, [loadProgressiveData, state.isLoadingProgressive, state.progressiveTeams.length, state.totalExpected]);
+  }, [
+    loadProgressiveData,
+    state.isLoadingProgressive,
+    state.progressiveTeams.length,
+    state.totalExpected,
+  ]);
 
   // 5. データマージ
-  const combinedData = typedMinimalData ? {
-    ...typedMinimalData,
-    teams: state.progressiveTeams,
-    stats: {
-      totalTeams: state.totalExpected,
-      totalMembers: typedMinimalData.stats?.totalMembers || 0,
-      totalResponses: typedMinimalData.stats?.totalResponses || typedMinimalData.stats?.totalMembers || 0,
-      availableResponses: typedMinimalData.stats?.availableResponses || 0,
-      totalAreas: typedMinimalData.stats?.totalAreas,
-      isMinimal: typedMinimalData.stats?.isMinimal,
-      loadedTeams: state.progressiveTeams.length
-    },
-    progressive: {
-      progress: state.loadingProgress,
-      hasMore: state.hasMore,
-      isLoading: state.isLoadingProgressive
-    }
-  } : null;
+  const combinedData = typedMinimalData
+    ? {
+        ...typedMinimalData,
+        teams: state.progressiveTeams,
+        stats: {
+          totalTeams: state.totalExpected,
+          totalMembers: typedMinimalData.stats?.totalMembers || 0,
+          totalResponses:
+            typedMinimalData.stats?.totalResponses || typedMinimalData.stats?.totalMembers || 0,
+          availableResponses: typedMinimalData.stats?.availableResponses || 0,
+          totalAreas: typedMinimalData.stats?.totalAreas,
+          isMinimal: typedMinimalData.stats?.isMinimal,
+          loadedTeams: state.progressiveTeams.length,
+        },
+        progressive: {
+          progress: state.loadingProgress,
+          hasMore: state.hasMore,
+          isLoading: state.isLoadingProgressive,
+        },
+      }
+    : null;
 
   return {
     data: combinedData,
@@ -256,15 +292,18 @@ export function useProgressiveData(year: number | null, enabled = true) {
     loadingProgress: state.loadingProgress,
     hasMore: state.hasMore,
     loadMore,
-    
+
     // デバッグ情報
     debug: {
       minimalDataSize: minimalData ? JSON.stringify(minimalData).length : 0,
       progressiveTeamsCount: state.progressiveTeams.length,
       totalExpected: state.totalExpected,
-      stage: state.isLoadingMinimal ? 'minimal' : 
-             state.isLoadingProgressive ? 'progressive' : 'complete'
-    }
+      stage: state.isLoadingMinimal
+        ? 'minimal'
+        : state.isLoadingProgressive
+          ? 'progressive'
+          : 'complete',
+    },
   };
 }
 
@@ -289,7 +328,7 @@ export function useStreamingData(year: number | null, enabled = true) {
         if (!token) throw new Error('認証が必要');
 
         const response = await fetch(`/api/admin/dashboard/${year}/stream`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!response.ok) throw new Error('ストリーミング開始に失敗');
@@ -313,7 +352,7 @@ export function useStreamingData(year: number | null, enabled = true) {
               try {
                 const data = JSON.parse(line.slice(6));
                 if (mounted) {
-                  setChunks(prev => [...prev, data]);
+                  setChunks((prev) => [...prev, data]);
                 }
               } catch (parseError) {
                 console.warn('ストリームデータ解析エラー:', parseError);
@@ -321,7 +360,6 @@ export function useStreamingData(year: number | null, enabled = true) {
             }
           }
         }
-
       } catch (streamError) {
         console.error('ストリーミングエラー:', streamError);
         if (mounted) {
@@ -352,7 +390,10 @@ export function useStreamingData(year: number | null, enabled = true) {
       case 'teams-partial':
       case 'teams-remaining':
         const existingTeams = (acc.teams as unknown[]) || [];
-        return { ...acc, teams: [...existingTeams, ...(typedChunk.data.teams as unknown[] || [])] };
+        return {
+          ...acc,
+          teams: [...existingTeams, ...((typedChunk.data.teams as unknown[]) || [])],
+        };
       case 'final':
         return { ...acc, ...typedChunk.data };
       default:
@@ -365,6 +406,6 @@ export function useStreamingData(year: number | null, enabled = true) {
     chunks,
     isStreaming,
     error,
-    progress: chunks.length
+    progress: chunks.length,
   };
 }

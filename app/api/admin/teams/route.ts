@@ -12,7 +12,9 @@ async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const data = snap.data() as Record<string, unknown>;
   const stored = normalizeAvailabilitySlots(data.distributionAvailabilitySlots);
   if (stored.length > 0) return stored;
-  return buildAvailabilitySlotChoices(data.distributionStartDate, data.distributionEndDate).map((choice) => choice.key);
+  return buildAvailabilitySlotChoices(data.distributionStartDate, data.distributionEndDate).map(
+    (choice) => choice.key,
+  );
 }
 
 async function loadAreaForTeam(areaId: unknown, assignedArea: unknown) {
@@ -21,7 +23,11 @@ async function loadAreaForTeam(areaId: unknown, assignedArea: unknown) {
     if (doc.exists) return { areaId: doc.id, ...(doc.data() as Record<string, unknown>) };
   }
   if (typeof assignedArea === 'string' && assignedArea) {
-    const snap = await adminDb.collection('areas').where('areaCode', '==', assignedArea).limit(1).get();
+    const snap = await adminDb
+      .collection('areas')
+      .where('areaCode', '==', assignedArea)
+      .limit(1)
+      .get();
     if (!snap.empty) {
       const doc = snap.docs[0];
       return { areaId: doc.id, ...(doc.data() as Record<string, unknown>) };
@@ -35,41 +41,26 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
-      return NextResponse.json(
-        { error: '管理者権限が必要です' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const {
-      teamCode,
-      teamName,
-      timeSlot,
-      areaId,
-      assignedArea,
-      eventId,
-      year,
-    } = await request.json();
+    const { teamCode, teamName, timeSlot, areaId, assignedArea, eventId, year } =
+      await request.json();
 
     if (!teamCode || !teamName || !eventId) {
-      return NextResponse.json(
-        { error: '必須フィールドが不足しています' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '必須フィールドが不足しています' }, { status: 400 });
     }
 
     // Check if team code already exists
-    const existingTeam = await adminDb.collection('teams')
+    const existingTeam = await adminDb
+      .collection('teams')
       .where('teamCode', '==', teamCode)
       .where('eventId', '==', eventId)
       .limit(1)
@@ -78,36 +69,30 @@ export async function POST(request: NextRequest) {
     if (!existingTeam.empty) {
       return NextResponse.json(
         { error: 'このチームコードは既に使用されています' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const eventAvailabilitySlots = await loadEventAvailabilitySlots(String(eventId));
     if (eventAvailabilitySlots.length === 0) {
-      return NextResponse.json(
-        { error: '配布枠が未設定です' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '配布枠が未設定です' }, { status: 400 });
     }
     if (typeof timeSlot !== 'string' || !TEAM_TIME_SLOT_PATTERN.test(timeSlot)) {
       return NextResponse.json(
         { error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!eventAvailabilitySlots.includes(timeSlot)) {
       return NextResponse.json(
         { error: 'timeSlot は配布枠キーから選択してください' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const area = await loadAreaForTeam(areaId, assignedArea);
     if (!area) {
-      return NextResponse.json(
-        { error: '配布区域が見つかりません' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
     }
 
     const teamRef = adminDb.collection('teams').doc();
@@ -122,12 +107,12 @@ export async function POST(request: NextRequest) {
       year: typeof year === 'number' && Number.isFinite(year) ? year : undefined,
       isActive: true,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     await teamRef.set({
       teamId: teamRef.id,
-      ...teamData
+      ...teamData,
     });
 
     return NextResponse.json({
@@ -135,16 +120,12 @@ export async function POST(request: NextRequest) {
       team: {
         id: teamRef.id,
         teamId: teamRef.id,
-        ...teamData
-      }
+        ...teamData,
+      },
     });
-
   } catch (error) {
     console.error('Create team error:', error);
-    return NextResponse.json(
-      { error: 'チームの作成に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'チームの作成に失敗しました' }, { status: 500 });
   }
 }
 
@@ -153,20 +134,14 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
 
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
-      return NextResponse.json(
-        { error: '管理者権限が必要です' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -191,38 +166,34 @@ export async function GET(request: NextRequest) {
     if (!eventIdParam && yearParam) {
       const y = parseInt(yearParam);
       targetYear = y;
-      const evSnap = await adminDb.collection('distributionEvents').where('year', '==', y).limit(1).get();
+      const evSnap = await adminDb
+        .collection('distributionEvents')
+        .where('year', '==', y)
+        .limit(1)
+        .get();
       if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
     }
 
     const snapshotMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-    const byEventId = await adminDb.collection('teams')
-      .where('eventId', '==', targetEventId)
-      .get();
+    const byEventId = await adminDb.collection('teams').where('eventId', '==', targetEventId).get();
     byEventId.docs.forEach((doc) => snapshotMap.set(doc.id, doc));
 
     if (Number.isFinite(targetYear)) {
-      const byYear = await adminDb.collection('teams')
-        .where('year', '==', targetYear)
-        .get();
+      const byYear = await adminDb.collection('teams').where('year', '==', targetYear).get();
       byYear.docs.forEach((doc) => snapshotMap.set(doc.id, doc));
     }
 
     const teams = Array.from(snapshotMap.values())
-      .map(doc => ({
+      .map((doc) => ({
         id: doc.id,
-        ...(doc.data() as Record<string, unknown>)
+        ...(doc.data() as Record<string, unknown>),
       }))
       .filter((team) => (team as Record<string, unknown>).isActive !== false);
 
     return NextResponse.json({ teams });
-
   } catch (error) {
     console.error('Get teams error:', error);
-    return NextResponse.json(
-      { error: 'チーム情報の取得に失敗しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'チーム情報の取得に失敗しました' }, { status: 500 });
   }
 }
 
@@ -258,17 +229,16 @@ export async function PATCH(request: NextRequest) {
       if (!TEAM_TIME_SLOT_PATTERN.test(body.timeSlot)) {
         return NextResponse.json(
           { error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' },
-          { status: 400 }
+          { status: 400 },
         );
       }
       const eventId = currentTeam.eventId;
-      const eventAvailabilitySlots = typeof eventId === 'string'
-        ? await loadEventAvailabilitySlots(eventId)
-        : [];
+      const eventAvailabilitySlots =
+        typeof eventId === 'string' ? await loadEventAvailabilitySlots(eventId) : [];
       if (eventAvailabilitySlots.length > 0 && !eventAvailabilitySlots.includes(body.timeSlot)) {
         return NextResponse.json(
           { error: 'timeSlot は配布枠キーから選択してください' },
-          { status: 400 }
+          { status: 400 },
         );
       }
       update.timeSlot = body.timeSlot;
@@ -281,13 +251,20 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
       }
       update.areaId = String((area as Record<string, unknown>).areaId || body.areaId || '');
-      update.assignedArea = String((area as Record<string, unknown>).areaCode || body.assignedArea || '');
-      update.adjacentAreas = normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas);
+      update.assignedArea = String(
+        (area as Record<string, unknown>).areaCode || body.assignedArea || '',
+      );
+      update.adjacentAreas = normalizeAdjacentAreas(
+        (area as Record<string, unknown>).adjacentAreas,
+      );
     }
 
     await ref.update(update);
     const updated = await ref.get();
-    return NextResponse.json({ success: true, team: { id: updated.id, ...(updated.data() as Record<string, unknown>) } });
+    return NextResponse.json({
+      success: true,
+      team: { id: updated.id, ...(updated.data() as Record<string, unknown>) },
+    });
   } catch (error) {
     console.error('Update team error:', error);
     return NextResponse.json({ error: 'チームの更新に失敗しました' }, { status: 500 });

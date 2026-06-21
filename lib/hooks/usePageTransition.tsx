@@ -28,25 +28,28 @@ export function PageTransitionProvider({ children }: { children: React.ReactNode
     fromPath: null,
     toPath: null,
     transitionType: null,
-    progress: 0
+    progress: 0,
   });
 
-  const startTransition = async (toPath: string, type: 'navigate' | 'back' | 'forward' = 'navigate') => {
+  const startTransition = async (
+    toPath: string,
+    type: 'navigate' | 'back' | 'forward' = 'navigate',
+  ) => {
     const fromPath = window.location.pathname;
-    
+
     setState({
       isTransitioning: true,
       fromPath,
       toPath,
       transitionType: type,
-      progress: 10
+      progress: 10,
     });
 
     // プログレス更新のシミュレーション
     const progressTimer = setInterval(() => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        progress: Math.min(90, prev.progress + Math.random() * 20)
+        progress: Math.min(90, prev.progress + Math.random() * 20),
       }));
     }, 100);
 
@@ -57,9 +60,9 @@ export function PageTransitionProvider({ children }: { children: React.ReactNode
         const year = parseInt(yearMatch[1]);
         await fetch(`/api/admin/dashboard/${year}`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-            'X-Prefetch': 'true'
-          }
+            Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+            'X-Prefetch': 'true',
+          },
         });
       }
     } catch (error) {
@@ -67,9 +70,9 @@ export function PageTransitionProvider({ children }: { children: React.ReactNode
     }
 
     clearInterval(progressTimer);
-    
+
     setTimeout(() => {
-      setState(prev => ({ ...prev, progress: 100 }));
+      setState((prev) => ({ ...prev, progress: 100 }));
     }, 500);
   };
 
@@ -79,7 +82,7 @@ export function PageTransitionProvider({ children }: { children: React.ReactNode
       fromPath: null,
       toPath: null,
       transitionType: null,
-      progress: 0
+      progress: 0,
     });
   };
 
@@ -124,83 +127,90 @@ export function useFastPageTransition() {
   /**
    * 瞬時UIフィードバック付きナビゲーション
    */
-  const navigateWithPreload = useCallback(async (
-    path: string,
-    options: {
-      replace?: boolean;
-      preloadDelay?: number;
-      minLoadingTime?: number;
-      // Allow toggling data preloading from callers
-      preloadData?: boolean;
-    } = {}
-  ) => {
-    const { replace = false, preloadDelay = 0, minLoadingTime = 200, preloadData = true } = options;
-    
-    if (isNavigatingRef.current) {
-      // 既に遷移中の場合はキューに追加
-      updateQueue(prev => [...prev, path]);
-      return;
-    }
+  const navigateWithPreload = useCallback(
+    async (
+      path: string,
+      options: {
+        replace?: boolean;
+        preloadDelay?: number;
+        minLoadingTime?: number;
+        // Allow toggling data preloading from callers
+        preloadData?: boolean;
+      } = {},
+    ) => {
+      const {
+        replace = false,
+        preloadDelay = 0,
+        minLoadingTime = 200,
+        preloadData = true,
+      } = options;
 
-    updateNavigating(true);
-    const startTime = Date.now();
+      if (isNavigatingRef.current) {
+        // 既に遷移中の場合はキューに追加
+        updateQueue((prev) => [...prev, path]);
+        return;
+      }
 
-    try {
-      // 1. 即座にローディング表示
-      
-      // 2. データプリロード（遅延付き、オプションで無効化可能）
-      if (preloadData) {
-        setTimeout(async () => {
-          const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
-          if (yearMatch) {
-            const year = parseInt(yearMatch[1]);
-            const token = localStorage.getItem('authToken');
-            
-            if (token) {
-              try {
-                // バックグラウンドでダッシュボードデータを取得
-                fetch(`/api/admin/dashboard/${year}`, {
-                  headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Cache-Control': 'max-age=30'
-                  }
-                }).catch(() => {
-                  // エラーは無視（プリロード失敗時）
-                });
-              } catch (error) {
-                console.warn('プリロードエラー:', error);
+      updateNavigating(true);
+      const startTime = Date.now();
+
+      try {
+        // 1. 即座にローディング表示
+
+        // 2. データプリロード（遅延付き、オプションで無効化可能）
+        if (preloadData) {
+          setTimeout(async () => {
+            const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
+            if (yearMatch) {
+              const year = parseInt(yearMatch[1]);
+              const token = localStorage.getItem('authToken');
+
+              if (token) {
+                try {
+                  // バックグラウンドでダッシュボードデータを取得
+                  fetch(`/api/admin/dashboard/${year}`, {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Cache-Control': 'max-age=30',
+                    },
+                  }).catch(() => {
+                    // エラーは無視（プリロード失敗時）
+                  });
+                } catch (error) {
+                  console.warn('プリロードエラー:', error);
+                }
               }
             }
-          }
-        }, preloadDelay);
-      }
+          }, preloadDelay);
+        }
 
-      // 3. ナビゲーション実行
-      if (replace) {
-        router.replace(path);
-      } else {
-        router.push(path);
-      }
+        // 3. ナビゲーション実行
+        if (replace) {
+          router.replace(path);
+        } else {
+          router.push(path);
+        }
 
-      // 4. 最小表示時間を保証
-      const elapsed = Date.now() - startTime;
-      const remainingTime = Math.max(0, minLoadingTime - elapsed);
-      
-      await new Promise(resolve => setTimeout(resolve, remainingTime));
+        // 4. 最小表示時間を保証
+        const elapsed = Date.now() - startTime;
+        const remainingTime = Math.max(0, minLoadingTime - elapsed);
 
-    } catch (error) {
-      console.error('ナビゲーションエラー:', error);
-    } finally {
-      updateNavigating(false);
-      
-      // キューに次の遷移があれば実行
-      if (navigationQueueRef.current.length > 0) {
-        const nextPath = navigationQueueRef.current[0];
-        updateQueue(prev => prev.slice(1));
-        setTimeout(() => navigateWithPreload(nextPath), 100);
+        await new Promise((resolve) => setTimeout(resolve, remainingTime));
+      } catch (error) {
+        console.error('ナビゲーションエラー:', error);
+      } finally {
+        updateNavigating(false);
+
+        // キューに次の遷移があれば実行
+        if (navigationQueueRef.current.length > 0) {
+          const nextPath = navigationQueueRef.current[0];
+          updateQueue((prev) => prev.slice(1));
+          setTimeout(() => navigateWithPreload(nextPath), 100);
+        }
       }
-    }
-  }, [router, updateNavigating, updateQueue]);
+    },
+    [router, updateNavigating, updateQueue],
+  );
 
   /**
    * 戻るボタン用の高速ナビゲーション
@@ -224,7 +234,7 @@ export function useFastPageTransition() {
     goBackFast,
     cancelNavigation,
     isNavigating,
-    queueLength: navigationQueue.length
+    queueLength: navigationQueue.length,
   };
 }
 
@@ -236,22 +246,22 @@ export function useLinkPreloader() {
 
   const preloadOnHover = (path: string) => {
     if (preloadedUrls.has(path)) return;
-    
+
     const yearMatch = path.match(/\/admin\/event\/(\d+)$/);
     if (yearMatch) {
       const year = parseInt(yearMatch[1]);
       const token = localStorage.getItem('authToken');
-      
+
       if (token) {
         preloadedUrls.add(path);
-        
+
         // 200ms後にプリロード開始（誤ホバー防止）
         setTimeout(() => {
           fetch(`/api/admin/dashboard/${year}`, {
-            headers: { 
-              'Authorization': `Bearer ${token}`,
-              'X-Link-Prefetch': 'true'
-            }
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'X-Link-Prefetch': 'true',
+            },
           }).catch(() => {
             preloadedUrls.delete(path); // 失敗時は削除
           });

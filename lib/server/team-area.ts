@@ -61,5 +61,9 @@ export async function loadAreaMap() {
     byId.set(area.areaId, area);
   });
 
-  return { areas: snap.docs.map((doc) => ({ areaId: doc.id, ...(doc.data() as Record<string, unknown>) })), byCode, byId };
+  return {
+    areas: snap.docs.map((doc) => ({ areaId: doc.id, ...(doc.data() as Record<string, unknown>) })),
+    byCode,
+    byId,
+  };
 }

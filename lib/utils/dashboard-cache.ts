@@ -71,7 +71,10 @@ export function readDashboardCache(year: number): ProgressiveDashboardCache | nu
   }
 }
 
-export function writeDashboardCache(year: number, cache: Omit<ProgressiveDashboardCache, 'cachedAt'>): void {
+export function writeDashboardCache(
+  year: number,
+  cache: Omit<ProgressiveDashboardCache, 'cachedAt'>,
+): void {
   if (typeof window === 'undefined') return;
 
   try {
@@ -80,7 +83,7 @@ export function writeDashboardCache(year: number, cache: Omit<ProgressiveDashboa
       JSON.stringify({
         ...cache,
         cachedAt: Date.now(),
-      })
+      }),
     );
   } catch (error) {
     console.warn('ダッシュボードキャッシュ保存失敗:', error);
