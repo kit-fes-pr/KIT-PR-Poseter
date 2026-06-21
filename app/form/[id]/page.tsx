@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
-import { Modal } from '@/components/ui/Modal';
 import { SurveyForm, FormAnswer } from '@/types/forms';
 import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
 import { PublicSurveyForm } from '@/components/forms/PublicSurveyForm';
@@ -17,25 +16,15 @@ interface FormData {
   participantSection: string;
 }
 
-interface SavedResponseDraft {
-  responseId: string;
-  editToken: string;
-  values: FormData;
-}
-
 export default function FormResponsePage({ params }: { params: Promise<{ id: string }> }) {
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null);
   const [form, setForm] = useState<SurveyForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [submissionMode, setSubmissionMode] = useState<'submit' | 'update'>('submit');
-  const [savedResponseDraft, setSavedResponseDraft] = useState<SavedResponseDraft | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const { handleSubmit, control, watch, setValue, getValues, reset } = useForm<FormData>();
+  const { handleSubmit, control, watch, setValue, getValues } = useForm<FormData>();
   const participantGrade = watch('participantGrade');
 
   useEffect(() => {
@@ -85,62 +74,6 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
 
     loadForm();
   }, [resolvedParams]);
-
-  useEffect(() => {
-    if (!resolvedParams || !form) return;
-
-    const storageKey = `form-response-${resolvedParams.id}`;
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (!stored) return;
-
-      const parsed = JSON.parse(stored) as Partial<SavedResponseDraft>;
-      if (!parsed.responseId || !parsed.editToken || !parsed.values) return;
-      setSavedResponseDraft({
-        responseId: parsed.responseId,
-        editToken: parsed.editToken,
-        values: parsed.values as FormData,
-      });
-      setSubmitted(true);
-      setSubmissionMode('submit');
-    } catch (err) {
-      console.error('保存済み回答の読み込みに失敗しました', err);
-    }
-  }, [resolvedParams, form]);
-
-  const storageKey = resolvedParams ? `form-response-${resolvedParams.id}` : '';
-
-  const persistSavedResponseDraft = (draft: SavedResponseDraft) => {
-    setSavedResponseDraft(draft);
-    if (!storageKey) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(draft));
-    } catch (err) {
-      console.error('保存済み回答の保存に失敗しました', err);
-    }
-  };
-
-  const clearSavedResponseDraft = () => {
-    setSavedResponseDraft(null);
-    setEditingResponseId(null);
-    setSubmitted(false);
-    if (storageKey) {
-      try {
-        localStorage.removeItem(storageKey);
-      } catch (err) {
-        console.error('保存済み回答の削除に失敗しました', err);
-      }
-    }
-  };
-
-  const openEditModal = () => {
-    if (!savedResponseDraft) return;
-    reset(savedResponseDraft.values);
-    setEditingResponseId(savedResponseDraft.responseId);
-    setShowEditModal(true);
-    setSubmitted(false);
-    setError('');
-  };
 
   const onSubmit = async (data: FormData) => {
     if (!form || !resolvedParams) return;
@@ -197,56 +130,29 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         return;
       }
 
-      const isUpdating = Boolean(
-        editingResponseId &&
-        savedResponseDraft?.responseId === editingResponseId &&
-        savedResponseDraft?.editToken,
-      );
-      const res = await fetch(
-        isUpdating
-          ? `/api/forms/${resolvedParams.id}/responses/${editingResponseId}`
-          : `/api/forms/${resolvedParams.id}/responses`,
-        {
-          method: isUpdating ? 'PATCH' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            answers,
-            participantData: {
-              name: data.participantName,
-              section: data.participantSection,
-              grade: data.participantGrade,
-              availableSlots,
-            },
-            editToken: isUpdating ? savedResponseDraft?.editToken : undefined,
-            submitterInfo: {
-              submittedAt: new Date().toISOString(),
-            },
-          }),
+      const res = await fetch(`/api/forms/${resolvedParams.id}/responses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify({
+          answers,
+          participantData: {
+            name: data.participantName,
+            section: data.participantSection,
+            grade: data.participantGrade,
+            availableSlots,
+          },
+          submitterInfo: {
+            submittedAt: new Date().toISOString(),
+          },
+        }),
+      });
 
       const result = await res.json();
 
       if (res.ok) {
-        const responseId =
-          typeof result.responseId === 'string' ? result.responseId : editingResponseId || '';
-        const editToken =
-          typeof result.editToken === 'string'
-            ? result.editToken
-            : savedResponseDraft?.editToken || '';
-        if (responseId && editToken) {
-          persistSavedResponseDraft({
-            responseId,
-            editToken,
-            values: data,
-          });
-        }
-        setSubmissionMode(isUpdating ? 'update' : 'submit');
         setSubmitted(true);
-        setShowEditModal(false);
-        setEditingResponseId(null);
       } else {
         setError(result.error || '回答の送信に失敗しました');
         if (result.details) {
@@ -306,34 +212,12 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
                 </svg>
               </div>
             </div>
-            <h2 className="text-lg font-medium text-green-900 mb-2">
-              {submissionMode === 'update' ? '回答を更新しました' : '回答を送信しました'}
-            </h2>
+            <h2 className="text-lg font-medium text-green-900 mb-2">回答を送信しました</h2>
             <p className="text-sm text-green-700">
-              ご協力ありがとうございました。
+              ご協力ありがとうございます。
               <br />
-              {savedResponseDraft
-                ? 'この端末では引き続き回答の変更ができます。'
-                : '工大祭の準備に活用させていただきます。'}
+              予定が変更になったらPR総括に連絡ください。
             </p>
-            {savedResponseDraft && (
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                <button
-                  type="button"
-                  onClick={openEditModal}
-                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-                >
-                  回答を変更する
-                </button>
-                <button
-                  type="button"
-                  onClick={clearSavedResponseDraft}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  この端末の保存を削除
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -361,20 +245,18 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
             )}
 
             {/* フォーム */}
-            {!showEditModal && (
-              <PublicSurveyForm
-                form={form}
-                control={
-                  control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>
-                }
-                handleSubmit={
-                  handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>
-                }
-                onSubmit={onSubmit}
-                submitting={submitting}
-                submitLabel="回答を送信"
-              />
-            )}
+            <PublicSurveyForm
+              form={form}
+              control={
+                control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>
+              }
+              handleSubmit={
+                handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>
+              }
+              onSubmit={onSubmit}
+              submitting={submitting}
+              submitLabel="回答を送信"
+            />
 
             {/* フッター */}
             <div className="mt-8 pt-6 border-t border-gray-200">
@@ -386,68 +268,6 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      {showEditModal && form && (
-        <Modal
-          open
-          onClose={() => {
-            setShowEditModal(false);
-            setSubmitted(true);
-            if (savedResponseDraft) {
-              reset(savedResponseDraft.values);
-            }
-          }}
-          centered={false}
-          panelClassName="max-w-4xl"
-          contentClassName="px-6 py-6"
-        >
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">回答を変更</h2>
-              <p className="text-sm text-gray-500">送信済みの内容を修正して保存できます。</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setShowEditModal(false);
-                setSubmitted(true);
-                if (savedResponseDraft) {
-                  reset(savedResponseDraft.values);
-                }
-              }}
-              className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <div className="px-6 py-6">
-            <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              {savedResponseDraft
-                ? '保存済みの回答を読み込んでいます。必要な箇所だけ変更してください。'
-                : '回答内容を入力してください。'}
-            </div>
-            <PublicSurveyForm
-              form={form}
-              control={
-                control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>
-              }
-              handleSubmit={
-                handleSubmit as unknown as import('react-hook-form').UseFormHandleSubmit<ParticipantIdentityFormValues>
-              }
-              onSubmit={onSubmit}
-              submitting={submitting}
-              submitLabel="変更を保存"
-            />
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
