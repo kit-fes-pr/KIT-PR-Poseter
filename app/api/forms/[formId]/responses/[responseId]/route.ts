@@ -228,29 +228,33 @@ export async function PATCH(
           { status: 400 },
         );
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { submittedAt, ...rest } = buildFormResponseRecord({
+        formId: resolvedParams.formId,
+        answers,
+        participantData: {
+          name: participantData.name,
+          section: participantData.section,
+          grade: gradeNum,
+          availableSlots,
+        },
+        editToken: responseData.editToken as string,
+        now,
+      });
       updateData = {
-        ...buildFormResponseRecord({
-          formId: resolvedParams.formId,
-          answers,
-          participantData: {
-            name: participantData.name,
-            section: participantData.section,
-            grade: gradeNum,
-            availableSlots,
-          },
-          editToken: responseData.editToken as string,
-          now,
-        }),
+        ...rest,
         updatedAt: now,
       };
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { submittedAt, ...rest } = buildFormResponseRecord({
+        formId: resolvedParams.formId,
+        answers,
+        editToken: responseData.editToken as string,
+        now,
+      });
       updateData = {
-        ...buildFormResponseRecord({
-          formId: resolvedParams.formId,
-          answers,
-          editToken: responseData.editToken as string,
-          now,
-        }),
+        ...rest,
         updatedAt: now,
       };
     }
