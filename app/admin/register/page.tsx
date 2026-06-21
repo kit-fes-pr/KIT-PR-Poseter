@@ -56,7 +56,6 @@ export default function AdminRegister() {
             const userCredential = await signInWithCustomToken(auth, result.customToken);
             console.log('Signed in with custom token after registration:', userCredential.user.uid);
 
-            // IDトークンを取得
             const idToken = await getIdToken(userCredential.user);
             localStorage.setItem('authToken', idToken);
 

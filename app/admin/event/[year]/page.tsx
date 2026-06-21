@@ -43,8 +43,8 @@ export default function AdminEventYear() {
           () =>
             fetch('/api/auth/verify', {
               headers: { Authorization: `Bearer ${token}` },
-              timeout: 5000,
-            } as RequestInit),
+              signal: AbortSignal.timeout(5000),
+            }),
           'fast-auth',
           { maxRetries: 2 },
         );
