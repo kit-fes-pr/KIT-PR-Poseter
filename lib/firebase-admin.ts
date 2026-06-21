@@ -9,9 +9,11 @@ if (!getApps().length) {
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-  if (!projectId || !clientEmail || !privateKey) {
+  const isValidKey = !!privateKey?.includes('BEGIN PRIVATE KEY');
+
+  if (!projectId || !clientEmail || !privateKey || !isValidKey) {
     console.warn(
-      'Firebase Admin SDK credentials not provided - some functionality will be limited',
+      'Firebase Admin SDK credentials not provided or invalid - some functionality will be limited',
     );
     adminApp = initializeApp({});
   } else {
