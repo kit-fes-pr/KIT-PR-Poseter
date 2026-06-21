@@ -163,7 +163,10 @@ export async function POST(request: NextRequest) {
         disabled: false,
       });
     } catch (error) {
-      console.error('エラー内容:', error);
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code !== 'auth/user-not-found') {
+        throw error;
+      }
       const created = await adminAuth.createUser({
         email: tempEmail,
         password: tempPassword,
