@@ -77,12 +77,11 @@ export async function PATCH(
       return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
     }
 
-    let gradeNum = 0;
+    const gradeNum = participantData ? normalizeGrade(participantData.grade) : 0;
 
     // 参加者データのバリデーション
     if (participantData) {
       const participantValidationErrors: string[] = [];
-      gradeNum = normalizeGrade(participantData.grade);
 
       if (
         !participantData.name ||
