@@ -56,8 +56,7 @@ export default function AdminRegister() {
             const userCredential = await signInWithCustomToken(auth, result.customToken);
             console.log('Signed in with custom token after registration:', userCredential.user.uid);
 
-            // カスタムクレーム（role: 'admin'）がIDトークンに反映されるよう強制リフレッシュ
-            const idToken = await getIdToken(userCredential.user, true);
+            const idToken = await getIdToken(userCredential.user);
             localStorage.setItem('authToken', idToken);
 
             setTimeout(() => {
