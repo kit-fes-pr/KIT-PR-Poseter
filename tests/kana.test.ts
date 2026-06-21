@@ -20,7 +20,7 @@ describe('kanaUtils', () => {
 
   test('generateKana handles empty or null values safely', () => {
     assert.equal(generateKana(''), '');
-    assert.equal(generateKana(undefined as any), '');
-    assert.equal(generateKana(null as any), '');
+    assert.equal(generateKana(undefined as unknown as string), '');
+    assert.equal(generateKana(null as unknown as string), '');
   });
 });

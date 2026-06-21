@@ -46,7 +46,7 @@ describe('dateUtils', () => {
 
     test('returns Invalid Date for invalid date string or unsupported type', () => {
       assert.equal(formatDate('invalid-date-string'), 'Invalid Date');
-      assert.equal(formatDate({} as any), 'Invalid Date');
+      assert.equal(formatDate({} as unknown as Parameters<typeof formatDate>[0]), 'Invalid Date');
     });
   });
 
