@@ -38,10 +38,10 @@ describe('availability utils', () => {
       '2026-06-02_am',
       '2026-06-02_pm',
     ]);
-    assert.deepEqual(
-      buildAvailabilitySlotKeysForDateRange('2026-06-01', '2026-06-02', 'morning'),
-      ['2026-06-01_am', '2026-06-02_am'],
-    );
+    assert.deepEqual(buildAvailabilitySlotKeysForDateRange('2026-06-01', '2026-06-02', 'morning'), [
+      '2026-06-01_am',
+      '2026-06-02_am',
+    ]);
     assert.deepEqual(
       buildAvailabilitySlotKeysForDateRange('2026-06-01', '2026-06-02', 'afternoon'),
       ['2026-06-01_pm', '2026-06-02_pm'],

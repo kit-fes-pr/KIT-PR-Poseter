@@ -14,8 +14,14 @@ describe('events utils', () => {
       endDateStr: '2026-06-03',
       error: null,
     });
-    assert.equal(normalizeDistributionDateRange('2026-06-03', '2026-06-01').error, '配布開始日は配布終了日以前を指定してください');
-    assert.equal(normalizeDistributionDateRange('2026-6-1', '2026-06-03').error, '配布日の形式が不正です');
+    assert.equal(
+      normalizeDistributionDateRange('2026-06-03', '2026-06-01').error,
+      '配布開始日は配布終了日以前を指定してください',
+    );
+    assert.equal(
+      normalizeDistributionDateRange('2026-6-1', '2026-06-03').error,
+      '配布日の形式が不正です',
+    );
   });
 
   test('serializeDateOnlyValue keeps date-only values stable and serializes timestamps', () => {

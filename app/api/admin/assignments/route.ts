@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { normalizeTeamTimeSlot } from '@/lib/utils/team';
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,10 +71,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (typeof timeSlot !== 'string' || !timeSlot.trim()) {
+    const normalizedTimeSlot = normalizeTeamTimeSlot(timeSlot);
+    if (!normalizedTimeSlot) {
       return NextResponse.json({ error: 'timeSlot が必要です' }, { status: 400 });
     }
-    const normalizedTimeSlot = timeSlot.trim();
 
     // 既存の同一参加者の割り当てを削除（同一年度・フォーム内で一意に）
     const query = await adminDb

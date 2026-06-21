@@ -14,7 +14,10 @@ function formatDateOnlyInTimeZone(value: Date, timeZone = DEFAULT_TIME_ZONE): st
   return `${year}-${month}-${day}`;
 }
 
-export function serializeDateOnlyValue(value: unknown, timeZone = DEFAULT_TIME_ZONE): string | unknown {
+export function serializeDateOnlyValue(
+  value: unknown,
+  timeZone = DEFAULT_TIME_ZONE,
+): string | unknown {
   if (!value) return value;
   if (typeof value === 'string') return value;
   if (value instanceof Date) return formatDateOnlyInTimeZone(value, timeZone);

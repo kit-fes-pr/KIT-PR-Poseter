@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import {
-  normalizeFormEventContext,
-  serializeDate,
-  toMillis,
-} from '../lib/utils/forms';
+import { normalizeFormEventContext, serializeDate, toMillis } from '../lib/utils/forms';
 
 describe('forms utils', () => {
   test('normalizeFormEventContext prefers year and normalizes eventId', () => {

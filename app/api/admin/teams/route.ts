@@ -3,8 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { Team } from '@/types';
 import { normalizeAdjacentAreas } from '@/lib/utils/area';
 import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
-
-const TEAM_TIME_SLOT_PATTERN = /^\d{4}-\d{2}-\d{2}_(am|pm)$/;
+import { normalizeTeamTimeSlot } from '@/lib/utils/team';
 
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
@@ -77,13 +76,14 @@ export async function POST(request: NextRequest) {
     if (eventAvailabilitySlots.length === 0) {
       return NextResponse.json({ error: '配布枠が未設定です' }, { status: 400 });
     }
-    if (typeof timeSlot !== 'string' || !TEAM_TIME_SLOT_PATTERN.test(timeSlot)) {
+    const normalizedTimeSlot = normalizeTeamTimeSlot(timeSlot);
+    if (!normalizedTimeSlot) {
       return NextResponse.json(
         { error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' },
         { status: 400 },
       );
     }
-    if (!eventAvailabilitySlots.includes(timeSlot)) {
+    if (!eventAvailabilitySlots.includes(normalizedTimeSlot)) {
       return NextResponse.json(
         { error: 'timeSlot は配布枠キーから選択してください' },
         { status: 400 },
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     const teamData: Omit<Team, 'teamId'> = {
       teamCode,
       teamName,
-      timeSlot,
+      timeSlot: normalizedTimeSlot,
       areaId: String((area as Record<string, unknown>).areaId || areaId || ''),
       assignedArea: String((area as Record<string, unknown>).areaCode || assignedArea || ''),
       adjacentAreas: normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas),
@@ -226,7 +226,8 @@ export async function PATCH(request: NextRequest) {
       update.year = body.year;
     }
     if (typeof body.timeSlot === 'string') {
-      if (!TEAM_TIME_SLOT_PATTERN.test(body.timeSlot)) {
+      const normalizedTimeSlot = normalizeTeamTimeSlot(body.timeSlot);
+      if (!normalizedTimeSlot) {
         return NextResponse.json(
           { error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' },
           { status: 400 },
@@ -235,13 +236,16 @@ export async function PATCH(request: NextRequest) {
       const eventId = currentTeam.eventId;
       const eventAvailabilitySlots =
         typeof eventId === 'string' ? await loadEventAvailabilitySlots(eventId) : [];
-      if (eventAvailabilitySlots.length > 0 && !eventAvailabilitySlots.includes(body.timeSlot)) {
+      if (
+        eventAvailabilitySlots.length > 0 &&
+        !eventAvailabilitySlots.includes(normalizedTimeSlot)
+      ) {
         return NextResponse.json(
           { error: 'timeSlot は配布枠キーから選択してください' },
           { status: 400 },
         );
       }
-      update.timeSlot = body.timeSlot;
+      update.timeSlot = normalizedTimeSlot;
     }
     if (typeof body.teamName === 'string') update.teamName = body.teamName;
     if (typeof body.teamCode === 'string') update.teamCode = body.teamCode;

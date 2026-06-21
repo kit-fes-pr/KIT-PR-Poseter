@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { buildAvailabilitySlotChoices } from '@/lib/utils/availability';
 import { DEFAULT_TIME_ZONE } from '@/lib/utils/dateUtils';
-import {
-  normalizeDistributionDateRange,
-  serializeEventDoc,
-} from '@/lib/utils/events';
+import { normalizeDistributionDateRange, serializeEventDoc } from '@/lib/utils/events';
 
 export async function GET(request: NextRequest) {
   try {
@@ -101,10 +98,11 @@ export async function POST(request: NextRequest) {
       typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
         ? distributionTimeZone.trim()
         : DEFAULT_TIME_ZONE;
-    const { startDateStr, endDateStr, error: dateRangeError } = normalizeDistributionDateRange(
-      distributionStartDate,
-      distributionEndDate,
-    );
+    const {
+      startDateStr,
+      endDateStr,
+      error: dateRangeError,
+    } = normalizeDistributionDateRange(distributionStartDate, distributionEndDate);
     if (dateRangeError) {
       return NextResponse.json({ error: dateRangeError }, { status: 400 });
     }
@@ -193,10 +191,11 @@ export async function PATCH(request: NextRequest) {
     if (typeof eventName === 'string') update.eventName = eventName;
     if (typeof isActive === 'boolean') update.isActive = isActive;
     if (distributionStartDate || distributionEndDate) {
-      const { startDateStr, endDateStr, error: dateRangeError } = normalizeDistributionDateRange(
-        distributionStartDate,
-        distributionEndDate,
-      );
+      const {
+        startDateStr,
+        endDateStr,
+        error: dateRangeError,
+      } = normalizeDistributionDateRange(distributionStartDate, distributionEndDate);
       if (dateRangeError) {
         return NextResponse.json({ error: dateRangeError }, { status: 400 });
       }
