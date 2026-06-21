@@ -37,7 +37,10 @@ export async function POST(request: NextRequest) {
 
     // イベント情報取得（あれば年度を使う）
     const eventDoc = await adminDb.collection('distributionEvents').doc(targetEventId).get();
-    const eventData = eventDoc.exists ? (eventDoc.data() as Record<string, unknown>) : null;
+    if (!eventDoc.exists) {
+      return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 });
+    }
+    const eventData = eventDoc.data() as Record<string, unknown>;
     const parsedYear =
       typeof eventData?.year === 'number'
         ? eventData.year
@@ -92,16 +95,17 @@ export async function GET(request: NextRequest) {
     let year = yearParam ? parseInt(yearParam) : undefined;
     if (!year) {
       const eventDoc = await adminDb.collection('distributionEvents').doc(eventId).get();
-      if (eventDoc.exists) {
-        const eventData = eventDoc.data() as Record<string, unknown>;
-        const parsedYear =
-          typeof eventData.year === 'number'
-            ? eventData.year
-            : typeof eventData.year === 'string' && eventData.year.trim()
-              ? Number(eventData.year)
-              : NaN;
-        year = Number.isFinite(parsedYear) ? parsedYear : undefined;
+      if (!eventDoc.exists) {
+        return NextResponse.json({ error: 'イベントが見つかりません' }, { status: 404 });
       }
+      const eventData = eventDoc.data() as Record<string, unknown>;
+      const parsedYear =
+        typeof eventData.year === 'number'
+          ? eventData.year
+          : typeof eventData.year === 'string' && eventData.year.trim()
+            ? Number(eventData.year)
+            : NaN;
+      year = Number.isFinite(parsedYear) ? parsedYear : undefined;
     }
 
     let doc;
