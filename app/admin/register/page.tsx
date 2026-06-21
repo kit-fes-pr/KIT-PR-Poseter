@@ -48,7 +48,7 @@ export default function AdminRegister() {
       const result = await response.json();
 
       if (response.ok) {
-        setSuccess('管理者アカウントが作成されました！管理者ダッシュボードに移動します...');
+        setSuccess('管理者アカウントが作成されました！管理画面に移動します...');
 
         if (result.customToken) {
           try {
@@ -61,7 +61,7 @@ export default function AdminRegister() {
             localStorage.setItem('authToken', idToken);
 
             setTimeout(() => {
-              router.push('/admin/dashboard');
+              router.push('/admin/event');
             }, 2000);
           } catch (authError) {
             console.error('Custom token authentication failed after registration:', authError);
