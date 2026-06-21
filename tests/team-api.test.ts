@@ -42,6 +42,14 @@ describe('team api utils', () => {
       }),
       null,
     );
+    assert.equal(
+      resolveTeamAreaSelection({
+        areaId: 'some-area-id',
+        assignedArea: 'A-01',
+        area: null,
+      }),
+      null,
+    );
   });
 
   test('buildTeamCreateData and buildTeamUpdateData normalize payloads', () => {

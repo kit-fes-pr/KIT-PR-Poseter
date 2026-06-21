@@ -32,14 +32,18 @@ export function resolveTeamAreaSelection(input: {
   assignedArea: unknown;
   area: TeamAreaLike | null;
 }): TeamAreaSelection | null {
+  if (!input.area) {
+    return null;
+  }
+
   const areaId =
-    typeof input.area?.areaId === 'string' && input.area.areaId
+    typeof input.area.areaId === 'string' && input.area.areaId
       ? input.area.areaId
       : typeof input.areaId === 'string'
         ? input.areaId.trim()
         : '';
   const assignedArea =
-    typeof input.area?.areaCode === 'string' && input.area.areaCode
+    typeof input.area.areaCode === 'string' && input.area.areaCode
       ? input.area.areaCode.trim()
       : typeof input.assignedArea === 'string'
         ? input.assignedArea.trim()
@@ -52,7 +56,7 @@ export function resolveTeamAreaSelection(input: {
   return {
     areaId,
     assignedArea,
-    adjacentAreas: normalizeAdjacentAreas(input.area?.adjacentAreas),
+    adjacentAreas: normalizeAdjacentAreas(input.area.adjacentAreas),
   };
 }
 
