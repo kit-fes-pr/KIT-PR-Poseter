@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Area } from '@/types';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
+import { clearAllDashboardCaches } from '@/lib/utils/dashboard/dashboard-cache';
 
 export default function AreasPage() {
   const router = useRouter();
@@ -104,6 +105,7 @@ export default function AreasPage() {
       if (!res.ok) throw new Error(data.error || '配布区域の作成に失敗しました');
       setForm({ areaCode: '', areaName: '', adjacentAreas: '', description: '' });
       await refreshAreas();
+      clearAllDashboardCaches();
     } catch (err) {
       setError(err instanceof Error ? err.message : '配布区域の作成に失敗しました');
     } finally {
@@ -123,6 +125,7 @@ export default function AreasPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '削除に失敗しました');
       await refreshAreas();
+      clearAllDashboardCaches();
       alert('配布区域を削除しました。');
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : '削除に失敗しました';
@@ -165,6 +168,7 @@ export default function AreasPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '配布区域の更新に失敗しました');
       await refreshAreas();
+      clearAllDashboardCaches();
       closeEditModal();
     } catch (err) {
       setError(err instanceof Error ? err.message : '配布区域の更新に失敗しました');

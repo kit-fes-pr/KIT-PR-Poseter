@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { ServerCache } from '@/lib/utils/server-cache';
 import {
   buildAreaRouteCreateData,
   hasRequiredAreaPayload,
@@ -89,6 +90,9 @@ export async function POST(request: NextRequest) {
       areaId: docRef.id,
       ...areaData,
     };
+
+    ServerCache.delete('firestore:areas:global:count');
+    ServerCache.deletePattern('firestore:dashboard:*');
 
     return NextResponse.json({ success: true, area: newArea });
   } catch (error) {

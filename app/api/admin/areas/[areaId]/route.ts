@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { ServerCache } from '@/lib/utils/server-cache';
 import {
   buildAreaRouteUpdateData,
   hasRequiredAreaPayload,
@@ -126,6 +127,9 @@ export async function PUT(
       }
     }
 
+    ServerCache.delete('firestore:areas:global:count');
+    ServerCache.deletePattern('firestore:dashboard:*');
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('配布区域更新エラー:', error);
@@ -189,6 +193,9 @@ export async function DELETE(
       );
     }
     await areaRef.delete();
+
+    ServerCache.delete('firestore:areas:global:count');
+    ServerCache.deletePattern('firestore:dashboard:*');
 
     return NextResponse.json({ success: true });
   } catch (error) {

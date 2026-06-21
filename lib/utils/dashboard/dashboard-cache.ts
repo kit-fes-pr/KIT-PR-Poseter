@@ -1,3 +1,5 @@
+import { mutate } from 'swr';
+
 export interface DashboardTeam {
   teamId: string;
   teamCode: string;
@@ -96,5 +98,26 @@ export function clearDashboardCache(year: number): void {
     localStorage.removeItem(getKey(year));
   } catch (error) {
     console.warn('ダッシュボードキャッシュ削除失敗:', error);
+  }
+}
+
+export function clearAllDashboardCaches(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(DASHBOARD_CACHE_PREFIX)) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+    // SWRキャッシュをワイルドカードで無効化
+    mutate((key) => typeof key === 'string' && key.includes('/api/admin/dashboard/'), undefined, {
+      revalidate: true,
+    });
+  } catch (error) {
+    console.warn('ダッシュボードキャッシュの一括削除失敗:', error);
   }
 }
