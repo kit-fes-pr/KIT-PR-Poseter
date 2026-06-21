@@ -34,8 +34,7 @@
     "eslint-config-next": "15.5.3",
     "prettier": "^3.8.4",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.1.9"
+    "typescript": "^5"
   },
   "allowScripts": {
     "@tailwindcss/oxide@4.1.13": true,
