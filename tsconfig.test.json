@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./.test-dist",
+    "rootDir": ".",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "types": ["node"]
+  },
+  "files": [
+    "tests/availability.test.ts",
+    "tests/grade.test.ts",
+    "tests/area.test.ts",
+    "lib/utils/availability.ts",
+    "lib/utils/dateUtils.ts",
+    "lib/utils/grade.ts",
+    "lib/utils/area.ts"
+  ]
+}
