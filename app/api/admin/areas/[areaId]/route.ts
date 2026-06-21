@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAdjacentAreas } from '@/lib/utils/area';
+import { buildAreaUpdateData, shouldBlockAreaDeletion, shouldRefreshTeamAfterAreaChange } from '@/lib/utils/area-api';
 
 const FIRESTORE_SAFE_BATCH_SIZE = 450;
 
@@ -66,29 +66,21 @@ export async function PUT(
       );
     }
 
-    const nextAdjacentAreas =
-      typeof adjacentAreas === 'string'
-        ? normalizeAdjacentAreas(
-            adjacentAreas
-              .split(',')
-              .map((area) => area.trim())
-              .filter(Boolean),
-          )
-        : normalizeAdjacentAreas(adjacentAreas);
+    const nextAreaData = buildAreaUpdateData({ areaCode, areaName, adjacentAreas, description });
+    const nextAdjacentAreas = nextAreaData.adjacentAreas;
     const updateData = {
-      areaCode,
-      areaName,
-      adjacentAreas: nextAdjacentAreas,
-      description: description || '',
+      ...nextAreaData,
       updatedAt: new Date(),
     };
 
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas).sort((a, b) =>
-      a.localeCompare(b, 'ja'),
-    );
+    const previousAdjacentAreas = Array.isArray(currentArea.adjacentAreas)
+      ? [...currentArea.adjacentAreas].map((area) => String(area).trim()).filter(Boolean).sort((a, b) =>
+          a.localeCompare(b, 'ja'),
+        )
+      : [];
     const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
     const adjacentChanged =
       JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
@@ -101,8 +93,11 @@ export async function PUT(
       teamsSnap.docs.forEach((teamDoc) => {
         const teamData = teamDoc.data() as Record<string, unknown>;
         if (
-          String(teamData.areaId || '') === areaId ||
-          (previousAreaCode && String(teamData.assignedArea || '') === previousAreaCode)
+          shouldRefreshTeamAfterAreaChange({
+            team: teamData,
+            areaId,
+            previousAreaCode,
+          })
         ) {
           updates.push({
             ref: teamDoc.ref,
@@ -163,7 +158,12 @@ export async function DELETE(
             .get()
         : Promise.resolve(null),
     ]);
-    if (!linkedByAreaId.empty || (linkedByAssignedArea ? !linkedByAssignedArea.empty : false)) {
+    if (
+      shouldBlockAreaDeletion({
+        linkedByAreaIdExists: !linkedByAreaId.empty,
+        linkedByAssignedAreaExists: linkedByAssignedArea ? !linkedByAssignedArea.empty : false,
+      })
+    ) {
       return NextResponse.json(
         { error: 'この配布区域に紐づくチームがあるため削除できません' },
         { status: 400 },

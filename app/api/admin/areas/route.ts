@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAdjacentAreas } from '@/lib/utils/area';
+import { buildAreaCreateData } from '@/lib/utils/area-api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,10 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const areaData = {
-      areaCode,
-      areaName,
-      adjacentAreas: normalizeAdjacentAreas(adjacentAreas),
-      description: description || '',
+      ...buildAreaCreateData({ areaCode, areaName, adjacentAreas, description }),
       createdAt: new Date(),
     };
 
