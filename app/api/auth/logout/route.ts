@@ -11,6 +11,8 @@ export async function POST(request: NextRequest) {
       try {
         const decodedToken = await adminAuth.verifyIdToken(idToken);
 
+        const isTempTeamAccount = decodedToken.role === 'team' || decodedToken.tempUser === true;
+
         if (decodedToken.role === 'team') {
           const tempAccountsRef = adminDb.collection('tempAccounts');
           const tempAccountQuery = await tempAccountsRef
@@ -26,7 +28,9 @@ export async function POST(request: NextRequest) {
           await batch.commit();
         }
 
-        await adminAuth.deleteUser(decodedToken.uid);
+        if (isTempTeamAccount) {
+          await adminAuth.deleteUser(decodedToken.uid);
+        }
       } catch (error) {
         console.error('Token verification failed:', error);
       }
