@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { Team } from '@/types';
-import { normalizeAdjacentAreas } from '@/lib/utils/area';
 import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
+import {
+  buildTeamCreateData,
+  normalizeTeamYear,
+  resolveTeamAreaSelection,
+} from '@/lib/utils/team-api';
 import { normalizeTeamTimeSlot } from '@/lib/utils/team';
 
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
@@ -96,19 +100,24 @@ export async function POST(request: NextRequest) {
     }
 
     const teamRef = adminDb.collection('teams').doc();
-    const teamData: Omit<Team, 'teamId'> = {
+    const areaSelection = resolveTeamAreaSelection({
+      areaId,
+      assignedArea,
+      area,
+    });
+    if (!areaSelection) {
+      return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
+    }
+    const teamData: Omit<Team, 'teamId'> = buildTeamCreateData({
       teamCode,
       teamName,
       timeSlot: normalizedTimeSlot,
-      areaId: String((area as Record<string, unknown>).areaId || areaId || ''),
-      assignedArea: String((area as Record<string, unknown>).areaCode || assignedArea || ''),
-      adjacentAreas: normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas),
+      area: areaSelection,
       eventId,
-      year: typeof year === 'number' && Number.isFinite(year) ? year : undefined,
-      isActive: true,
+      year: normalizeTeamYear(year),
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
+    });
 
     await teamRef.set({
       teamId: teamRef.id,
@@ -254,13 +263,17 @@ export async function PATCH(request: NextRequest) {
       if (!area) {
         return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
       }
-      update.areaId = String((area as Record<string, unknown>).areaId || body.areaId || '');
-      update.assignedArea = String(
-        (area as Record<string, unknown>).areaCode || body.assignedArea || '',
-      );
-      update.adjacentAreas = normalizeAdjacentAreas(
-        (area as Record<string, unknown>).adjacentAreas,
-      );
+      const areaSelection = resolveTeamAreaSelection({
+        areaId: body.areaId,
+        assignedArea: body.assignedArea,
+        area,
+      });
+      if (!areaSelection) {
+        return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
+      }
+      update.areaId = areaSelection.areaId;
+      update.assignedArea = areaSelection.assignedArea;
+      update.adjacentAreas = areaSelection.adjacentAreas;
     }
 
     await ref.update(update);
