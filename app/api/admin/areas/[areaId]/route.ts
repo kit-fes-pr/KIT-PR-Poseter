@@ -68,7 +68,7 @@ export async function PUT(
 
     const nextAdjacentAreas =
       typeof adjacentAreas === 'string'
-        ? normalizeAdjacentAreas(adjacentAreas.split(',').map((area) => area.trim()))
+        ? normalizeAdjacentAreas(adjacentAreas.split(',').map((area) => area.trim()).filter(Boolean))
         : normalizeAdjacentAreas(adjacentAreas);
     const updateData = {
       areaCode,

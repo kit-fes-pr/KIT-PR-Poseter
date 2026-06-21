@@ -6,6 +6,7 @@ describe('area utils', () => {
   test('normalizeAdjacentAreas trims arrays and comma-separated strings', () => {
     assert.deepEqual(normalizeAdjacentAreas([' A-01 ', '', 'A-02']), ['A-01', 'A-02']);
     assert.deepEqual(normalizeAdjacentAreas('A-01, A-02, ,A-03'), ['A-01', 'A-02', 'A-03']);
+    assert.deepEqual(normalizeAdjacentAreas('A-01, A-02,'), ['A-01', 'A-02']);
   });
 
   test('normalizeAdjacentAreas returns empty array for non-string values', () => {
