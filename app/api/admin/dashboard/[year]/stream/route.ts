@@ -205,9 +205,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
 
     return new Response(stream, {
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
         Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
       },
     });
   } catch (error) {
