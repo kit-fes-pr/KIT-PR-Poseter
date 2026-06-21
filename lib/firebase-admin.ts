@@ -9,7 +9,7 @@ if (!getApps().length) {
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-  const isValidKey = privateKey && privateKey.includes('BEGIN PRIVATE KEY');
+  const isValidKey = !!privateKey?.includes('BEGIN PRIVATE KEY');
 
   if (!projectId || !clientEmail || !isValidKey) {
     console.warn(
