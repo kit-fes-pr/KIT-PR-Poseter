@@ -251,11 +251,12 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
     setSelectedParticipant(participant);
     setSelectedResponseId(participant.responseId);
+    const participantGradeValue = normalizeGrade(
+      record?.participantData?.grade ?? participant.grade,
+    );
     setResponseEditValues({
       participantName: record?.participantData?.name || participant.name || '',
-      participantGrade: String(
-        normalizeGrade(record?.participantData?.grade ?? participant.grade),
-      ),
+      participantGrade: participantGradeValue > 0 ? String(participantGradeValue) : '',
       participantSection: record?.participantData?.section || participant.section || '',
       availability: normalizeAvailabilitySlots(
         record?.participantData?.availableSlots || participant.availableSlots,
