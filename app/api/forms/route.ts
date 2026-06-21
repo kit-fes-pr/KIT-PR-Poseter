@@ -3,11 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SurveyForm, FormCreateData } from '@/types/forms';
 import { serializeDate, toMillis } from '@/lib/utils/forms';
-import { buildFormCreateRecord, normalizeFormAuthHeader } from '@/lib/utils/forms-api';
+import { buildFormsCreatePayload, normalizeFormsRouteAuthHeader, parseFormsListEventId } from '@/lib/utils/forms-route';
 
 export async function GET(request: NextRequest) {
   try {
-    const idToken = normalizeFormAuthHeader(request.headers.get('authorization'));
+    const idToken = normalizeFormsRouteAuthHeader(request.headers.get('authorization'));
     if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const eventId = searchParams.get('eventId') || 'kodai2025';
+    const eventId = parseFormsListEventId(searchParams.get('eventId'));
 
     // フォーム一覧を取得（非正規化されたカウンタを使用）
     const formsSnapshot = await adminDb.collection('forms').where('eventId', '==', eventId).get();
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const idToken = normalizeFormAuthHeader(request.headers.get('authorization'));
+    const idToken = normalizeFormsRouteAuthHeader(request.headers.get('authorization'));
     if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       year?: number;
     } = body;
 
-    const created = buildFormCreateRecord({
+    const created = buildFormsCreatePayload({
       title,
       description,
       fields,
