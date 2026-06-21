@@ -183,7 +183,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
       },
       {
         headers: {
-          'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+          'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
           'X-Response-Type': 'minimal',
         },
       },

@@ -147,7 +147,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
       },
       {
         headers: {
-          'Cache-Control': 'public, max-age=60',
+          'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
           'X-Chunk-Info': `${offset}-${offset + teams.length - 1}/${limit}`,
         },
       },
