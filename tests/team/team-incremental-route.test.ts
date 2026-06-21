@@ -27,6 +27,14 @@ describe('team incremental route utils', () => {
     assert.equal(parsed.lastUpdated, '2026-06-01T00:00:00.000Z');
     assert.equal(parsed.includeDeleted, true);
     assert.equal(parsed.lastUpdatedDate?.toISOString(), '2026-06-01T00:00:00.000Z');
+
+    const parsedInvalid = parseTeamIncrementalQuery({
+      year: '2026',
+      lastUpdated: 'invalid-date',
+      includeDeleted: 'false',
+    });
+    assert.ok(parsedInvalid.lastUpdatedDate instanceof Date);
+    assert.ok(isNaN(parsedInvalid.lastUpdatedDate.getTime()));
   });
 
   test('buildTeamIncrementalTeamView serializes date-like values', () => {

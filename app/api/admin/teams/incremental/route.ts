@@ -35,11 +35,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'year の形式が不正です' }, { status: 400 });
     }
 
+    if (query.lastUpdated) {
+      if (query.lastUpdatedDate === null || isNaN(query.lastUpdatedDate.getTime())) {
+        return NextResponse.json({ error: 'lastUpdated の形式が不正です' }, { status: 400 });
+      }
+    }
+
     // lastUpdated がある場合は差分取得、ない場合は全取得
     let teamQuery = adminDb.collection('teams').where('year', '==', query.yearNum);
 
     if (query.lastUpdated) {
-      const lastUpdateTime = new Date(query.lastUpdated);
+      const lastUpdateTime = query.lastUpdatedDate!;
       // updatedAt または createdAt が lastUpdated より新しいものを取得
       teamQuery = teamQuery.where('updatedAt', '>', lastUpdateTime).orderBy('updatedAt', 'desc');
     } else {
@@ -61,7 +67,7 @@ export async function GET(request: NextRequest) {
       const deletedQuery = adminDb
         .collection('deletedTeams')
         .where('year', '==', query.yearNum)
-        .where('deletedAt', '>', new Date(query.lastUpdated));
+        .where('deletedAt', '>', query.lastUpdatedDate!);
 
       const deletedSnapshot = await deletedQuery.get();
       deletedTeams = deletedSnapshot.docs.map((doc) =>
