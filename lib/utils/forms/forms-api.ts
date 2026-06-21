@@ -37,7 +37,7 @@ export function validateFormFields(fields: unknown): string | null {
     }
     if (
       ['select', 'radio', 'checkbox'].includes(typedField.type || '') &&
-      (!typedField.options || typedField.options.length === 0)
+      (!Array.isArray(typedField.options) || typedField.options.length === 0)
     ) {
       return `フィールド${i + 1}の選択肢を設定してください`;
     }

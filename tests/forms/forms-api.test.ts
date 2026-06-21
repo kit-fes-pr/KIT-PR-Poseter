@@ -34,6 +34,12 @@ describe('forms api utils', () => {
     );
     assert.equal(validateFormFields([null]), 'フィールド1のデータ形式が無効です');
     assert.equal(validateFormFields(['not-an-object']), 'フィールド1のデータ形式が無効です');
+    assert.equal(
+      validateFormFields([
+        { label: 'A', type: 'select', required: true, options: 'not-an-array' as never },
+      ]),
+      'フィールド1の選択肢を設定してください',
+    );
   });
 
   test('buildFormCreateRecord and buildFormUpdateRecord normalize payloads', () => {
