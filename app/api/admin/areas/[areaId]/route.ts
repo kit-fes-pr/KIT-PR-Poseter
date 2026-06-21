@@ -84,8 +84,9 @@ export async function PUT(
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    const previousAdjacentAreas = normalizeAreaRouteAdjacency(currentArea.adjacentAreas)
-      .sort((a, b) => a.localeCompare(b, 'ja'));
+    const previousAdjacentAreas = normalizeAreaRouteAdjacency(currentArea.adjacentAreas).sort(
+      (a, b) => a.localeCompare(b, 'ja'),
+    );
     const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
     const adjacentChanged =
       JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
