@@ -14,6 +14,8 @@ import {
 import { AdminLoginFormData } from '@/types';
 import { LoadingScreen, LoadingButtonLabel } from '@/components/ui/Loading';
 
+const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
+
 export default function AdminLogin() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -123,7 +125,7 @@ export default function AdminLogin() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">管理者ログイン</h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          st.kanazawa-it.ac.jp ドメインのメールアドレスでログインしてください
+          kanazawa-it.ac.jp のメールアドレスでログインしてください
         </p>
       </div>
 
@@ -138,13 +140,13 @@ export default function AdminLogin() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="example@st.kanazawa-it.ac.jp"
+                  placeholder="example@sub.kanazawa-it.ac.jp"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   {...register('email', {
                     required: 'メールアドレスを入力してください',
                     pattern: {
-                      value: /^[^\s@]+@st\.kanazawa-it\.ac\.jp$/,
-                      message: 'st.kanazawa-it.ac.jp ドメインのメールアドレスを入力してください',
+                      value: ADMIN_EMAIL_PATTERN,
+                      message: 'kanazawa-it.ac.jp のメールアドレスを入力してください',
                     },
                   })}
                 />
@@ -211,7 +213,7 @@ export default function AdminLogin() {
             <div className="text-xs text-gray-500">
               <p className="mb-2">初回利用時:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>st.kanazawa-it.ac.jp ドメインのメールアドレスでアカウント作成</li>
+                <li>kanazawa-it.ac.jp のメールアドレスでアカウント作成</li>
                 <li>メール認証後、管理者権限が自動付与されます</li>
                 <li>パスワードは安全な場所に保管してください</li>
               </ul>

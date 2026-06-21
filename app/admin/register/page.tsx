@@ -7,6 +7,8 @@ import { auth } from '@/lib/firebase';
 import { signInWithCustomToken, getIdToken, signOut } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 
+const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
+
 export default function AdminRegister() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -92,7 +94,7 @@ export default function AdminRegister() {
           管理者アカウント作成
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          st.kanazawa-it.ac.jp ドメインのメールアドレスで管理者アカウントを作成してください
+          kanazawa-it.ac.jp 配下のメールアドレスで管理者アカウントを作成してください
         </p>
       </div>
 
@@ -107,13 +109,13 @@ export default function AdminRegister() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="example@st.kanazawa-it.ac.jp"
+                  placeholder="example@sub.kanazawa-it.ac.jp"
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   {...register('email', {
                     required: 'メールアドレスを入力してください',
                     pattern: {
-                      value: /^[^\s@]+@st\.kanazawa-it\.ac\.jp$/,
-                      message: 'st.kanazawa-it.ac.jp ドメインのメールアドレスを入力してください',
+                      value: ADMIN_EMAIL_PATTERN,
+                      message: 'kanazawa-it.ac.jp 配下のメールアドレスを入力してください',
                     },
                   })}
                 />
@@ -180,7 +182,7 @@ export default function AdminRegister() {
             <div className="text-xs text-gray-500">
               <p className="mb-2">注意事項:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>st.kanazawa-it.ac.jp ドメインのメールアドレスのみ使用可能</li>
+                <li>kanazawa-it.ac.jp 配下のメールアドレスのみ使用可能</li>
                 <li>パスワードは6文字以上で設定してください</li>
                 <li>作成後は管理者権限が自動的に付与されます</li>
               </ul>

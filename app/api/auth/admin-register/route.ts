@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
+const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
@@ -12,9 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!email.endsWith('@st.kanazawa-it.ac.jp')) {
+    if (!ADMIN_EMAIL_PATTERN.test(email)) {
       return NextResponse.json(
-        { error: 'st.kanazawa-it.ac.jp ドメインのメールアドレスのみ使用可能です' },
+        { error: 'kanazawa-it.ac.jp のメールアドレスのみ使用可能です' },
         { status: 403 },
       );
     }

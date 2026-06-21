@@ -13,8 +13,10 @@ if (!email || !password) {
   process.exit(1);
 }
 
-if (!email.endsWith('@st.kanazawa-it.ac.jp')) {
-  console.error('st.kanazawa-it.ac.jp ドメインのメールアドレスのみ使用可能です');
+const adminEmailPattern = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
+
+if (!adminEmailPattern.test(email)) {
+  console.error('kanazawa-it.ac.jp のメールアドレスのみ使用可能です');
   process.exit(1);
 }
 

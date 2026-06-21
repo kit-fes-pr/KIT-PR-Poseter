@@ -226,7 +226,7 @@ docker compose down
 ### 認証・セキュリティ
 
 - **Firebase Authentication** + カスタムクレーム
-- **管理者認証**: st.kanazawa-it.ac.jp ドメイン限定
+- **管理者認証**: sub.kanazawa-it.ac.jp ドメイン限定
 - **班認証**: ログインコード方式（例：AM1-2025）
 - **セキュリティ要件**:
   - ログインコード有効期限: 学外配布日のみ
@@ -378,7 +378,7 @@ interface Member {
 #### 2. 管理者認証（Firebase Authentication）
 
 - **Firebase Auth**: createUserWithEmailAndPassword + sendEmailVerification を使用
-- **ドメイン制限**: st.kanazawa-it.ac.jp ドメインのみ許可
+- **ドメイン制限**: sub.kanazawa-it.ac.jp ドメイン限定
 - **認証フロー**:
   1. 管理者がメールアドレス・パスワードを入力
   2. Firebase Authentication でアカウント作成
@@ -451,7 +451,7 @@ Pages/Components:
 ```typescript
 interface Admin {
   adminId: string;
-  email: string; // st.kanazawa-it.ac.jp ドメイン
+  email: string; // sub.kanazawa-it.ac.jp ドメイン限定
   name: string;
   isActive: boolean;
   createdAt: Date;
@@ -503,11 +503,11 @@ interface YearlyStats {
 
 #### 認証関連
 
-| メソッド | エンドポイント          | 説明               |
-| -------- | ----------------------- | ------------------ |
-| `POST`   | `/api/auth/team-login`  | ログインコード認証 |
-| `POST`   | `/api/auth/logout`      | ログアウト         |
-| `GET`    | `/api/auth/verify`      | 認証状態確認       |
+| メソッド | エンドポイント         | 説明               |
+| -------- | ---------------------- | ------------------ |
+| `POST`   | `/api/auth/team-login` | ログインコード認証 |
+| `POST`   | `/api/auth/logout`     | ログアウト         |
+| `GET`    | `/api/auth/verify`     | 認証状態確認       |
 
 #### 店舗管理
 
@@ -574,7 +574,7 @@ interface YearlyStats {
 ### 管理者画面
 
 1. **管理者ログイン** (`/admin`)
-   - Firebase認証（st.kanazawa-it.ac.jpドメイン限定）
+   - Firebase認証（sub.kanazawa-it.ac.jp ドメイン限定）
 
 2. **年度一覧** (`/admin/event`)
    - 年度別イベント管理・作成・編集・削除
@@ -617,7 +617,7 @@ interface YearlyStats {
 `ADMIN_EMAIL` は環境変数か `make` の引数で渡し、`ADMIN_PASSWORD` は入力プロンプトで渡します。
 
 ```bash
-make admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp
+make admin ADMIN_EMAIL=admin@sub.kanazawa-it.ac.jp
 ```
 
 #### 補足
@@ -626,7 +626,7 @@ make admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp
 
 ```bash
 make -n ci
-make -n admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp
+make -n admin ADMIN_EMAIL=admin@sub.kanazawa-it.ac.jp
 ```
 
 ### インフラ
