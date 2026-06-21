@@ -1,71 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { DEFAULT_TIME_ZONE } from '@/lib/utils/dateUtils';
 import { buildAvailabilitySlotChoices } from '@/lib/utils/availability';
-
-function formatDateOnlyInTimeZone(value: Date, timeZone = DEFAULT_TIME_ZONE): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(value);
-
-  const year = parts.find((part) => part.type === 'year')?.value || '';
-  const month = parts.find((part) => part.type === 'month')?.value || '';
-  const day = parts.find((part) => part.type === 'day')?.value || '';
-  return `${year}-${month}-${day}`;
-}
-
-function serializeDateOnlyValue(value: unknown, timeZone = DEFAULT_TIME_ZONE): string | unknown {
-  if (!value) return value;
-  if (typeof value === 'string') return value;
-  if (value instanceof Date) return formatDateOnlyInTimeZone(value, timeZone);
-  if (typeof value === 'number') return formatDateOnlyInTimeZone(new Date(value), timeZone);
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    return formatDateOnlyInTimeZone((value as { toDate: () => Date }).toDate(), timeZone);
-  }
-  return value;
-}
-
-function serializeDateTimeValue(value: unknown): string | unknown {
-  if (!value) return value;
-  if (typeof value === 'string') return value;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'number') return new Date(value).toISOString();
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-  return value;
-}
-
-function serializeEventDoc(id: string, data: Record<string, unknown>) {
-  const timeZone = (data.distributionTimeZone as string) || DEFAULT_TIME_ZONE;
-  const createdAt = serializeDateTimeValue(data.createdAt);
-  const updatedAt = serializeDateTimeValue(data.updatedAt);
-  return {
-    id,
-    ...data,
-    distributionTimeZone: timeZone,
-    createdAt,
-    updatedAt,
-    distributionStartDate: serializeDateOnlyValue(data.distributionStartDate, timeZone),
-    distributionEndDate: serializeDateOnlyValue(data.distributionEndDate, timeZone),
-    distributionAvailabilitySlots: Array.isArray(data.distributionAvailabilitySlots)
-      ? data.distributionAvailabilitySlots
-      : undefined,
-  };
-}
+import { DEFAULT_TIME_ZONE } from '@/lib/utils/dateUtils';
+import {
+  normalizeDistributionDateRange,
+  serializeEventDoc,
+} from '@/lib/utils/events';
 
 export async function GET(request: NextRequest) {
   try {
@@ -161,16 +101,12 @@ export async function POST(request: NextRequest) {
       typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
         ? distributionTimeZone.trim()
         : DEFAULT_TIME_ZONE;
-    const startDateStr = String(distributionStartDate || '').trim();
-    const endDateStr = String(distributionEndDate || distributionStartDate || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
-      return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
-    }
-    if (startDateStr > endDateStr) {
-      return NextResponse.json(
-        { error: '配布開始日は配布終了日以前を指定してください' },
-        { status: 400 },
-      );
+    const { startDateStr, endDateStr, error: dateRangeError } = normalizeDistributionDateRange(
+      distributionStartDate,
+      distributionEndDate,
+    );
+    if (dateRangeError) {
+      return NextResponse.json({ error: dateRangeError }, { status: 400 });
     }
 
     const payload = {
@@ -257,16 +193,12 @@ export async function PATCH(request: NextRequest) {
     if (typeof eventName === 'string') update.eventName = eventName;
     if (typeof isActive === 'boolean') update.isActive = isActive;
     if (distributionStartDate || distributionEndDate) {
-      const startDateStr = String(distributionStartDate || '').trim();
-      const endDateStr = String(distributionEndDate || distributionStartDate || '').trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr) || !/^\d{4}-\d{2}-\d{2}$/.test(endDateStr)) {
-        return NextResponse.json({ error: '配布日の形式が不正です' }, { status: 400 });
-      }
-      if (startDateStr > endDateStr) {
-        return NextResponse.json(
-          { error: '配布開始日は配布終了日以前を指定してください' },
-          { status: 400 },
-        );
+      const { startDateStr, endDateStr, error: dateRangeError } = normalizeDistributionDateRange(
+        distributionStartDate,
+        distributionEndDate,
+      );
+      if (dateRangeError) {
+        return NextResponse.json({ error: dateRangeError }, { status: 400 });
       }
       update.distributionStartDate = startDateStr;
       update.distributionEndDate = endDateStr;
