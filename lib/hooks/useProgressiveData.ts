@@ -111,10 +111,9 @@ export function useProgressiveData(year: number | null, enabled = true) {
           : 0;
 
         setState((prev) => {
-          // チーム総数がキャッシュされているチーム数と異なる場合、
-          // キャッシュは無効（追加または削除が行われた）とみなし、チーム一覧をリセットして再取得を促す
-          const countMismatch =
-            prev.progressiveTeams.length > 0 && prev.progressiveTeams.length !== nextTotalTeams;
+          // 前回の期待総数と今回の総数が異なる場合のみ、
+          // 追加・削除が起きたとみなしてキャッシュをリセットする
+          const countMismatch = prev.totalExpected > 0 && prev.totalExpected !== nextTotalTeams;
 
           const newTeams = countMismatch ? [] : prev.progressiveTeams;
           const newProgress = countMismatch ? 0 : prev.loadingProgress;
