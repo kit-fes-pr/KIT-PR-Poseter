@@ -40,14 +40,16 @@ const adminDb = getFirestore(app);
   const displayName = email.split('@')[0];
 
   let userRecord;
+  let operation;
   try {
-    userRecord = await adminAuth.getUserByEmail(email);
-    userRecord = await adminAuth.updateUser(userRecord.uid, {
+    const existingUser = await adminAuth.getUserByEmail(email);
+    userRecord = await adminAuth.updateUser(existingUser.uid, {
       password,
       displayName,
       emailVerified: true,
       disabled: false,
     });
+    operation = 'updated';
   } catch (error) {
     const firebaseError = error;
     if (firebaseError?.code === 'auth/user-not-found') {
@@ -58,6 +60,7 @@ const adminDb = getFirestore(app);
         emailVerified: true,
         disabled: false,
       });
+      operation = 'created';
     } else {
       throw error;
     }
@@ -86,6 +89,7 @@ const adminDb = getFirestore(app);
 
   console.log(JSON.stringify({
     success: true,
+    operation,
     user: {
       uid: userRecord.uid,
       email: userRecord.email,
