@@ -6,6 +6,11 @@ import {
   buildDistributionEventUpdateDefaults,
   normalizeDistributionYear,
 } from '@/lib/utils/events';
+import {
+  normalizeDistributionEventListYear,
+  resolveDistributionEventLookup,
+  shouldBlockDistributionEventDeletion,
+} from '@/lib/utils/events-api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +29,10 @@ export async function GET(request: NextRequest) {
     const yearParam = searchParams.get('year');
 
     if (yearParam) {
-      const year = parseInt(yearParam);
+      const year = normalizeDistributionEventListYear(yearParam);
+      if (year === null) {
+        return NextResponse.json({ data: null });
+      }
       const snap = await adminDb
         .collection('distributionEvents')
         .where('year', '==', year)
@@ -161,18 +169,19 @@ export async function PATCH(request: NextRequest) {
       distributionAvailabilitySlots,
       isActive,
     } = await request.json();
-    if (!id && !year) {
-      return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
+
+    const lookup = resolveDistributionEventLookup({ id, year });
+    if (lookup.type === 'error') {
+      return NextResponse.json({ error: lookup.error }, { status: 400 });
     }
 
     let docRef;
-    if (id) {
-      docRef = adminDb.collection('distributionEvents').doc(String(id));
+    if (lookup.type === 'id') {
+      docRef = adminDb.collection('distributionEvents').doc(lookup.id);
     } else {
-      const y = parseInt(String(year));
       const snap = await adminDb
         .collection('distributionEvents')
-        .where('year', '==', y)
+        .where('year', '==', lookup.year)
         .limit(1)
         .get();
       if (snap.empty)
@@ -218,17 +227,18 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { id, year } = await request.json();
-    if (!id && !year)
-      return NextResponse.json({ error: 'id か year を指定してください' }, { status: 400 });
+    const lookup = resolveDistributionEventLookup({ id, year });
+    if (lookup.type === 'error') {
+      return NextResponse.json({ error: lookup.error }, { status: 400 });
+    }
 
     let docRef;
-    if (id) {
-      docRef = adminDb.collection('distributionEvents').doc(String(id));
+    if (lookup.type === 'id') {
+      docRef = adminDb.collection('distributionEvents').doc(lookup.id);
     } else {
-      const y = parseInt(String(year));
       const snap = await adminDb
         .collection('distributionEvents')
-        .where('year', '==', y)
+        .where('year', '==', lookup.year)
         .limit(1)
         .get();
       if (snap.empty)
@@ -248,7 +258,10 @@ export async function DELETE(request: NextRequest) {
       .limit(1)
       .get();
     const teamsSnap = await adminDb.collection('teams').where('eventId', '==', eid).limit(1).get();
-    if (!storesSnap.empty || !teamsSnap.empty) {
+    if (shouldBlockDistributionEventDeletion({
+      storesExist: !storesSnap.empty,
+      teamsExist: !teamsSnap.empty,
+    })) {
       return NextResponse.json(
         { error: '関連データ（stores/teams）が存在するため削除できません' },
         { status: 409 },
