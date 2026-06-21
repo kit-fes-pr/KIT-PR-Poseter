@@ -1,27 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import {
+  buildCurrentYearTotalPayload,
+  buildCurrentYearTotalStoreView,
+  normalizeCurrentYearTotalAuthHeader,
+  resolveCurrentYearTotalTargetEventId,
+} from '@/lib/utils/current-year-total-route';
 
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const token = normalizeCurrentYearTotalAuthHeader(authHeader);
+    if (!token) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const decodedToken = await adminAuth.verifyIdToken(token);
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
     const body = await request.json();
-    const eventIdBody = body?.eventId as string | undefined;
-    const yearBody = body?.year as number | undefined;
-    let targetEventId = eventIdBody || 'kodai2025';
-    if (!eventIdBody && yearBody) {
+    const resolved = resolveCurrentYearTotalTargetEventId({
+      eventIdBody: body?.eventId,
+      yearBody: body?.year,
+    });
+    let targetEventId = resolved.targetEventId;
+    if (!body?.eventId && Number.isFinite(resolved.targetYear)) {
       const evSnap = await adminDb
         .collection('distributionEvents')
-        .where('year', '==', yearBody)
+        .where('year', '==', resolved.targetYear)
         .limit(1)
         .get();
       if (!evSnap.empty) targetEventId = evSnap.docs[0].id;
@@ -30,7 +38,12 @@ export async function POST(request: NextRequest) {
     // イベント情報取得（あれば年度を使う）
     const eventDoc = await adminDb.collection('distributionEvents').doc(targetEventId).get();
     const eventData = eventDoc.exists ? (eventDoc.data() as Record<string, unknown>) : null;
-    const year = eventData?.year || new Date().getFullYear();
+    const year =
+      typeof eventData?.year === 'number'
+        ? eventData.year
+        : typeof eventData?.year === 'string' && eventData.year.trim()
+          ? Number(eventData.year)
+          : new Date().getFullYear();
 
     const storesSnapshot = await adminDb
       .collection('stores')
@@ -38,27 +51,12 @@ export async function POST(request: NextRequest) {
       .get();
 
     const stores = storesSnapshot.docs.map((d) => d.data()) as Record<string, unknown>[];
-    const totalStores = stores.length;
-    const completedStores = stores.filter((s) => s.distributionStatus === 'completed').length;
-    const failedStores = stores.filter((s) => s.distributionStatus === 'failed').length;
-    const revisitStores = stores.filter((s) => s.distributionStatus === 'revisit').length;
-    const pendingStores = stores.filter((s) => s.distributionStatus === 'pending').length;
-    const totalDistributedCount = stores.reduce(
-      (sum, s) => sum + ((s.distributedCount as number) || 0),
-      0,
-    );
-
-    const payload = {
+    const payload = buildCurrentYearTotalPayload({
       eventId: targetEventId,
       year,
-      totalStores,
-      completedStores,
-      failedStores,
-      revisitStores,
-      pendingStores,
-      totalDistributedCount,
+      stores,
       updatedAt: new Date(),
-    };
+    });
 
     const docRef = adminDb.collection('currentYearTotals').doc(String(year));
     await docRef.set(payload, { merge: true });
@@ -73,12 +71,12 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const token = normalizeCurrentYearTotalAuthHeader(authHeader);
+    if (!token) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const decodedToken = await adminAuth.verifyIdToken(token);
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
@@ -151,19 +149,10 @@ export async function GET(request: NextRequest) {
           }
         });
 
-        const storesWithNames = stores.map((s: Record<string, unknown>) => {
-          const distributedByName = s.distributedBy
-            ? teamsByCode[s.distributedBy as string] || null
-            : null;
-          const assignedTeams =
-            s.areaCode && teamsByArea[s.areaCode as string]
-              ? teamsByArea[s.areaCode as string].map((t) => `${t.name}（${t.code}）`)
-              : [];
-          return {
-            ...s,
-            distributedByName,
-            assignedTeams,
-          };
+        const storesWithNames = buildCurrentYearTotalStoreView({
+          stores,
+          teamsByCode,
+          teamsByArea,
         });
         return NextResponse.json({ data: null, stores: storesWithNames, teamsByCode });
       }
@@ -206,19 +195,10 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      const storesWithNames = stores.map((s: Record<string, unknown>) => {
-        const distributedByName = s.distributedBy
-          ? teamsByCode[s.distributedBy as string] || null
-          : null;
-        const assignedTeams =
-          s.areaCode && teamsByArea[s.areaCode as string]
-            ? teamsByArea[s.areaCode as string].map((t) => `${t.name}（${t.code}）`)
-            : [];
-        return {
-          ...s,
-          distributedByName,
-          assignedTeams,
-        };
+      const storesWithNames = buildCurrentYearTotalStoreView({
+        stores,
+        teamsByCode,
+        teamsByArea,
       });
       return NextResponse.json({ data: base, stores: storesWithNames, teamsByCode });
     }
