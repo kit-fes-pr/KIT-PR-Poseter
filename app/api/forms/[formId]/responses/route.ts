@@ -6,6 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability';
 import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
+import { buildFormResponseRecord } from '@/lib/utils/forms-api';
 import { normalizeGrade } from '@/lib/utils/grade';
 
 export async function GET(
@@ -236,10 +237,8 @@ export async function POST(
     }
 
     // 回答データを保存
-    const now = new Date();
     const editToken = randomUUID();
-
-    // 参加者データがある場合はParticipantSurveyResponseとして保存
+    const now = new Date();
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
 
     if (participantData) {
@@ -252,33 +251,27 @@ export async function POST(
           { status: 400 },
         );
       }
-      responseData = {
+      responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
-        submittedAt: now,
-        editToken,
-        submitterInfo: submitterInfo || {},
+        answers,
         participantData: {
           name: participantData.name,
           section: participantData.section,
           grade: gradeNum,
           availableSlots,
         },
-      } as Omit<ParticipantSurveyResponse, 'responseId'>;
-    } else {
-      responseData = {
-        formId: resolvedParams.formId,
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
-        submittedAt: now,
-        editToken,
         submitterInfo: submitterInfo || {},
-      } as Omit<FormResponse, 'responseId'>;
+        editToken,
+        now,
+      });
+    } else {
+      responseData = buildFormResponseRecord({
+        formId: resolvedParams.formId,
+        answers,
+        submitterInfo: submitterInfo || {},
+        editToken,
+        now,
+      });
     }
 
     const responseRef = await adminDb

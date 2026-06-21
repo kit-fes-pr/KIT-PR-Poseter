@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability';
 import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
+import { buildFormResponseRecord } from '@/lib/utils/forms-api';
 import { normalizeGrade } from '@/lib/utils/grade';
 
 export async function PATCH(
@@ -224,27 +225,29 @@ export async function PATCH(
         );
       }
       updateData = {
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
+        ...buildFormResponseRecord({
+          formId: resolvedParams.formId,
+          answers,
+          participantData: {
+            name: participantData.name,
+            section: participantData.section,
+            grade: gradeNum,
+            availableSlots,
+          },
+          editToken: responseData.editToken as string,
+          now,
+        }),
         updatedAt: now,
-        participantData: {
-          name: participantData.name,
-          section: participantData.section,
-          grade: gradeNum,
-          availableSlots,
-        },
-        editToken: responseData.editToken,
       };
     } else {
       updateData = {
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
+        ...buildFormResponseRecord({
+          formId: resolvedParams.formId,
+          answers,
+          editToken: responseData.editToken as string,
+          now,
+        }),
         updatedAt: now,
-        editToken: responseData.editToken,
       };
     }
 
