@@ -229,7 +229,7 @@ export async function PATCH(
         );
       }
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { submittedAt, ...rest } = buildFormResponseRecord({
+      const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
         formId: resolvedParams.formId,
         answers,
         participantData: {
@@ -247,7 +247,7 @@ export async function PATCH(
       };
     } else {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { submittedAt, ...rest } = buildFormResponseRecord({
+      const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
         formId: resolvedParams.formId,
         answers,
         editToken: responseData.editToken as string,
