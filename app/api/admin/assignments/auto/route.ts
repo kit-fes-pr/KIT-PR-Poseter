@@ -8,6 +8,7 @@ import {
   resolveParticipantSlotKeys,
 } from '@/lib/utils/assignment/assignment';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
+import { FirestoreCache } from '@/lib/utils/server-cache';
 
 interface Participant {
   responseId: string;
@@ -90,6 +91,10 @@ export async function POST(request: NextRequest) {
     });
 
     await batch.commit();
+
+    if (year) {
+      FirestoreCache.invalidateYear(parseInt(year, 10));
+    }
 
     return NextResponse.json({
       message: '自動割り当てが完了しました',

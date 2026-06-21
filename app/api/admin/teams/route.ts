@@ -11,6 +11,7 @@ import {
   resolveTeamAreaSelection,
 } from '@/lib/utils/team/team-api';
 import { normalizeTeamTimeSlot } from '@/lib/utils/team/team';
+import { FirestoreCache } from '@/lib/utils/server-cache';
 
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
@@ -126,6 +127,10 @@ export async function POST(request: NextRequest) {
       teamId: teamRef.id,
       ...teamData,
     });
+
+    if (teamData.year) {
+      FirestoreCache.invalidateYear(Number(teamData.year));
+    }
 
     return NextResponse.json({
       success: true,

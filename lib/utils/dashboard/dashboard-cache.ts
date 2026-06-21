@@ -96,6 +96,12 @@ export function clearDashboardCache(year: number): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(getKey(year));
+    // SWRキャッシュをその年度に絞って無効化
+    mutate(
+      (key) => typeof key === 'string' && key.includes(`/api/admin/dashboard/${year}`),
+      undefined,
+      { revalidate: true },
+    );
   } catch (error) {
     console.warn('ダッシュボードキャッシュ削除失敗:', error);
   }

@@ -13,6 +13,7 @@ import {
   formatAvailabilitySlotLabel,
 } from '@/lib/utils/availability/availability';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
+import { clearDashboardCache } from '@/lib/utils/dashboard/dashboard-cache';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -220,6 +221,7 @@ export default function TeamDetailPage() {
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || '削除に失敗しました');
+                    clearDashboardCache(Number(y));
                     router.push(`/admin/event/${y}/team`);
                   } catch (error: unknown) {
                     const message = error instanceof Error ? error.message : '削除に失敗しました';
@@ -344,6 +346,7 @@ export default function TeamDetailPage() {
                           });
                           const data = await res.json();
                           if (!res.ok) throw new Error(data.error || '更新に失敗しました');
+                          clearDashboardCache(Number(y));
                           setTeam(data.team);
                           setIsBasicEditOpen(false);
                         } catch (error: unknown) {

@@ -105,38 +105,50 @@ export function useProgressiveData(year: number | null, enabled = true) {
       revalidateOnReconnect: false,
       dedupingInterval: 30000,
       onSuccess: (data) => {
-        setState((prev) => ({
-          ...prev,
-          minimalData: data as ProgressiveDataState['minimalData'],
-          isLoadingMinimal: false,
-          totalExpected: (data as Record<string, unknown>)?.stats
-            ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                ?.totalTeams as number) || 0
-            : 0,
-          hasMore:
-            ((data as Record<string, unknown>)?.stats
-              ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                  ?.totalTeams as number) || 0
-              : 0) > 0,
-        }));
+        const nextTotalTeams = (data as Record<string, unknown>)?.stats
+          ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
+              ?.totalTeams as number) || 0
+          : 0;
 
-        if (year) {
-          const current = readDashboardCache(year);
-          writeDashboardCache(year, {
+        setState((prev) => {
+          // チーム総数がキャッシュされているチーム数と異なる場合、
+          // キャッシュは無効（追加または削除が行われた）とみなし、チーム一覧をリセットして再取得を促す
+          const countMismatch =
+            prev.progressiveTeams.length > 0 && prev.progressiveTeams.length !== nextTotalTeams;
+
+          const newTeams = countMismatch ? [] : prev.progressiveTeams;
+          const newProgress = countMismatch ? 0 : prev.loadingProgress;
+
+          // キャッシュのリセットをlocalStorageにも反映
+          if (countMismatch && year) {
+            writeDashboardCache(year, {
+              minimalData: data as ProgressiveDataState['minimalData'],
+              progressiveTeams: [],
+              loadingProgress: 0,
+              totalExpected: nextTotalTeams,
+              hasMore: nextTotalTeams > 0,
+            });
+          } else if (year) {
+            const current = readDashboardCache(year);
+            writeDashboardCache(year, {
+              minimalData: data as ProgressiveDataState['minimalData'],
+              progressiveTeams: current?.progressiveTeams || [],
+              loadingProgress: current?.loadingProgress || 0,
+              totalExpected: nextTotalTeams,
+              hasMore: nextTotalTeams > 0,
+            });
+          }
+
+          return {
+            ...prev,
             minimalData: data as ProgressiveDataState['minimalData'],
-            progressiveTeams: current?.progressiveTeams || [],
-            loadingProgress: current?.loadingProgress || 0,
-            totalExpected: (data as Record<string, unknown>)?.stats
-              ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                  ?.totalTeams as number) || 0
-              : 0,
-            hasMore:
-              ((data as Record<string, unknown>)?.stats
-                ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                    ?.totalTeams as number) || 0
-                : 0) > 0,
-          });
-        }
+            isLoadingMinimal: false,
+            progressiveTeams: newTeams,
+            loadingProgress: newProgress,
+            totalExpected: nextTotalTeams,
+            hasMore: nextTotalTeams > 0,
+          };
+        });
       },
       onError: (error) => {
         if (year) {

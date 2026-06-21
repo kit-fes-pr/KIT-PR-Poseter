@@ -25,6 +25,7 @@ import { SectionCard } from '@/components/ui/SectionCard';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { Area } from '@/types';
 import type { FormAnswer } from '@/types/forms';
+import { clearDashboardCache } from '@/lib/utils/dashboard/dashboard-cache';
 
 interface Participant {
   responseId: string;
@@ -644,6 +645,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       if (!res.ok) throw new Error(data.error || 'チームの作成に失敗しました');
 
       await loadTeams();
+      clearDashboardCache(Number(resolvedParams.year));
       setCreateTeamForm({
         teamCode: '',
         teamName: '',
@@ -771,6 +773,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         setAssignments(data.assignments || []);
         setLastAutoAssignmentStats(data.stats || null);
         await loadAssignments();
+        clearDashboardCache(Number(resolvedParams.year));
         if ((data?.stats?.assigned || 0) === 0) {
           setError(
             '自動割り当ては完了しましたが、割り当て可能な組み合わせがありませんでした。配布枠とチームの配布枠キーが一致しているか確認してください。',
@@ -808,6 +811,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
       if (res.ok) {
         setAssignments([]);
+        clearDashboardCache(Number(resolvedParams.year));
         setError('');
       } else {
         const errorData = await res.json();
