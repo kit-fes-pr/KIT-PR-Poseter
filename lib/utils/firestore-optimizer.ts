@@ -1,4 +1,4 @@
-import { adminDb } from '@/lib/firebase-admin';
+import { adminDb } from '../firebase-admin';
 
 /**
  * 最適化されたFirestoreクエリヘルパー

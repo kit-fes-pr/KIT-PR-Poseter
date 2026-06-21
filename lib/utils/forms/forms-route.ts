@@ -1,4 +1,4 @@
-import type { FormCreateData, FormUpdateData } from '@/types/forms';
+import type { FormCreateData, FormUpdateData } from '../../../types/forms';
 import { buildFormCreateRecord, buildFormUpdateRecord, normalizeFormAuthHeader } from './forms-api';
 
 export function normalizeFormsRouteAuthHeader(authHeader: string | null): string | null {

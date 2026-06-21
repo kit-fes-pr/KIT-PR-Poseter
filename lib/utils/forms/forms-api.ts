@@ -5,7 +5,7 @@ import {
   FormResponse,
   ParticipantSurveyResponse,
   SurveyForm,
-} from '@/types/forms';
+} from '../../../types/forms';
 import { normalizeFormEventContext } from './forms';
 import { serializeDate } from './forms';
 import { normalizeGrade } from '../grade/grade';
