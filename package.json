@@ -14,7 +14,7 @@
     "test:run": "node --test \".test-dist/tests/*.test.js\" \".test-dist/tests/**/*.test.js\"",
     "test": "npm run test:build && npm run test:run",
     "ci": "npm run format:check && npm run lint && npm run test",
-    "prepare": "husky"
+    "prepare": "test ! -d .git || husky"
   },
   "dependencies": {
     "firebase": "^12.2.1",
