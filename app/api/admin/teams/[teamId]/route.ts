@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
-import {
-  buildDeletedTeamLogData,
-  buildTeamUpdateData,
-  resolveTeamAreaSelection,
-} from '@/lib/utils/team-api';
-import { normalizeTeamTimeSlot } from '@/lib/utils/team';
+import { buildDeletedTeamLogData } from '@/lib/utils/team-api';
+import { buildTeamRouteUpdatePayload, normalizeTeamRouteAuthHeader } from '@/lib/utils/team-route';
 
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
@@ -41,13 +37,10 @@ async function loadAreaForTeam(areaId: unknown, assignedArea: unknown) {
 export async function GET(request: NextRequest, context: { params: Promise<{ teamId: string }> }) {
   try {
     const { teamId } = await context.params;
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeTeamRouteAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
@@ -75,13 +68,10 @@ export async function PATCH(
 ) {
   try {
     const { teamId } = await context.params;
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeTeamRouteAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
@@ -96,51 +86,26 @@ export async function PATCH(
       return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
     }
 
-    const update: Record<string, unknown> = buildTeamUpdateData({
+    const area = typeof body.assignedArea === 'string' || typeof body.areaId === 'string'
+      ? await loadAreaForTeam(body.areaId, body.assignedArea)
+      : null;
+    const updateResult = buildTeamRouteUpdatePayload({
+      teamName: body.teamName,
+      teamCode: body.teamCode,
+      timeSlot: body.timeSlot,
+      isActive: body.isActive,
+      areaId: body.areaId,
+      assignedArea: body.assignedArea,
+      area,
+      eventAvailabilitySlots: typeof (doc.data() as Record<string, unknown>).eventId === 'string'
+        ? await loadEventAvailabilitySlots((doc.data() as Record<string, unknown>).eventId as string)
+        : [],
       updatedAt: new Date(),
     });
-    if (typeof body.teamName === 'string') update.teamName = body.teamName;
-    if (typeof body.teamCode === 'string') update.teamCode = body.teamCode;
-    if (typeof body.assignedArea === 'string' || typeof body.areaId === 'string') {
-      const area = await loadAreaForTeam(body.areaId, body.assignedArea);
-      if (!area) {
-        return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
-      }
-      const areaSelection = resolveTeamAreaSelection({
-        areaId: body.areaId,
-        assignedArea: body.assignedArea,
-        area,
-      });
-      if (!areaSelection) {
-        return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
-      }
-      update.areaId = areaSelection.areaId;
-      update.assignedArea = areaSelection.assignedArea;
-      update.adjacentAreas = areaSelection.adjacentAreas;
+    if ('error' in updateResult) {
+      return NextResponse.json({ error: updateResult.error }, { status: 400 });
     }
-    if (typeof body.timeSlot === 'string') {
-      const normalizedTimeSlot = normalizeTeamTimeSlot(body.timeSlot);
-      if (!normalizedTimeSlot) {
-        return NextResponse.json(
-          { error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' },
-          { status: 400 },
-        );
-      }
-      const eventId = (doc.data() as Record<string, unknown>).eventId;
-      const eventAvailabilitySlots =
-        typeof eventId === 'string' ? await loadEventAvailabilitySlots(eventId) : [];
-      if (
-        eventAvailabilitySlots.length > 0 &&
-        !eventAvailabilitySlots.includes(normalizedTimeSlot)
-      ) {
-        return NextResponse.json(
-          { error: 'timeSlot は配布枠キーから選択してください' },
-          { status: 400 },
-        );
-      }
-      update.timeSlot = normalizedTimeSlot;
-    }
-    if (typeof body.isActive === 'boolean') update.isActive = body.isActive;
+    const update: Record<string, unknown> = updateResult.update;
 
     await ref.update(update);
     const updated = await ref.get();
