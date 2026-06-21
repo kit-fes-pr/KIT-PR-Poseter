@@ -40,10 +40,12 @@ describe('events utils', () => {
       buildDistributionAvailabilitySlotKeys('2026-06-01', '2026-06-02', ['a', 'b']),
       ['a', 'b'],
     );
-    assert.deepEqual(
-      buildDistributionAvailabilitySlotKeys('2026-06-01', '2026-06-02', []),
-      ['2026-06-01_am', '2026-06-01_pm', '2026-06-02_am', '2026-06-02_pm'],
-    );
+    assert.deepEqual(buildDistributionAvailabilitySlotKeys('2026-06-01', '2026-06-02', []), [
+      '2026-06-01_am',
+      '2026-06-01_pm',
+      '2026-06-02_am',
+      '2026-06-02_pm',
+    ]);
   });
 
   test('buildDistributionEventCreateDefaults and update defaults keep payloads consistent', () => {

@@ -84,9 +84,10 @@ export async function PUT(
 
     const previousAreaCode = String(currentArea.areaCode || '');
     const previousAdjacentAreas = Array.isArray(currentArea.adjacentAreas)
-      ? [...currentArea.adjacentAreas].map((area) => String(area).trim()).filter(Boolean).sort((a, b) =>
-          a.localeCompare(b, 'ja'),
-        )
+      ? [...currentArea.adjacentAreas]
+          .map((area) => String(area).trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, 'ja'))
       : [];
     const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
     const adjacentChanged =

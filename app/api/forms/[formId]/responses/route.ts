@@ -118,7 +118,10 @@ export async function POST(
       });
       participantValidationErrors.push(...gradeValidation.errors);
 
-      const availableSlots = resolveResponseAvailabilitySlots(answers, participantData.availableSlots);
+      const availableSlots = resolveResponseAvailabilitySlots(
+        answers,
+        participantData.availableSlots,
+      );
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -239,7 +242,10 @@ export async function POST(
         grade: participantData.grade,
         section: participantData.section,
       });
-      const availableSlots = resolveResponseAvailabilitySlots(answers, participantData.availableSlots);
+      const availableSlots = resolveResponseAvailabilitySlots(
+        answers,
+        participantData.availableSlots,
+      );
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(

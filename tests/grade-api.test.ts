@@ -27,4 +27,3 @@ describe('grade api utils', () => {
     ]);
   });
 });
-

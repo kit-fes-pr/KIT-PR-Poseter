@@ -20,4 +20,3 @@ describe('grade route utils', () => {
     );
   });
 });
-

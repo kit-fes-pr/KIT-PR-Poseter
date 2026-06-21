@@ -6,4 +6,3 @@ export function buildResponsesParticipantGradeValidation(input: {
 }): { gradeNum: number; errors: string[] } {
   return buildParticipantGradeValidation(input);
 }
-

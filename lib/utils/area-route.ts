@@ -7,10 +7,7 @@ export function normalizeAreaAuthHeader(authHeader: string | null): string | nul
   return token || null;
 }
 
-export function hasRequiredAreaPayload(input: {
-  areaCode?: unknown;
-  areaName?: unknown;
-}): boolean {
+export function hasRequiredAreaPayload(input: { areaCode?: unknown; areaName?: unknown }): boolean {
   return Boolean(String(input.areaCode || '').trim() && String(input.areaName || '').trim());
 }
 
@@ -55,4 +52,3 @@ export function buildAreaRouteUpdateData(input: {
 export function normalizeAreaRouteAdjacency(value: unknown): string[] {
   return normalizeAdjacentAreas(value);
 }
-

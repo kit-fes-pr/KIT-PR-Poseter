@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { formatDate, formatDateOnly, formatTimeOnly, formatRelativeTime } from '../lib/utils/dateUtils';
+import {
+  formatDate,
+  formatDateOnly,
+  formatTimeOnly,
+  formatRelativeTime,
+} from '../lib/utils/dateUtils';
 
 describe('dateUtils', () => {
   describe('formatDate', () => {
@@ -27,7 +32,7 @@ describe('dateUtils', () => {
 
     test('formats Firestore Timestamp-like objects', () => {
       const mockTimestamp = {
-        toDate: () => new Date('2026-06-21T06:00:00.000Z')
+        toDate: () => new Date('2026-06-21T06:00:00.000Z'),
       };
       const formatted = formatDate(mockTimestamp);
       assert.match(formatted, /2026\/06\/21/);

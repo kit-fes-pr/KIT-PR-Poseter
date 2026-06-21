@@ -86,9 +86,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'チームが見つかりません' }, { status: 404 });
     }
 
-    const area = typeof body.assignedArea === 'string' || typeof body.areaId === 'string'
-      ? await loadAreaForTeam(body.areaId, body.assignedArea)
-      : null;
+    const area =
+      typeof body.assignedArea === 'string' || typeof body.areaId === 'string'
+        ? await loadAreaForTeam(body.areaId, body.assignedArea)
+        : null;
     const updateResult = buildTeamRouteUpdatePayload({
       teamName: body.teamName,
       teamCode: body.teamCode,
@@ -97,9 +98,12 @@ export async function PATCH(
       areaId: body.areaId,
       assignedArea: body.assignedArea,
       area,
-      eventAvailabilitySlots: typeof (doc.data() as Record<string, unknown>).eventId === 'string'
-        ? await loadEventAvailabilitySlots((doc.data() as Record<string, unknown>).eventId as string)
-        : [],
+      eventAvailabilitySlots:
+        typeof (doc.data() as Record<string, unknown>).eventId === 'string'
+          ? await loadEventAvailabilitySlots(
+              (doc.data() as Record<string, unknown>).eventId as string,
+            )
+          : [],
       updatedAt: new Date(),
     });
     if ('error' in updateResult) {

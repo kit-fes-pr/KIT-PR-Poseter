@@ -1,9 +1,9 @@
 import { normalizeGrade } from './grade';
 
-export function buildParticipantGradeValidation(input: {
-  grade: unknown;
-  section: unknown;
-}): { gradeNum: number; errors: string[] } {
+export function buildParticipantGradeValidation(input: { grade: unknown; section: unknown }): {
+  gradeNum: number;
+  errors: string[];
+} {
   const gradeNum = normalizeGrade(input.grade);
   const errors: string[] = [];
 
@@ -21,4 +21,3 @@ export function buildParticipantGradeValidation(input: {
 
   return { gradeNum, errors };
 }
-

@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SurveyForm, FormCreateData } from '@/types/forms';
 import { serializeDate, toMillis } from '@/lib/utils/forms';
-import { buildFormsCreatePayload, normalizeFormsRouteAuthHeader, parseFormsListEventId } from '@/lib/utils/forms-route';
+import {
+  buildFormsCreatePayload,
+  normalizeFormsRouteAuthHeader,
+  parseFormsListEventId,
+} from '@/lib/utils/forms-route';
 
 export async function GET(request: NextRequest) {
   try {
@@ -79,7 +83,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, fields, eventId, year }: FormCreateData & {
+    const {
+      title,
+      description,
+      fields,
+      eventId,
+      year,
+    }: FormCreateData & {
       eventId?: string;
       year?: number;
     } = body;

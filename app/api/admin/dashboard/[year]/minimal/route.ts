@@ -163,15 +163,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
       responseTime,
     );
 
-    return NextResponse.json(
-      responseData,
-      {
-        headers: {
-          'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
-          'X-Response-Type': 'minimal',
-        },
+    return NextResponse.json(responseData, {
+      headers: {
+        'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+        'X-Response-Type': 'minimal',
       },
-    );
+    });
   } catch (error) {
     const responseTime = Date.now() - startTime;
     logError(

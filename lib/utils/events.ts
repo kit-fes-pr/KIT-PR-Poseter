@@ -71,11 +71,7 @@ export function normalizeDistributionDateRange(
 
 export function normalizeDistributionYear(year: unknown): number | null {
   const parsed =
-    typeof year === 'number'
-      ? year
-      : typeof year === 'string'
-        ? Number(year.trim())
-        : Number.NaN;
+    typeof year === 'number' ? year : typeof year === 'string' ? Number(year.trim()) : Number.NaN;
 
   if (!Number.isInteger(parsed) || parsed < 1000 || parsed > 9999) {
     return null;
@@ -108,14 +104,16 @@ export function buildDistributionEventCreateDefaults(params: {
   distributionEndDate?: unknown;
   distributionTimeZone?: unknown;
   distributionAvailabilitySlots?: unknown;
-}): {
-  eventId: string;
-  eventName: string;
-  distributionStartDate: string;
-  distributionEndDate: string;
-  distributionAvailabilitySlots: string[];
-  distributionTimeZone: string;
-} | { error: string } {
+}):
+  | {
+      eventId: string;
+      eventName: string;
+      distributionStartDate: string;
+      distributionEndDate: string;
+      distributionAvailabilitySlots: string[];
+      distributionTimeZone: string;
+    }
+  | { error: string } {
   const normalizedDateRange = normalizeDistributionDateRange(
     params.distributionStartDate,
     params.distributionEndDate,

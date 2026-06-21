@@ -6,16 +6,20 @@ export function normalizeFormsRouteAuthHeader(authHeader: string | null): string
 }
 
 export function parseFormsListEventId(eventIdParam: unknown): string {
-  return typeof eventIdParam === 'string' && eventIdParam.trim() ? eventIdParam.trim() : 'kodai2025';
+  return typeof eventIdParam === 'string' && eventIdParam.trim()
+    ? eventIdParam.trim()
+    : 'kodai2025';
 }
 
-export function buildFormsCreatePayload(input: FormCreateData & {
-  eventId?: string;
-  year?: number;
-  createdBy: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}) {
+export function buildFormsCreatePayload(
+  input: FormCreateData & {
+    eventId?: string;
+    year?: number;
+    createdBy: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+  },
+) {
   return buildFormCreateRecord({
     title: input.title,
     description: input.description ?? '',

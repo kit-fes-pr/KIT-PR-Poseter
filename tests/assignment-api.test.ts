@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import {
-  buildManualAssignmentRecord,
-  normalizeAssignmentYear,
-} from '../lib/utils/assignment-api';
+import { buildManualAssignmentRecord, normalizeAssignmentYear } from '../lib/utils/assignment-api';
 
 describe('assignment api utils', () => {
   test('normalizeAssignmentYear accepts only 4-digit years', () => {

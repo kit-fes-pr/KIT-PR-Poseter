@@ -28,7 +28,11 @@ export function resolveCurrentYearTotalTargetEventId(input: {
         : NaN;
 
   const targetEventId = eventIdBody || eventIdQuery || fallbackEventId;
-  const targetYear = Number.isFinite(yearBody) ? yearBody : Number.isFinite(yearFromEvent) ? yearFromEvent : NaN;
+  const targetYear = Number.isFinite(yearBody)
+    ? yearBody
+    : Number.isFinite(yearFromEvent)
+      ? yearFromEvent
+      : NaN;
 
   return {
     targetEventId,
@@ -79,4 +83,3 @@ export function buildCurrentYearTotalStoreView(input: {
     };
   });
 }
-

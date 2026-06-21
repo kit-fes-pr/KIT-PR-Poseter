@@ -83,7 +83,10 @@ describe('forms api utils', () => {
     assert.equal(update.updateFields.description, '説明2');
     assert.equal(update.updateFields.isActive, false);
     assert.deepEqual(update.updateFields.updatedAt, new Date('2026-02-01T00:00:00.000Z'));
-    assert.equal((update.updateFields.fields as Array<{ fieldId: string }>)[0].fieldId, 'availability');
+    assert.equal(
+      (update.updateFields.fields as Array<{ fieldId: string }>)[0].fieldId,
+      'availability',
+    );
   });
 
   test('buildFormResponseRecord normalizes response payloads', () => {

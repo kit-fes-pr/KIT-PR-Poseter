@@ -4,9 +4,9 @@ export function normalizeAssignmentAuthHeader(authHeader: string | null): string
   return token || null;
 }
 
-export function parseAssignmentListQuery(searchParams: URLSearchParams):
-  | { year: number; formId: string | null }
-  | { error: string } {
+export function parseAssignmentListQuery(
+  searchParams: URLSearchParams,
+): { year: number; formId: string | null } | { error: string } {
   const year = searchParams.get('year');
   const formId = searchParams.get('formId');
 
@@ -35,11 +35,12 @@ export function parseAssignmentMutationPayload(input: {
       timeSlot?: unknown;
     }
   | { error: string } {
-  const year = typeof input.year === 'number'
-    ? input.year
-    : typeof input.year === 'string' && /^\d{4}$/.test(input.year.trim())
-      ? Number(input.year.trim())
-      : Number.NaN;
+  const year =
+    typeof input.year === 'number'
+      ? input.year
+      : typeof input.year === 'string' && /^\d{4}$/.test(input.year.trim())
+        ? Number(input.year.trim())
+        : Number.NaN;
 
   const formId = typeof input.formId === 'string' ? input.formId.trim() : '';
   const responseId = typeof input.responseId === 'string' ? input.responseId.trim() : '';

@@ -22,17 +22,15 @@ export function buildManualAssignmentRecord(input: {
   teamId: unknown;
   timeSlot: unknown;
   assignedAt?: Date;
-}):
-  | {
-      year: number;
-      formId: string;
-      responseId: string;
-      teamId: string;
-      timeSlot: string;
-      assignedAt: Date;
-      assignedBy: 'manual';
-    }
-  | null {
+}): {
+  year: number;
+  formId: string;
+  responseId: string;
+  teamId: string;
+  timeSlot: string;
+  assignedAt: Date;
+  assignedBy: 'manual';
+} | null {
   const year = normalizeAssignmentYear(input.year);
   const formId = typeof input.formId === 'string' ? input.formId.trim() : '';
   const responseId = typeof input.responseId === 'string' ? input.responseId.trim() : '';

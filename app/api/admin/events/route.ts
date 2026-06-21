@@ -250,10 +250,12 @@ export async function DELETE(request: NextRequest) {
       .limit(1)
       .get();
     const teamsSnap = await adminDb.collection('teams').where('eventId', '==', eid).limit(1).get();
-    if (shouldBlockDistributionEventDeletion({
-      storesExist: !storesSnap.empty,
-      teamsExist: !teamsSnap.empty,
-    })) {
+    if (
+      shouldBlockDistributionEventDeletion({
+        storesExist: !storesSnap.empty,
+        teamsExist: !teamsSnap.empty,
+      })
+    ) {
       return NextResponse.json(
         { error: '関連データ（stores/teams）が存在するため削除できません' },
         { status: 409 },

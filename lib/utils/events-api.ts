@@ -3,10 +3,7 @@ import { normalizeDistributionYear } from './events';
 export function resolveDistributionEventLookup(input: {
   id?: unknown;
   year?: unknown;
-}):
-  | { type: 'id'; id: string }
-  | { type: 'year'; year: number }
-  | { type: 'error'; error: string } {
+}): { type: 'id'; id: string } | { type: 'year'; year: number } | { type: 'error'; error: string } {
   if (typeof input.id === 'string' && input.id.trim()) {
     return { type: 'id', id: input.id.trim() };
   }

@@ -52,7 +52,9 @@ export function buildDashboardEventData(input: {
   };
 }
 
-export function buildDashboardMemberStats(members: Array<Record<string, unknown>>): DashboardMemberStats {
+export function buildDashboardMemberStats(
+  members: Array<Record<string, unknown>>,
+): DashboardMemberStats {
   const byTeam = members.reduce<DashboardMemberStats['byTeam']>(
     (acc, member) => {
       const teamId = String(member.teamId ?? '');

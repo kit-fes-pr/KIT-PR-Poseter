@@ -70,8 +70,14 @@ describe('dashboard route utils', () => {
 
   test('buildDashboardTeamStats and areaStats attach member counts', () => {
     const memberStats: DashboardMemberStats['byTeam'] = {
-      teamA: { count: 2, members: [{ name: 'Alice', studentId: 'S1', grade: '3', department: 'PR' }] },
-      teamB: { count: 1, members: [{ name: 'Bob', studentId: 'S2', grade: '2', department: 'Web' }] },
+      teamA: {
+        count: 2,
+        members: [{ name: 'Alice', studentId: 'S1', grade: '3', department: 'PR' }],
+      },
+      teamB: {
+        count: 1,
+        members: [{ name: 'Bob', studentId: 'S2', grade: '2', department: 'Web' }],
+      },
     };
 
     const teams: Array<{ teamId: string; teamCode: string; assignedArea: string }> = [
