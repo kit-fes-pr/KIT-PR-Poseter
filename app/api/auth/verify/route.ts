@@ -12,7 +12,20 @@ export async function GET(request: NextRequest) {
 
     const idToken = authHeader.split('Bearer ')[1];
 
-    const decodedToken = await adminAuth.verifyIdToken(idToken, true);
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(idToken, true);
+    } catch (error) {
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === 'auth/id-token-revoked') {
+        return NextResponse.json(
+          { error: 'セッションが失効しています。再度ログインしてください' },
+          { status: 401 },
+        );
+      }
+
+      decodedToken = await adminAuth.verifyIdToken(idToken);
+    }
 
     // セッションの最大寿命（24時間）を強制
     const nowSec = Math.floor(Date.now() / 1000);

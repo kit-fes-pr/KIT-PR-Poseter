@@ -506,7 +506,6 @@ interface YearlyStats {
 | メソッド | エンドポイント          | 説明               |
 | -------- | ----------------------- | ------------------ |
 | `POST`   | `/api/auth/team-login`  | ログインコード認証 |
-| `POST`   | `/api/auth/admin-login` | 管理者認証         |
 | `POST`   | `/api/auth/logout`      | ログアウト         |
 | `GET`    | `/api/auth/verify`      | 認証状態確認       |
 
