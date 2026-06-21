@@ -44,6 +44,7 @@ ci:
 
 admin:
 	@if [ -z "$(ADMIN_EMAIL)" ]; then printf "ADMIN_EMAIL is required\n" >&2; exit 1; fi
+	@if [ -z "$(ADMIN_PASSWORD)" ] && [ ! -t 0 ]; then printf "ADMIN_PASSWORD is required in non-interactive environments\n" >&2; exit 1; fi
 	@if [ -z "$(ADMIN_PASSWORD)" ]; then \
 		printf "Admin password: " >&2; \
 		stty -echo; \
