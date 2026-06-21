@@ -4,8 +4,13 @@ import {
   ALL_AVAILABLE_SLOT_KEY,
   UNAVAILABLE_SLOT_KEY,
   buildAvailabilitySlotChoices,
+  buildAvailabilitySlotKeysForDateRange,
   formatAvailabilitySlotLabel,
+  isAvailableForAnySlot,
+  normalizeAvailabilitySlotValue,
+  summarizeAvailabilitySlots,
   sortAvailabilitySlotKeys,
+  validateAvailabilitySelection,
   toggleAvailabilitySelection,
 } from '../lib/utils/availability';
 
@@ -23,6 +28,23 @@ describe('availability utils', () => {
         '2026-06-03_am',
         '2026-06-03_pm',
       ],
+    );
+  });
+
+  test('buildAvailabilitySlotKeysForDateRange respects timeSlot filters', () => {
+    assert.deepEqual(buildAvailabilitySlotKeysForDateRange('2026-06-01', '2026-06-02'), [
+      '2026-06-01_am',
+      '2026-06-01_pm',
+      '2026-06-02_am',
+      '2026-06-02_pm',
+    ]);
+    assert.deepEqual(
+      buildAvailabilitySlotKeysForDateRange('2026-06-01', '2026-06-02', 'morning'),
+      ['2026-06-01_am', '2026-06-02_am'],
+    );
+    assert.deepEqual(
+      buildAvailabilitySlotKeysForDateRange('2026-06-01', '2026-06-02', 'afternoon'),
+      ['2026-06-01_pm', '2026-06-02_pm'],
     );
   });
 
@@ -46,6 +68,33 @@ describe('availability utils', () => {
     assert.equal(formatAvailabilitySlotLabel(ALL_AVAILABLE_SLOT_KEY), '全て可能');
     assert.equal(formatAvailabilitySlotLabel(UNAVAILABLE_SLOT_KEY), '参加不可');
     assert.match(formatAvailabilitySlotLabel('2026-06-01_am'), /午前$/);
+  });
+
+  test('normalizeAvailabilitySlotValue accepts special and date keys only', () => {
+    assert.equal(normalizeAvailabilitySlotValue(' 2026-06-01_am '), '2026-06-01_am');
+    assert.equal(normalizeAvailabilitySlotValue(ALL_AVAILABLE_SLOT_KEY), ALL_AVAILABLE_SLOT_KEY);
+    assert.equal(normalizeAvailabilitySlotValue(UNAVAILABLE_SLOT_KEY), UNAVAILABLE_SLOT_KEY);
+    assert.equal(normalizeAvailabilitySlotValue('foo'), 'foo');
+    assert.equal(normalizeAvailabilitySlotValue(''), null);
+  });
+
+  test('validateAvailabilitySelection rejects conflicting special choices', () => {
+    assert.equal(
+      validateAvailabilitySelection([ALL_AVAILABLE_SLOT_KEY, UNAVAILABLE_SLOT_KEY]),
+      '参加不可と全て可能は同時に選択できません',
+    );
+    assert.equal(validateAvailabilitySelection(['2026-06-01_am']), null);
+  });
+
+  test('summarizeAvailabilitySlots and isAvailableForAnySlot classify availability correctly', () => {
+    assert.equal(summarizeAvailabilitySlots([]), 'other');
+    assert.equal(summarizeAvailabilitySlots([UNAVAILABLE_SLOT_KEY]), 'other');
+    assert.equal(summarizeAvailabilitySlots([ALL_AVAILABLE_SLOT_KEY]), 'both');
+    assert.equal(summarizeAvailabilitySlots(['2026-06-01_am']), 'morning');
+    assert.equal(summarizeAvailabilitySlots(['2026-06-01_pm']), 'afternoon');
+    assert.equal(summarizeAvailabilitySlots(['2026-06-01_am', '2026-06-01_pm']), 'both');
+    assert.equal(isAvailableForAnySlot([UNAVAILABLE_SLOT_KEY]), false);
+    assert.equal(isAvailableForAnySlot(['2026-06-01_am']), true);
   });
 
   test('toggleAvailabilitySelection keeps unavailable exclusive and all-available expansive', () => {
