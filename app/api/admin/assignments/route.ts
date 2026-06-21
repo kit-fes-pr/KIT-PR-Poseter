@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { buildManualAssignmentRecord, normalizeAssignmentYear } from '@/lib/utils/assignment-api';
 import {
-  buildManualAssignmentRecord,
-  normalizeAssignmentYear,
-} from '@/lib/utils/assignment-api';
+  normalizeAssignmentAuthHeader,
+  parseAssignmentListQuery,
+  parseAssignmentMutationPayload,
+} from '@/lib/utils/assignment-route';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAssignmentAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
@@ -21,17 +20,15 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const year = searchParams.get('year');
-    const formId = searchParams.get('formId');
-
-    if (!year) {
-      return NextResponse.json({ error: '年度が必要です' }, { status: 400 });
+    const parsedQuery = parseAssignmentListQuery(searchParams);
+    if ('error' in parsedQuery) {
+      return NextResponse.json({ error: parsedQuery.error }, { status: 400 });
     }
 
-    let query = adminDb.collection('assignments').where('year', '==', parseInt(year));
+    let query = adminDb.collection('assignments').where('year', '==', parsedQuery.year);
 
-    if (formId) {
-      query = query.where('formId', '==', formId);
+    if (parsedQuery.formId) {
+      query = query.where('formId', '==', parsedQuery.formId);
     }
 
     const assignmentsSnapshot = await query.get();
@@ -53,33 +50,27 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAssignmentAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { year, formId, responseId, teamId, timeSlot } = await request.json();
-
-    if (!year || !formId || !responseId || !teamId) {
-      return NextResponse.json(
-        { error: 'year, formId, responseId, teamId は必須です' },
-        { status: 400 },
-      );
+    const parsedPayload = parseAssignmentMutationPayload(await request.json());
+    if ('error' in parsedPayload) {
+      return NextResponse.json({ error: parsedPayload.error }, { status: 400 });
     }
 
     const manualAssignment = buildManualAssignmentRecord({
-      year,
-      formId,
-      responseId,
-      teamId,
-      timeSlot,
+      year: parsedPayload.year,
+      formId: parsedPayload.formId,
+      responseId: parsedPayload.responseId,
+      teamId: parsedPayload.teamId,
+      timeSlot: parsedPayload.timeSlot,
       assignedAt: new Date(),
     });
     if (!manualAssignment) {
@@ -116,13 +107,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAssignmentAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
