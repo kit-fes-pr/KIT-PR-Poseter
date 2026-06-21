@@ -269,7 +269,7 @@ export default function Dashboard() {
     (s: Store) => s.distributionStatus === 'failed',
   ).length;
   const totalDistributedCount = filteredStores.reduce(
-    (sum: number, s: Store) => sum + (s.distributedCount || 0),
+    (sum: number, s: Store) => sum + (Number(s.distributedCount) || 0),
     0,
   );
 

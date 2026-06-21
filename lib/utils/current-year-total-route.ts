@@ -55,10 +55,7 @@ export function buildCurrentYearTotalPayload(input: {
     failedStores: stores.filter((s) => s.distributionStatus === 'failed').length,
     revisitStores: stores.filter((s) => s.distributionStatus === 'revisit').length,
     pendingStores: stores.filter((s) => s.distributionStatus === 'pending').length,
-    totalDistributedCount: stores.reduce(
-      (sum, s) => sum + ((s.distributedCount as number) || 0),
-      0,
-    ),
+    totalDistributedCount: stores.reduce((sum, s) => sum + (Number(s.distributedCount) || 0), 0),
     updatedAt: input.updatedAt || new Date(),
   };
 }

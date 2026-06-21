@@ -33,16 +33,17 @@ describe('current-year-total route utils', () => {
       stores: [
         { distributionStatus: 'completed', distributedCount: 2 },
         { distributionStatus: 'failed', distributedCount: 1 },
-        { distributionStatus: 'revisit', distributedCount: 3 },
+        { distributionStatus: 'revisit', distributedCount: '3' as unknown as number },
         { distributionStatus: 'pending', distributedCount: 4 },
+        { distributionStatus: 'completed', distributedCount: undefined as unknown as number },
       ],
       updatedAt: new Date('2026-06-21T00:00:00.000Z'),
     });
 
     assert.equal(payload.eventId, 'event-1');
     assert.equal(payload.year, 2026);
-    assert.equal(payload.totalStores, 4);
-    assert.equal(payload.completedStores, 1);
+    assert.equal(payload.totalStores, 5);
+    assert.equal(payload.completedStores, 2);
     assert.equal(payload.failedStores, 1);
     assert.equal(payload.revisitStores, 1);
     assert.equal(payload.pendingStores, 1);

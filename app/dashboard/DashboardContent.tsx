@@ -96,7 +96,7 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
   const completedStores = filteredStores.filter((s) => s.distributionStatus === 'completed').length;
   const failedStores = filteredStores.filter((s) => s.distributionStatus === 'failed').length;
   const totalDistributedCount = filteredStores.reduce(
-    (sum, s) => sum + (s.distributedCount || 0),
+    (sum, s) => sum + (Number(s.distributedCount) || 0),
     0,
   );
 
