@@ -2,9 +2,9 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const [argEmail, argPassword] = process.argv.slice(2);
+const [argEmail] = process.argv.slice(2);
 const email = argEmail || process.env.ADMIN_EMAIL;
-const password = argPassword || process.env.ADMIN_PASSWORD;
+const password = process.env.ADMIN_PASSWORD;
 
 if (!email || !password) {
   console.error(
