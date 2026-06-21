@@ -809,7 +809,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          year: resolvedParams?.year,
+          year,
           formId: selectedForm,
         }),
       });
