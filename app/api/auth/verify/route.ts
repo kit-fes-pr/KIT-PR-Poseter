@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     const idToken = authHeader.split('Bearer ')[1];
 
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const decodedToken = await adminAuth.verifyIdToken(idToken, true);
 
     // セッションの最大寿命（24時間）を強制
     const nowSec = Math.floor(Date.now() / 1000);
