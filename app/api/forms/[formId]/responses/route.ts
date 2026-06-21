@@ -7,7 +7,7 @@ import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from 
 import { validateAvailabilitySelection } from '@/lib/utils/availability';
 import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms-api';
-import { normalizeGrade } from '@/lib/utils/grade';
+import { buildParticipantGradeValidation } from '@/lib/utils/grade-api';
 
 export async function GET(
   request: NextRequest,
@@ -93,6 +93,8 @@ export async function POST(
     }
 
     // 参加者データのバリデーション
+    let gradeValidation: { gradeNum: number; errors: string[] } | null = null;
+
     if (participantData) {
       const participantValidationErrors: string[] = [];
 
@@ -112,18 +114,11 @@ export async function POST(
         participantValidationErrors.push('所属セクションは必須です');
       }
 
-      const gradeNum = normalizeGrade(participantData.grade);
-      if (!participantData.grade || gradeNum < 1 || gradeNum > 4) {
-        participantValidationErrors.push('学年は1-4の範囲で選択してください');
-      }
-
-      if (gradeNum === 4 && participantData.section !== '4年') {
-        participantValidationErrors.push('4年生の場合、所属セクションは4年である必要があります');
-      }
-
-      if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
-        participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
-      }
+      gradeValidation = buildParticipantGradeValidation({
+        grade: participantData.grade,
+        section: participantData.section,
+      });
+      participantValidationErrors.push(...gradeValidation.errors);
 
       const availableSlots = resolveResponseAvailabilitySlots(answers, participantData.availableSlots);
       if (availableSlots.length === 0) {
@@ -242,7 +237,7 @@ export async function POST(
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
 
     if (participantData) {
-      const gradeNum = normalizeGrade(participantData.grade);
+      const gradeNum = gradeValidation?.gradeNum || 0;
       const availableSlots = resolveResponseAvailabilitySlots(answers, participantData.availableSlots);
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {

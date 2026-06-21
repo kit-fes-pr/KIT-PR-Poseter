@@ -5,7 +5,7 @@ import { FormAnswer, SurveyForm } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability';
 import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms-api';
-import { normalizeGrade } from '@/lib/utils/grade';
+import { buildParticipantGradeValidation } from '@/lib/utils/grade-api';
 
 export async function PATCH(
   request: NextRequest,
@@ -64,7 +64,13 @@ export async function PATCH(
       return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
     }
 
-    const gradeNum = participantData ? normalizeGrade(participantData.grade) : 0;
+    const gradeValidation = participantData
+      ? buildParticipantGradeValidation({
+          grade: participantData.grade,
+          section: participantData.section,
+        })
+      : null;
+    const gradeNum = gradeValidation?.gradeNum || 0;
 
     // 参加者データのバリデーション
     if (participantData) {
@@ -86,16 +92,8 @@ export async function PATCH(
         participantValidationErrors.push('所属セクションは必須です');
       }
 
-      if (!participantData.grade || gradeNum < 1 || gradeNum > 4) {
-        participantValidationErrors.push('学年は1-4の範囲で選択してください');
-      }
-
-      if (gradeNum === 4 && participantData.section !== '4年') {
-        participantValidationErrors.push('4年生の場合、所属セクションは4年である必要があります');
-      }
-
-      if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
-        participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
+      if (gradeValidation) {
+        participantValidationErrors.push(...gradeValidation.errors);
       }
 
       const availableSlots = resolveResponseAvailabilitySlots(answers, participantData.availableSlots);
