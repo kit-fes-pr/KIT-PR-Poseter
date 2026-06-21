@@ -44,5 +44,11 @@ ci:
 
 admin:
 	@if [ -z "$(ADMIN_EMAIL)" ]; then printf "ADMIN_EMAIL is required\n" >&2; exit 1; fi
-	@if [ -z "$(ADMIN_PASSWORD)" ]; then printf "ADMIN_PASSWORD is required\n" >&2; exit 1; fi
-	@node --env-file="$(ADMIN_ENV_FILE)" scripts/create-admin.mjs "$(ADMIN_EMAIL)" "$(ADMIN_PASSWORD)"
+	@if [ -z "$(ADMIN_PASSWORD)" ]; then \
+		printf "Admin password: " >&2; \
+		stty -echo; \
+		read ADMIN_PASSWORD; \
+		stty echo; \
+		printf "\n" >&2; \
+	fi; \
+	ADMIN_EMAIL="$(ADMIN_EMAIL)" ADMIN_PASSWORD="$$ADMIN_PASSWORD" node --env-file="$(ADMIN_ENV_FILE)" scripts/create-admin.mjs

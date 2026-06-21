@@ -610,21 +610,17 @@ interface YearlyStats {
 - `make lint`: ESLint を実行します
 - `make test`: 現状は build による検証を行います
 - `make ci`: `format:check -> lint -> test` をまとめて実行します
-- `make admin`: Firebase Admin SDK を使って管理者ユーザーを作成します
+- `make admin`: Firebase Admin SDK を使って管理者ユーザーを作成します。パスワードは対話入力です
 
 #### admin の使い方
 
-`admin` は API サーバーを起動していなくても使えます。`FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY` が `.env` に入っている前提です。
+`admin` は API サーバーを起動していなくても使えます。`FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY` が `.env` に入っている前提です。  
+`ADMIN_EMAIL` は環境変数か `make` の引数で渡し、`ADMIN_PASSWORD` は入力プロンプトで渡します。
 
 ```bash
-make admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp ADMIN_PASSWORD=your-password
+make admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp
 ```
 
-必要なら `.env` 以外を読むこともできます。
-
-```bash
-make admin ADMIN_ENV_FILE=.env.local ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp ADMIN_PASSWORD=your-password
-```
 
 #### 補足
 
@@ -632,7 +628,7 @@ make admin ADMIN_ENV_FILE=.env.local ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp ADMI
 
 ```bash
 make -n ci
-make -n admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp ADMIN_PASSWORD=your-password
+make -n admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp
 ```
 
 ### インフラ

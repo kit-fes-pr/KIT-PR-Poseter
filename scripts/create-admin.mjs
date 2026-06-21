@@ -2,9 +2,14 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const [email, password] = process.argv.slice(2);
+const [argEmail, argPassword] = process.argv.slice(2);
+const email = argEmail || process.env.ADMIN_EMAIL;
+const password = argPassword || process.env.ADMIN_PASSWORD;
+
 if (!email || !password) {
-  console.error('Usage: node --env-file=.env scripts/create-admin.mjs <email> <password>');
+  console.error(
+    'Usage: ADMIN_EMAIL=... ADMIN_PASSWORD=... node --env-file=.env scripts/create-admin.mjs',
+  );
   process.exit(1);
 }
 
