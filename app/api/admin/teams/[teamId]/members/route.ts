@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { normalizeGrade } from '@/lib/utils/grade';
 
 type MemberItem = {
   responseId: string;
@@ -99,7 +100,7 @@ export async function GET(
       members.push({
         responseId: a.responseId,
         name: pd.name || '-',
-        grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
+        grade: normalizeGrade(pd.grade),
         section: pd.section || '-',
         timeSlot: String(a.timeSlot || ''),
         formId: rec.formId || a.formId || 'unknown',

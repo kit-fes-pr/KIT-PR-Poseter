@@ -21,6 +21,7 @@ import {
   UNAVAILABLE_SLOT_KEY,
   ALL_AVAILABLE_SLOT_KEY,
 } from '@/lib/utils/availability';
+import { normalizeGrade } from '@/lib/utils/grade';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability';
 
@@ -438,7 +439,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
             participantData: {
               name: String(editFormData.participantName || ''),
               section: String(editFormData.participantSection || ''),
-              grade: parseInt(String(editFormData.participantGrade || '0'), 10),
+              grade: normalizeGrade(editFormData.participantGrade),
               availableSlots,
             },
           }),

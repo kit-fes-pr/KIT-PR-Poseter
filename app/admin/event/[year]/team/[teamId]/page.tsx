@@ -12,6 +12,7 @@ import {
   buildAvailabilitySlotChoices,
   formatAvailabilitySlotLabel,
 } from '@/lib/utils/availability';
+import { normalizeGrade } from '@/lib/utils/grade';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -462,8 +463,9 @@ export default function TeamDetailPage() {
                     {assignedMembers
                       .slice()
                       .sort((a, b) => {
-                        if ((b.grade || 0) !== (a.grade || 0))
-                          return (b.grade || 0) - (a.grade || 0);
+                        const aGrade = normalizeGrade(a.grade);
+                        const bGrade = normalizeGrade(b.grade);
+                        if (bGrade !== aGrade) return bGrade - aGrade;
                         return new Intl.Collator('ja').compare(a.name || '', b.name || '');
                       })
                       .map((m) => (

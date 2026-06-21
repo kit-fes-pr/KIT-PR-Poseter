@@ -6,6 +6,7 @@ import {
   buildAvailabilitySlotChoices,
   normalizeAvailabilitySlots,
 } from '@/lib/utils/availability';
+import { normalizeGrade } from '@/lib/utils/grade';
 
 interface Participant {
   responseId: string;
@@ -143,8 +144,19 @@ function performAutoAssignment(
     teamGradeCount[team.teamId] = {} as Record<number, number>;
   });
 
+  const normalizedParticipants = participants.map((participant) => ({
+    ...participant,
+    grade: normalizeGrade(participant.grade),
+  }));
+  const normalizedTeams = teams.map((team) => ({
+    ...team,
+    preferredGrades: Array.isArray(team.preferredGrades)
+      ? team.preferredGrades.map((grade) => normalizeGrade(grade)).filter((grade) => grade > 0)
+      : undefined,
+  }));
+
   // 参加者を処理順序でソート（3年生以上を優先）
-  const sortedParticipants = [...participants].sort((a, b) => {
+  const sortedParticipants = [...normalizedParticipants].sort((a, b) => {
     const aIsSenior = a.grade >= 3;
     const bIsSenior = b.grade >= 3;
 
@@ -179,7 +191,7 @@ function performAutoAssignment(
       continue;
     }
 
-    const candidateTeams = teams.filter((team) => {
+    const candidateTeams = normalizedTeams.filter((team) => {
       return getMatchingTeamSlots(team, eventSlotKeys).some((slot) =>
         participantSlotKeys.includes(slot),
       );

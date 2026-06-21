@@ -8,6 +8,7 @@ import {
   normalizeAvailabilitySlots,
   validateAvailabilitySelection,
 } from '@/lib/utils/availability';
+import { normalizeGrade } from '@/lib/utils/grade';
 
 function resolveAvailabilitySlots(
   answers: FormAnswer[],
@@ -124,8 +125,8 @@ export async function POST(
         participantValidationErrors.push('所属セクションは必須です');
       }
 
-      const gradeNum = parseInt(participantData.grade);
-      if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
+      const gradeNum = normalizeGrade(participantData.grade);
+      if (!participantData.grade || gradeNum < 1 || gradeNum > 4) {
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
       }
 
@@ -256,6 +257,8 @@ export async function POST(
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
 
     if (participantData) {
+      let gradeNum = 0;
+      gradeNum = normalizeGrade(participantData.grade);
       const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
@@ -276,7 +279,7 @@ export async function POST(
         participantData: {
           name: participantData.name,
           section: participantData.section,
-          grade: parseInt(participantData.grade),
+          grade: gradeNum,
           availableSlots,
         },
       } as Omit<ParticipantSurveyResponse, 'responseId'>;

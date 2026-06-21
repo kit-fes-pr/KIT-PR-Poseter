@@ -17,6 +17,7 @@ import {
   sortAvailabilitySlotKeys,
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability';
+import { normalizeGrade } from '@/lib/utils/grade';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { MetricCard } from '@/components/ui/MetricCard';
@@ -252,7 +253,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     setSelectedResponseId(participant.responseId);
     setResponseEditValues({
       participantName: record?.participantData?.name || participant.name || '',
-      participantGrade: String(record?.participantData?.grade || participant.grade || ''),
+      participantGrade: String(
+        normalizeGrade(record?.participantData?.grade ?? participant.grade),
+      ),
       participantSection: record?.participantData?.section || participant.section || '',
       availability: normalizeAvailabilitySlots(
         record?.participantData?.availableSlots || participant.availableSlots,
@@ -694,7 +697,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
             return {
               responseId: response.responseId,
               name: response.participantData?.name || '',
-              grade: response.participantData?.grade || 0,
+              grade: normalizeGrade(response.participantData?.grade),
               section: response.participantData?.section || '',
               availableSlots,
               submittedAt: new Date(response.submittedAt),
@@ -871,7 +874,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   });
   const collator = new Intl.Collator('ja');
   const sortedParticipants = [...filteredParticipants].sort((a, b) => {
-    if ((b.grade || 0) !== (a.grade || 0)) return (b.grade || 0) - (a.grade || 0);
+    const aGrade = normalizeGrade(a.grade);
+    const bGrade = normalizeGrade(b.grade);
+    if (bGrade !== aGrade) return bGrade - aGrade;
     const an = a.name || '';
     const bn = b.name || '';
     return collator.compare(an, bn);
@@ -891,7 +896,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         const teamLabel = t.teamName || t.assignedArea || t.teamId;
         return {
           team: teamLabel,
-          grade: p.grade || 0,
+          grade: normalizeGrade(p.grade),
           name: p.name || '',
         };
       })
@@ -900,7 +905,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     const sorted = rows.sort((a, b) => {
       const tc = collator.compare(a.team, b.team);
       if (tc !== 0) return tc;
-      if ((b.grade || 0) !== (a.grade || 0)) return (b.grade || 0) - (a.grade || 0);
+      if (b.grade !== a.grade) return b.grade - a.grade;
       return collator.compare(a.name, b.name);
     });
 

@@ -6,6 +6,7 @@ import {
   normalizeAvailabilitySlots,
   validateAvailabilitySelection,
 } from '@/lib/utils/availability';
+import { normalizeGrade } from '@/lib/utils/grade';
 
 function resolveAvailabilitySlots(
   answers: FormAnswer[],
@@ -76,9 +77,12 @@ export async function PATCH(
       return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
     }
 
+    let gradeNum = 0;
+
     // 参加者データのバリデーション
     if (participantData) {
       const participantValidationErrors: string[] = [];
+      gradeNum = normalizeGrade(participantData.grade);
 
       if (
         !participantData.name ||
@@ -96,8 +100,7 @@ export async function PATCH(
         participantValidationErrors.push('所属セクションは必須です');
       }
 
-      const gradeNum = parseInt(participantData.grade);
-      if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
+      if (!participantData.grade || gradeNum < 1 || gradeNum > 4) {
         participantValidationErrors.push('学年は1-4の範囲で選択してください');
       }
 
@@ -244,7 +247,7 @@ export async function PATCH(
         participantData: {
           name: participantData.name,
           section: participantData.section,
-          grade: parseInt(participantData.grade),
+          grade: gradeNum,
           availableSlots,
         },
         editToken: responseData.editToken,
