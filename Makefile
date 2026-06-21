@@ -47,9 +47,11 @@ admin:
 	@if [ -z "$(ADMIN_PASSWORD)" ] && [ ! -t 0 ]; then printf "ADMIN_PASSWORD is required in non-interactive environments\n" >&2; exit 1; fi
 	@if [ -z "$(ADMIN_PASSWORD)" ]; then \
 		printf "Admin password: " >&2; \
+		trap 'stty echo; printf "\n" >&2' INT TERM EXIT; \
 		stty -echo; \
-		read ADMIN_PASSWORD; \
+		read -r ADMIN_PASSWORD; \
 		stty echo; \
+		trap - INT TERM EXIT; \
 		printf "\n" >&2; \
 	fi; \
 	ADMIN_EMAIL="$(ADMIN_EMAIL)" ADMIN_PASSWORD="$$ADMIN_PASSWORD" node --env-file="$(ADMIN_ENV_FILE)" scripts/create-admin.mjs
