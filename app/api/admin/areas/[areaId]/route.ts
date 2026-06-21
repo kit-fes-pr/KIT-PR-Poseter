@@ -89,7 +89,10 @@ export async function PUT(
       JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
     if (previousAreaCode !== areaCode || adjacentChanged) {
       const teamsSnap = await adminDb.collection('teams').get();
-      const updates: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }> = [];
+      const updates: Array<{
+        ref: FirebaseFirestore.DocumentReference;
+        data: Record<string, unknown>;
+      }> = [];
       teamsSnap.docs.forEach((teamDoc) => {
         const teamData = teamDoc.data() as Record<string, unknown>;
         if (

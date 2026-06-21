@@ -267,7 +267,6 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
-
     </div>
   );
 }
