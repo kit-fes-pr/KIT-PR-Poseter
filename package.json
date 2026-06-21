@@ -13,7 +13,8 @@
     "test:build": "rm -rf .test-dist && tsc -p tsconfig.test.json",
     "test:run": "node --test \".test-dist/tests/*.test.js\" \".test-dist/tests/**/*.test.js\"",
     "test": "npm run test:build && npm run test:run",
-    "ci": "npm run format:check && npm run lint && npm run test"
+    "ci": "npm run format:check && npm run lint && npm run test",
+    "prepare": "husky"
   },
   "dependencies": {
     "firebase": "^12.2.1",
@@ -32,6 +33,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
     "prettier": "^3.8.4",
     "tailwindcss": "^4",
     "typescript": "^5"
@@ -43,5 +46,14 @@
     "unrs-resolver@1.11.1": true,
     "protobufjs@7.6.4": true,
     "@firebase/util@1.15.1": true
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
   }
 }
