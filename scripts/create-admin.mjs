@@ -23,7 +23,9 @@ const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
 if (!projectId || !clientEmail || !privateKey) {
-  console.error('FIREBASE_ADMIN_PROJECT_ID / FIREBASE_ADMIN_CLIENT_EMAIL / FIREBASE_ADMIN_PRIVATE_KEY が必要です');
+  console.error(
+    'FIREBASE_ADMIN_PROJECT_ID / FIREBASE_ADMIN_CLIENT_EMAIL / FIREBASE_ADMIN_PRIVATE_KEY が必要です',
+  );
   process.exit(1);
 }
 
@@ -78,13 +80,16 @@ const adminDb = getFirestore(app);
 
   const adminDoc = await adminDb.collection('admins').doc(userRecord.uid).get();
   if (!adminDoc.exists) {
-    await adminDb.collection('admins').doc(userRecord.uid).set({
-      adminId: userRecord.uid,
-      email: userRecord.email,
-      name: userRecord.displayName || displayName,
-      isActive: true,
-      createdAt: new Date(),
-    });
+    await adminDb
+      .collection('admins')
+      .doc(userRecord.uid)
+      .set({
+        adminId: userRecord.uid,
+        email: userRecord.email,
+        name: userRecord.displayName || displayName,
+        isActive: true,
+        createdAt: new Date(),
+      });
   }
 
   const customToken = await adminAuth.createCustomToken(userRecord.uid, {
@@ -92,17 +97,23 @@ const adminDb = getFirestore(app);
     isAdmin: true,
   });
 
-  console.log(JSON.stringify({
-    success: true,
-    operation,
-    user: {
-      uid: userRecord.uid,
-      email: userRecord.email,
-      name: userRecord.displayName || displayName,
-      isAdmin: true,
-    },
-    customToken,
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        success: true,
+        operation,
+        user: {
+          uid: userRecord.uid,
+          email: userRecord.email,
+          name: userRecord.displayName || displayName,
+          isAdmin: true,
+        },
+        customToken,
+      },
+      null,
+      2,
+    ),
+  );
 })().catch((error) => {
   console.error(error);
   process.exit(1);

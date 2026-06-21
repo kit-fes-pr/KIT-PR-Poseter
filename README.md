@@ -621,7 +621,6 @@ interface YearlyStats {
 make admin ADMIN_EMAIL=admin@st.kanazawa-it.ac.jp
 ```
 
-
 #### 補足
 
 `make -n <target>` を付けると、実行せずに展開されるコマンドだけを確認できます。
