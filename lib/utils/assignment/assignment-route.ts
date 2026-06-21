@@ -20,13 +20,7 @@ export function parseAssignmentListQuery(
   };
 }
 
-export function parseAssignmentMutationPayload(input: {
-  year: unknown;
-  formId: unknown;
-  responseId: unknown;
-  teamId: unknown;
-  timeSlot?: unknown;
-}):
+export function parseAssignmentMutationPayload(input: unknown):
   | {
       year: number;
       formId: string;
@@ -35,16 +29,21 @@ export function parseAssignmentMutationPayload(input: {
       timeSlot?: unknown;
     }
   | { error: string } {
+  if (typeof input !== 'object' || input === null) {
+    return { error: 'リクエストボディが不正です' };
+  }
+  const payload = input as Record<string, unknown>;
+
   const year =
-    typeof input.year === 'number'
-      ? input.year
-      : typeof input.year === 'string' && /^\d{4}$/.test(input.year.trim())
-        ? Number(input.year.trim())
+    typeof payload.year === 'number'
+      ? payload.year
+      : typeof payload.year === 'string' && /^\d{4}$/.test(payload.year.trim())
+        ? Number(payload.year.trim())
         : Number.NaN;
 
-  const formId = typeof input.formId === 'string' ? input.formId.trim() : '';
-  const responseId = typeof input.responseId === 'string' ? input.responseId.trim() : '';
-  const teamId = typeof input.teamId === 'string' ? input.teamId.trim() : '';
+  const formId = typeof payload.formId === 'string' ? payload.formId.trim() : '';
+  const responseId = typeof payload.responseId === 'string' ? payload.responseId.trim() : '';
+  const teamId = typeof payload.teamId === 'string' ? payload.teamId.trim() : '';
 
   if (!Number.isInteger(year) || year <= 0) {
     return { error: '年度が必要です' };
@@ -59,6 +58,6 @@ export function parseAssignmentMutationPayload(input: {
     formId,
     responseId,
     teamId,
-    timeSlot: input.timeSlot,
+    timeSlot: payload.timeSlot,
   };
 }

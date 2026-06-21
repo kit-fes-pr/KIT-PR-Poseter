@@ -59,5 +59,14 @@ describe('assignment route utils', () => {
       'error' in missingField ? missingField.error : null,
       'year, formId, responseId, teamId は必須です',
     );
+
+    const invalidType = parseAssignmentMutationPayload(null);
+    assert.equal('error' in invalidType ? invalidType.error : null, 'リクエストボディが不正です');
+
+    const invalidPrimitive = parseAssignmentMutationPayload('invalid');
+    assert.equal(
+      'error' in invalidPrimitive ? invalidPrimitive.error : null,
+      'リクエストボディが不正です',
+    );
   });
 });
