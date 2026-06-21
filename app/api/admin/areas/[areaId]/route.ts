@@ -4,6 +4,7 @@ import {
   buildAreaRouteUpdateData,
   hasRequiredAreaPayload,
   normalizeAreaAuthHeader,
+  normalizeAreaRouteAdjacency,
 } from '@/lib/utils/area-route';
 import { shouldBlockAreaDeletion, shouldRefreshTeamAfterAreaChange } from '@/lib/utils/area-api';
 
@@ -83,12 +84,8 @@ export async function PUT(
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    const previousAdjacentAreas = Array.isArray(currentArea.adjacentAreas)
-      ? [...currentArea.adjacentAreas]
-          .map((area) => String(area).trim())
-          .filter(Boolean)
-          .sort((a, b) => a.localeCompare(b, 'ja'))
-      : [];
+    const previousAdjacentAreas = normalizeAreaRouteAdjacency(currentArea.adjacentAreas)
+      .sort((a, b) => a.localeCompare(b, 'ja'));
     const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
     const adjacentChanged =
       JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
