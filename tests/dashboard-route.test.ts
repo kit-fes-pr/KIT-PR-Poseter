@@ -68,7 +68,7 @@ describe('dashboard route utils', () => {
     assert.equal(stats.byTeam['team-2'].count, 1);
   });
 
-  test('buildDashboardTeamStats and areaStats attach member counts', () => {
+  test('buildDashboardTeamStats and areaStats attach member counts and serialize dates', () => {
     const memberStats: DashboardMemberStats['byTeam'] = {
       teamA: {
         count: 2,
@@ -80,8 +80,17 @@ describe('dashboard route utils', () => {
       },
     };
 
-    const teams: Array<{ teamId: string; teamCode: string; assignedArea: string }> = [
-      { teamId: 'teamA', teamCode: 'A-01', assignedArea: 'A-01' },
+    const teams: Array<Record<string, unknown> & { teamId: string }> = [
+      {
+        teamId: 'teamA',
+        teamCode: 'A-01',
+        assignedArea: 'A-01',
+        createdAt: new Date('2026-06-21T06:00:00.000Z'),
+        updatedAt: { toDate: () => new Date('2026-06-21T06:10:00.000Z') },
+        validStartDate: '2026-06-01',
+        validEndDate: null,
+        validDate: 1779955200000,
+      },
       { teamId: 'teamB', teamCode: 'A-02', assignedArea: '' },
     ];
 
@@ -92,6 +101,11 @@ describe('dashboard route utils', () => {
 
     assert.equal(teamStats[0].memberCount, 2);
     assert.deepEqual(teamStats[0].members, memberStats.teamA.members);
+    assert.equal(teamStats[0].createdAt, '2026-06-21T06:00:00.000Z');
+    assert.equal(teamStats[0].updatedAt, '2026-06-21T06:10:00.000Z');
+    assert.equal(teamStats[0].validStartDate, '2026-06-01');
+    assert.equal(teamStats[0].validEndDate, null);
+    assert.match(teamStats[0].validDate as string, /^2026-/);
     assert.equal(teamStats[1].memberCount, 1);
 
     const areaStats = buildDashboardAreaStats({

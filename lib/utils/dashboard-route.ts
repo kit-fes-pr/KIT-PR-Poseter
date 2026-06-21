@@ -100,6 +100,11 @@ export function buildDashboardTeamStats(input: DashboardTeamStatsInput): Array<
     const teamMembers = input.memberStatsByTeam[team.teamId] || { count: 0, members: [] };
     return {
       ...team,
+      createdAt: serializeDateValue(team.createdAt),
+      updatedAt: serializeDateValue(team.updatedAt),
+      validStartDate: serializeDateValue(team.validStartDate),
+      validEndDate: serializeDateValue(team.validEndDate),
+      validDate: serializeDateValue(team.validDate),
       memberCount: teamMembers.count,
       members: teamMembers.members,
     };
