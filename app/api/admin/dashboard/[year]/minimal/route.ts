@@ -3,7 +3,6 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FirestoreCache, ServerCache } from '@/lib/utils/server-cache';
 import {
   countResponsesWithAvailability,
-  extractAvailabilitySlots,
   serializeDateLikeValue,
 } from '@/lib/utils/availability-api';
 import { buildMinimalDashboardResponseData } from '@/lib/utils/availability-route';
@@ -113,13 +112,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
 
         totalResponses = totalResponsesSnapshot.data().count;
         availableResponses = countResponsesWithAvailability(
-          availableResponsesSnapshot.docs.map((doc) => ({
-            participantData: {
-              availableSlots: extractAvailabilitySlots(
-                doc.data() as { participantData?: { availableSlots?: unknown } },
-              ),
-            },
-          })),
+          availableResponsesSnapshot.docs.map(
+            (doc) => doc.data() as { participantData?: { availableSlots?: unknown } },
+          ),
         );
       }
 
