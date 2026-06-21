@@ -1,7 +1,7 @@
 'use client';
 
 import { mutate as swrMutate } from 'swr';
-import { DashboardTeam, writeDashboardCache } from '@/lib/utils/dashboard-cache';
+import { DashboardTeam, writeDashboardCache } from '@/lib/utils/dashboard/dashboard-cache';
 
 // プリロード機能
 export function preloadDashboard(year: number) {

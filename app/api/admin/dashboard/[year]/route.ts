@@ -5,7 +5,7 @@ import {
   buildDashboardEventData,
   buildDashboardMemberStats,
   buildDashboardTeamStats,
-} from '@/lib/utils/dashboard-route';
+} from '@/lib/utils/dashboard/dashboard-route';
 import { FirestoreOptimizer } from '@/lib/utils/firestore-optimizer';
 
 export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {

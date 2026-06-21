@@ -11,8 +11,8 @@ import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import {
   buildAvailabilitySlotChoices,
   formatAvailabilitySlotLabel,
-} from '@/lib/utils/availability';
-import { normalizeGrade } from '@/lib/utils/grade';
+} from '@/lib/utils/availability/availability';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');

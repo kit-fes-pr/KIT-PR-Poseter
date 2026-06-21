@@ -6,7 +6,7 @@ import {
   buildDashboardMemberStats,
   buildDashboardTeamStats,
   type DashboardMemberStats,
-} from '../lib/utils/dashboard-route';
+} from '../lib/utils/dashboard/dashboard-route';
 
 describe('dashboard route utils', () => {
   test('buildDashboardEventData serializes timestamp-like fields', () => {

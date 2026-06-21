@@ -8,13 +8,5 @@
     "moduleResolution": "node",
     "types": ["node"]
   },
-  "files": [
-    "tests/availability.test.ts",
-    "tests/grade.test.ts",
-    "tests/area.test.ts",
-    "lib/utils/availability.ts",
-    "lib/utils/dateUtils.ts",
-    "lib/utils/grade.ts",
-    "lib/utils/area.ts"
-  ]
+  "include": ["tests/**/*.ts", "tests/**/**/*.ts", "lib/**/*.ts", "lib/**/**/*.ts"]
 }

@@ -5,7 +5,7 @@ import {
   buildTeamIncrementalTeamView,
   normalizeTeamIncrementalAuthHeader,
   parseTeamIncrementalQuery,
-} from '@/lib/utils/team-incremental-route';
+} from '@/lib/utils/team/team-incremental-route';
 
 export async function GET(request: NextRequest) {
   try {

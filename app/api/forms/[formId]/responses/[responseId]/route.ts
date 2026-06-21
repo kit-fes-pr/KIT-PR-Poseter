@@ -2,10 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
-import { validateAvailabilitySelection } from '@/lib/utils/availability';
-import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
-import { buildFormResponseRecord } from '@/lib/utils/forms-api';
-import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade-route';
+import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
+import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
+import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
 export async function PATCH(
   request: NextRequest,

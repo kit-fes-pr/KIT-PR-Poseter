@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { serializeEventDoc } from '@/lib/utils/events';
+import { serializeEventDoc } from '@/lib/utils/events/events';
 import {
   normalizeDistributionEventListYear,
   shouldBlockDistributionEventDeletion,
-} from '@/lib/utils/events-api';
+} from '@/lib/utils/events/events-api';
 import {
   buildEventsCreatePayload,
   buildEventsUpdateLookup,
   buildEventsUpdatePayload,
   normalizeEventsAuthHeader,
-} from '@/lib/utils/events-route';
+} from '@/lib/utils/events/events-route';
 
 export async function GET(request: NextRequest) {
   try {

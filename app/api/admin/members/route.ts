@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
-import { normalizeGrade } from '@/lib/utils/grade';
+import { normalizeAvailabilitySlots } from '@/lib/utils/availability/availability';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 
 type Member = {
   memberId: string; // responseId を流用

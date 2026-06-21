@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { buildAvailabilitySlotChoices } from '@/lib/utils/availability';
+import { buildAvailabilitySlotChoices } from '@/lib/utils/availability/availability';
 import {
   effectiveSlotCount,
   getMatchingTeamSlots,
   resolveParticipantSlotKeys,
-} from '@/lib/utils/assignment';
-import { normalizeGrade } from '@/lib/utils/grade';
+} from '@/lib/utils/assignment/assignment';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 
 interface Participant {
   responseId: string;

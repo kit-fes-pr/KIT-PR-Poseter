@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
-import { buildDeletedTeamLogData } from '@/lib/utils/team-api';
-import { buildTeamRouteUpdatePayload, normalizeTeamRouteAuthHeader } from '@/lib/utils/team-route';
+import {
+  buildAvailabilitySlotChoices,
+  normalizeAvailabilitySlots,
+} from '@/lib/utils/availability/availability';
+import { buildDeletedTeamLogData } from '@/lib/utils/team/team-api';
+import {
+  buildTeamRouteUpdatePayload,
+  normalizeTeamRouteAuthHeader,
+} from '@/lib/utils/team/team-route';
 
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const snap = await adminDb.collection('distributionEvents').doc(eventId).get();

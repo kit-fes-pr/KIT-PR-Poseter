@@ -4,10 +4,10 @@ import { randomUUID } from 'crypto';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
-import { validateAvailabilitySelection } from '@/lib/utils/availability';
-import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
-import { buildFormResponseRecord } from '@/lib/utils/forms-api';
-import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade-route';
+import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
+import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
+import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
 export async function GET(
   request: NextRequest,

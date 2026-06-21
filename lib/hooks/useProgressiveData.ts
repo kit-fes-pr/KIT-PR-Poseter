@@ -7,7 +7,7 @@ import {
   DashboardTeam,
   readDashboardCache,
   writeDashboardCache,
-} from '@/lib/utils/dashboard-cache';
+} from '@/lib/utils/dashboard/dashboard-cache';
 
 interface ProgressiveDataState {
   minimalData: {

@@ -9,7 +9,7 @@ import {
   normalizeAvailabilitySlots,
   toggleAvailabilitySelection,
   UNAVAILABLE_SLOT_KEY,
-} from '@/lib/utils/availability';
+} from '@/lib/utils/availability/availability';
 
 type SurveyFieldBlockProps = {
   field: FormField;

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { buildManualAssignmentRecord, normalizeAssignmentYear } from '@/lib/utils/assignment-api';
+import {
+  buildManualAssignmentRecord,
+  normalizeAssignmentYear,
+} from '@/lib/utils/assignment/assignment-api';
 import {
   normalizeAssignmentAuthHeader,
   parseAssignmentListQuery,
   parseAssignmentMutationPayload,
-} from '@/lib/utils/assignment-route';
+} from '@/lib/utils/assignment/assignment-route';
 
 export async function GET(request: NextRequest) {
   try {

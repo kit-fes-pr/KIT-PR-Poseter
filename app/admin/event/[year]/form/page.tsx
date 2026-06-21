@@ -20,10 +20,10 @@ import {
   toggleAvailabilitySelection,
   UNAVAILABLE_SLOT_KEY,
   ALL_AVAILABLE_SLOT_KEY,
-} from '@/lib/utils/availability';
-import { normalizeGrade } from '@/lib/utils/grade';
+} from '@/lib/utils/availability/availability';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
-import type { AvailabilitySlotChoice } from '@/lib/utils/availability';
+import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
 
 type AdminTab = 'content' | 'overview';
 

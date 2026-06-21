@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { MutableRefObject } from 'react';
 import { formatDate } from '@/lib/utils/dateUtils';
-import { formatAvailabilitySlotLabel } from '@/lib/utils/availability';
+import { formatAvailabilitySlotLabel } from '@/lib/utils/availability/availability';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
 
 type AvailabilityChoice = {

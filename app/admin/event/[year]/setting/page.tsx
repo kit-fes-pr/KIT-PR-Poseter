@@ -12,8 +12,8 @@ import {
   buildAvailabilitySlotChoices,
   UNAVAILABLE_SLOT_KEY,
   ALL_AVAILABLE_SLOT_KEY,
-} from '@/lib/utils/availability';
-import type { AvailabilitySlotChoice } from '@/lib/utils/availability';
+} from '@/lib/utils/availability/availability';
+import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
 
 type EventSummary = {
   id?: string;

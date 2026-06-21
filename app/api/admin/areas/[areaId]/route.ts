@@ -5,8 +5,11 @@ import {
   hasRequiredAreaPayload,
   normalizeAreaAuthHeader,
   normalizeAreaRouteAdjacency,
-} from '@/lib/utils/area-route';
-import { shouldBlockAreaDeletion, shouldRefreshTeamAfterAreaChange } from '@/lib/utils/area-api';
+} from '@/lib/utils/area/area-route';
+import {
+  shouldBlockAreaDeletion,
+  shouldRefreshTeamAfterAreaChange,
+} from '@/lib/utils/area/area-api';
 
 const FIRESTORE_SAFE_BATCH_SIZE = 450;
 

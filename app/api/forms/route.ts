@@ -2,12 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SurveyForm, FormCreateData } from '@/types/forms';
-import { serializeDate, toMillis } from '@/lib/utils/forms';
+import { serializeDate, toMillis } from '@/lib/utils/forms/forms';
 import {
   buildFormsCreatePayload,
   normalizeFormsRouteAuthHeader,
   parseFormsListEventId,
-} from '@/lib/utils/forms-route';
+} from '@/lib/utils/forms/forms-route';
 
 export async function GET(request: NextRequest) {
   try {

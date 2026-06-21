@@ -4,8 +4,8 @@ import { FirestoreCache, ServerCache } from '@/lib/utils/server-cache';
 import {
   countResponsesWithAvailability,
   serializeDateLikeValue,
-} from '@/lib/utils/availability-api';
-import { buildMinimalDashboardResponseData } from '@/lib/utils/availability-route';
+} from '@/lib/utils/availability/availability-api';
+import { buildMinimalDashboardResponseData } from '@/lib/utils/availability/availability-route';
 import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {

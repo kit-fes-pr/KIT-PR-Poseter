@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
 import { SurveyForm, FormAnswer } from '@/types/forms';
-import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
+import { normalizeAvailabilitySlots } from '@/lib/utils/availability/availability';
 import { PublicSurveyForm } from '@/components/forms/PublicSurveyForm';
 import type { ParticipantIdentityFormValues } from '@/components/forms/ParticipantIdentitySection';
 

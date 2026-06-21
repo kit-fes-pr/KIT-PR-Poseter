@@ -16,8 +16,8 @@ import {
   getAvailabilityDateSlotKeys,
   sortAvailabilitySlotKeys,
   toggleAvailabilitySelection,
-} from '@/lib/utils/availability';
-import { normalizeGrade } from '@/lib/utils/grade';
+} from '@/lib/utils/availability/availability';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { MetricCard } from '@/components/ui/MetricCard';

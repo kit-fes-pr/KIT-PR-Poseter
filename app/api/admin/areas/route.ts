@@ -4,7 +4,7 @@ import {
   buildAreaRouteCreateData,
   hasRequiredAreaPayload,
   normalizeAreaAuthHeader,
-} from '@/lib/utils/area-route';
+} from '@/lib/utils/area/area-route';
 
 export async function GET(request: NextRequest) {
   try {
