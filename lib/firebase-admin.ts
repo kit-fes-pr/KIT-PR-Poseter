@@ -11,7 +11,7 @@ if (!getApps().length) {
 
   const isValidKey = !!privateKey?.includes('BEGIN PRIVATE KEY');
 
-  if (!projectId || !clientEmail || !isValidKey) {
+  if (!projectId || !clientEmail || !privateKey || !isValidKey) {
     console.warn(
       'Firebase Admin SDK credentials not provided or invalid - some functionality will be limited',
     );
