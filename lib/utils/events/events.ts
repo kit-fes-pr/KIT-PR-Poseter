@@ -173,7 +173,13 @@ export function buildDistributionEventUpdateDefaults(params: {
   if (typeof params.eventName === 'string') update.eventName = params.eventName;
   if (typeof params.isActive === 'boolean') update.isActive = params.isActive;
 
-  if (params.distributionStartDate || params.distributionEndDate) {
+  const hasStartDate = params.distributionStartDate !== undefined;
+  const hasEndDate = params.distributionEndDate !== undefined;
+
+  if (hasStartDate || hasEndDate) {
+    if (!hasStartDate || !hasEndDate) {
+      return { update, error: '配布開始日と配布終了日は両方指定する必要があります' };
+    }
     const normalizedDateRange = normalizeDistributionDateRange(
       params.distributionStartDate,
       params.distributionEndDate,

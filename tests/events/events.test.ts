@@ -92,6 +92,26 @@ describe('events utils', () => {
     assert.equal(updateDefaultsNoTz.update.distributionTimeZone, undefined);
   });
 
+  test('buildDistributionEventUpdateDefaults requires both start and end dates if either is provided', () => {
+    const errorOnlyStart = buildDistributionEventUpdateDefaults({
+      distributionStartDate: '2026-06-01',
+    });
+    assert.equal(errorOnlyStart.error, '配布開始日と配布終了日は両方指定する必要があります');
+
+    const errorOnlyEnd = buildDistributionEventUpdateDefaults({
+      distributionEndDate: '2026-06-03',
+    });
+    assert.equal(errorOnlyEnd.error, '配布開始日と配布終了日は両方指定する必要があります');
+
+    const successBoth = buildDistributionEventUpdateDefaults({
+      distributionStartDate: '2026-06-01',
+      distributionEndDate: '2026-06-03',
+    });
+    assert.equal(successBoth.error, null);
+    assert.equal(successBoth.update.distributionStartDate, '2026-06-01');
+    assert.equal(successBoth.update.distributionEndDate, '2026-06-03');
+  });
+
   test('serializeDateOnlyValue keeps date-only values stable and serializes timestamps', () => {
     const date = new Date('2026-06-21T15:00:00.000Z');
     assert.equal(serializeDateOnlyValue(date), '2026-06-22');

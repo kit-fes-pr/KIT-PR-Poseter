@@ -71,5 +71,10 @@ describe('events route utils', () => {
     assert.deepEqual(update.update.distributionAvailabilitySlots, ['A', 'B']);
     assert.equal(update.update.isActive, false);
     assert.ok(update.update.updatedAt instanceof Date);
+
+    const updateOnlyStart = buildEventsUpdatePayload({
+      distributionStartDate: '2026-06-01',
+    });
+    assert.equal(updateOnlyStart.error, '配布開始日と配布終了日は両方指定する必要があります');
   });
 });
