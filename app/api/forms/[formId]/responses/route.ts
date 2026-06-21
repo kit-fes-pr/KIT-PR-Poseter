@@ -7,7 +7,7 @@ import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from 
 import { validateAvailabilitySelection } from '@/lib/utils/availability';
 import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms-api';
-import { buildParticipantGradeValidation } from '@/lib/utils/grade-api';
+import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade-route';
 
 export async function GET(
   request: NextRequest,
@@ -93,8 +93,6 @@ export async function POST(
     }
 
     // 参加者データのバリデーション
-    let gradeValidation: { gradeNum: number; errors: string[] } | null = null;
-
     if (participantData) {
       const participantValidationErrors: string[] = [];
 
@@ -114,7 +112,7 @@ export async function POST(
         participantValidationErrors.push('所属セクションは必須です');
       }
 
-      gradeValidation = buildParticipantGradeValidation({
+      const gradeValidation = buildResponsesParticipantGradeValidation({
         grade: participantData.grade,
         section: participantData.section,
       });
@@ -237,7 +235,10 @@ export async function POST(
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
 
     if (participantData) {
-      const gradeNum = gradeValidation?.gradeNum || 0;
+      const gradeValidation = buildResponsesParticipantGradeValidation({
+        grade: participantData.grade,
+        section: participantData.section,
+      });
       const availableSlots = resolveResponseAvailabilitySlots(answers, participantData.availableSlots);
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
@@ -252,7 +253,7 @@ export async function POST(
         participantData: {
           name: participantData.name,
           section: participantData.section,
-          grade: gradeNum,
+          grade: gradeValidation.gradeNum,
           availableSlots,
         },
         submitterInfo: submitterInfo || {},

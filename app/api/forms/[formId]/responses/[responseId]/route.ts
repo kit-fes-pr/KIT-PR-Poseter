@@ -5,7 +5,7 @@ import { FormAnswer, SurveyForm } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability';
 import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms-api';
-import { buildParticipantGradeValidation } from '@/lib/utils/grade-api';
+import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade-route';
 
 export async function PATCH(
   request: NextRequest,
@@ -65,7 +65,7 @@ export async function PATCH(
     }
 
     const gradeValidation = participantData
-      ? buildParticipantGradeValidation({
+      ? buildResponsesParticipantGradeValidation({
           grade: participantData.grade,
           section: participantData.section,
         })
