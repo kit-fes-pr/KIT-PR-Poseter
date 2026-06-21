@@ -173,7 +173,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       let eventIdForYear = `kodai${resolvedParams.year}`;
       if (eventRes.ok) {
         const eventJson = await eventRes.json();
-        const eventData = eventJson?.data as {
+        const eventData = (
+          Array.isArray(eventJson?.data) && eventJson.data.length > 0 ? eventJson.data[0] : null
+        ) as {
           id?: string;
           distributionAvailabilitySlots?: string[];
           distributionStartDate?: string | Date;

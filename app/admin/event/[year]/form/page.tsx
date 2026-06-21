@@ -209,8 +209,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         return;
       }
 
-      if (eventRes.ok && eventJson?.data) {
-        setEventData(eventJson.data);
+      if (eventRes.ok && Array.isArray(eventJson?.data) && eventJson.data.length > 0) {
+        setEventData(eventJson.data[0]);
       } else {
         setEventData(null);
       }

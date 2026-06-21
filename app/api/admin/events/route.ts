@@ -30,17 +30,17 @@ export async function GET(request: NextRequest) {
     if (yearParam) {
       const year = normalizeDistributionEventListYear(yearParam);
       if (year === null) {
-        return NextResponse.json({ data: null });
+        return NextResponse.json({ data: [] });
       }
       const snap = await adminDb
         .collection('distributionEvents')
         .where('year', '==', year)
         .limit(1)
         .get();
-      if (snap.empty) return NextResponse.json({ data: null });
+      if (snap.empty) return NextResponse.json({ data: [] });
       const d = snap.docs[0];
       return NextResponse.json({
-        data: serializeEventDoc(d.id, d.data() as Record<string, unknown>),
+        data: [serializeEventDoc(d.id, d.data() as Record<string, unknown>)],
       });
     }
 

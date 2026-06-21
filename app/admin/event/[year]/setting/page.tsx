@@ -113,7 +113,9 @@ export default function DistributionSettingsPage({
           return;
         }
 
-        const nextEvent = eventJson?.data as EventSummary | null;
+        const nextEvent = (
+          Array.isArray(eventJson?.data) && eventJson.data.length > 0 ? eventJson.data[0] : null
+        ) as EventSummary | null;
         setEventData(nextEvent);
         setEventName(nextEvent?.eventName || `工大祭${resolvedParams.year}`);
         setDistributionStartDate(

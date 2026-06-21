@@ -99,7 +99,9 @@ export default function TeamDetailPage() {
         });
         if (eventRes.ok) {
           const eventJson = await eventRes.json().catch(() => ({}));
-          const eventData = eventJson?.data as {
+          const eventData = (
+            Array.isArray(eventJson?.data) && eventJson.data.length > 0 ? eventJson.data[0] : null
+          ) as {
             distributionAvailabilitySlots?: string[];
             distributionStartDate?: string | Date;
             distributionEndDate?: string | Date;
