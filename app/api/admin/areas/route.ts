@@ -51,7 +51,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { areaCode, areaName, adjacentAreas, description } = await request.json();
+    const body = await request.json();
+    const areaCode = typeof body.areaCode === 'string' ? body.areaCode.trim() : body.areaCode;
+    const { areaName, adjacentAreas, description } = body;
 
     if (!hasRequiredAreaPayload({ areaCode, areaName })) {
       return NextResponse.json(

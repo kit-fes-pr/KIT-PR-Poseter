@@ -42,7 +42,9 @@ export async function PUT(
 
     const resolvedParams = await params;
     const { areaId } = resolvedParams;
-    const { areaCode, areaName, adjacentAreas, description } = await request.json();
+    const body = await request.json();
+    const areaCode = typeof body.areaCode === 'string' ? body.areaCode.trim() : body.areaCode;
+    const { areaName, adjacentAreas, description } = body;
 
     if (!hasRequiredAreaPayload({ areaCode, areaName })) {
       return NextResponse.json(
