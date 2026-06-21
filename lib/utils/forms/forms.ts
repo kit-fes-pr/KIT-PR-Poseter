@@ -1,20 +1,7 @@
 import { normalizeAvailabilitySlots } from '../availability/availability';
+import { serializeDateTimeValue as serializeDate } from '../dateUtils';
 
-export function serializeDate(value: unknown): string | unknown {
-  if (!value) return value;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return new Date(value).toISOString();
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-  return value;
-}
+export { serializeDate };
 
 export function toMillis(value: unknown): number {
   if (value instanceof Date) return value.getTime();

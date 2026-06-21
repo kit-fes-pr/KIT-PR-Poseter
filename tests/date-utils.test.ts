@@ -5,6 +5,7 @@ import {
   formatDateOnly,
   formatTimeOnly,
   formatRelativeTime,
+  serializeDateTimeValue,
 } from '../lib/utils/dateUtils';
 
 describe('dateUtils', () => {
@@ -96,6 +97,35 @@ describe('dateUtils', () => {
 
     test('returns Invalid Date for invalid formats', () => {
       assert.equal(formatRelativeTime('not-a-date'), 'Invalid Date');
+    });
+  });
+
+  describe('serializeDateTimeValue', () => {
+    test('keeps string values unchanged', () => {
+      assert.equal(serializeDateTimeValue('2026-06-21T12:34:56.000Z'), '2026-06-21T12:34:56.000Z');
+    });
+
+    test('converts Date to ISO string', () => {
+      const date = new Date('2026-06-21T12:34:56.000Z');
+      assert.equal(serializeDateTimeValue(date), '2026-06-21T12:34:56.000Z');
+    });
+
+    test('converts timestamp number to ISO string', () => {
+      const date = new Date('2026-06-21T12:34:56.000Z');
+      assert.equal(serializeDateTimeValue(date.getTime()), '2026-06-21T12:34:56.000Z');
+    });
+
+    test('converts Firestore Timestamp-like object to ISO string', () => {
+      const mockTimestamp = {
+        toDate: () => new Date('2026-06-21T12:34:56.000Z'),
+      };
+      assert.equal(serializeDateTimeValue(mockTimestamp), '2026-06-21T12:34:56.000Z');
+    });
+
+    test('returns original value for null/undefined/other types', () => {
+      assert.equal(serializeDateTimeValue(null), null);
+      assert.equal(serializeDateTimeValue(undefined), undefined);
+      assert.deepEqual(serializeDateTimeValue({ a: 1 }), { a: 1 });
     });
   });
 });

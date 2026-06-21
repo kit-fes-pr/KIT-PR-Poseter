@@ -117,3 +117,24 @@ export function formatRelativeTime(dateValue: DateValue): string {
     return 'Invalid Date';
   }
 }
+
+/**
+ * 各種形式の日付値をISO 8601形式の文字列にシリアライズ
+ * @param value - シリアライズする日付値
+ * @returns ISO形式の文字列または元の値
+ */
+export function serializeDateTimeValue(value: unknown): string | unknown {
+  if (!value) return value;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'number') return new Date(value).toISOString();
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
+    return (value as { toDate: () => Date }).toDate().toISOString();
+  }
+  return value;
+}

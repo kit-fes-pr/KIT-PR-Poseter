@@ -1,3 +1,5 @@
+import { serializeDateTimeValue } from '../dateUtils';
+
 export type DashboardMemberRecord = {
   name: string;
   studentId: string;
@@ -21,22 +23,6 @@ export type DashboardTeamStatsInput = {
   memberStatsByTeam: DashboardMemberStats['byTeam'];
 };
 
-function serializeDateValue(value: unknown): string | unknown {
-  if (!value) return value;
-  if (typeof value === 'string') return value;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'number') return new Date(value).toISOString();
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-  return value;
-}
-
 export function buildDashboardEventData(input: {
   id: string;
   createdAt?: unknown;
@@ -46,9 +32,9 @@ export function buildDashboardEventData(input: {
 }) {
   return {
     ...input,
-    createdAt: serializeDateValue(input.createdAt),
-    distributionStartDate: serializeDateValue(input.distributionStartDate),
-    distributionEndDate: serializeDateValue(input.distributionEndDate),
+    createdAt: serializeDateTimeValue(input.createdAt),
+    distributionStartDate: serializeDateTimeValue(input.distributionStartDate),
+    distributionEndDate: serializeDateTimeValue(input.distributionEndDate),
   };
 }
 
@@ -100,11 +86,11 @@ export function buildDashboardTeamStats(input: DashboardTeamStatsInput): Array<
     const teamMembers = input.memberStatsByTeam[team.teamId] || { count: 0, members: [] };
     return {
       ...team,
-      createdAt: serializeDateValue(team.createdAt),
-      updatedAt: serializeDateValue(team.updatedAt),
-      validStartDate: serializeDateValue(team.validStartDate),
-      validEndDate: serializeDateValue(team.validEndDate),
-      validDate: serializeDateValue(team.validDate),
+      createdAt: serializeDateTimeValue(team.createdAt),
+      updatedAt: serializeDateTimeValue(team.updatedAt),
+      validStartDate: serializeDateTimeValue(team.validStartDate),
+      validEndDate: serializeDateTimeValue(team.validEndDate),
+      validDate: serializeDateTimeValue(team.validDate),
       memberCount: teamMembers.count,
       members: teamMembers.members,
     };

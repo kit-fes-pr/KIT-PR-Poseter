@@ -1,5 +1,7 @@
-import { DEFAULT_TIME_ZONE } from '../dateUtils';
+import { DEFAULT_TIME_ZONE, serializeDateTimeValue } from '../dateUtils';
 import { buildAvailabilitySlotChoices } from '../availability/availability';
+
+export { serializeDateTimeValue };
 
 function formatDateOnlyInTimeZone(value: Date, timeZone = DEFAULT_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -30,22 +32,6 @@ export function serializeDateOnlyValue(
     typeof (value as { toDate?: () => Date }).toDate === 'function'
   ) {
     return formatDateOnlyInTimeZone((value as { toDate: () => Date }).toDate(), timeZone);
-  }
-  return value;
-}
-
-export function serializeDateTimeValue(value: unknown): string | unknown {
-  if (!value) return value;
-  if (typeof value === 'string') return value;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'number') return new Date(value).toISOString();
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
   }
   return value;
 }
