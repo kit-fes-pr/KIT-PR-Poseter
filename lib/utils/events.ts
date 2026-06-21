@@ -1,4 +1,5 @@
 import { DEFAULT_TIME_ZONE } from './dateUtils';
+import { buildAvailabilitySlotChoices } from './availability';
 
 function formatDateOnlyInTimeZone(value: Date, timeZone = DEFAULT_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -66,6 +67,129 @@ export function normalizeDistributionDateRange(
     };
   }
   return { startDateStr, endDateStr, error: null };
+}
+
+export function normalizeDistributionYear(year: unknown): number | null {
+  const parsed =
+    typeof year === 'number'
+      ? year
+      : typeof year === 'string'
+        ? Number(year.trim())
+        : Number.NaN;
+
+  if (!Number.isInteger(parsed) || parsed < 1000 || parsed > 9999) {
+    return null;
+  }
+
+  return parsed;
+}
+
+export function buildDistributionAvailabilitySlotKeys(
+  startDateStr: string,
+  endDateStr: string,
+  distributionAvailabilitySlots: unknown,
+): string[] {
+  const storedSlots = Array.isArray(distributionAvailabilitySlots)
+    ? distributionAvailabilitySlots.filter((slot): slot is string => typeof slot === 'string')
+    : [];
+
+  if (storedSlots.length > 0) {
+    return storedSlots;
+  }
+
+  return buildAvailabilitySlotChoices(startDateStr, endDateStr).map((choice) => choice.key);
+}
+
+export function buildDistributionEventCreateDefaults(params: {
+  year: number;
+  eventId?: unknown;
+  eventName?: unknown;
+  distributionStartDate: unknown;
+  distributionEndDate?: unknown;
+  distributionTimeZone?: unknown;
+  distributionAvailabilitySlots?: unknown;
+}): {
+  eventId: string;
+  eventName: string;
+  distributionStartDate: string;
+  distributionEndDate: string;
+  distributionAvailabilitySlots: string[];
+  distributionTimeZone: string;
+} | { error: string } {
+  const normalizedDateRange = normalizeDistributionDateRange(
+    params.distributionStartDate,
+    params.distributionEndDate,
+  );
+  if (normalizedDateRange.error) {
+    return { error: normalizedDateRange.error };
+  }
+
+  const timeZone =
+    typeof params.distributionTimeZone === 'string' && params.distributionTimeZone.trim()
+      ? params.distributionTimeZone.trim()
+      : DEFAULT_TIME_ZONE;
+  const eventId =
+    typeof params.eventId === 'string' && params.eventId.trim()
+      ? params.eventId.trim()
+      : `kodai${params.year}`;
+
+  return {
+    eventId,
+    eventName:
+      typeof params.eventName === 'string' && params.eventName.trim()
+        ? params.eventName.trim()
+        : `工大祭${params.year}`,
+    distributionStartDate: normalizedDateRange.startDateStr,
+    distributionEndDate: normalizedDateRange.endDateStr,
+    distributionAvailabilitySlots: buildDistributionAvailabilitySlotKeys(
+      normalizedDateRange.startDateStr,
+      normalizedDateRange.endDateStr,
+      params.distributionAvailabilitySlots,
+    ),
+    distributionTimeZone: timeZone,
+  };
+}
+
+export function buildDistributionEventUpdateDefaults(params: {
+  eventName?: unknown;
+  distributionStartDate?: unknown;
+  distributionEndDate?: unknown;
+  distributionTimeZone?: unknown;
+  distributionAvailabilitySlots?: unknown;
+  isActive?: unknown;
+}): { update: Record<string, unknown>; error: string | null } {
+  const timeZone =
+    typeof params.distributionTimeZone === 'string' && params.distributionTimeZone.trim()
+      ? params.distributionTimeZone.trim()
+      : DEFAULT_TIME_ZONE;
+
+  const update: Record<string, unknown> = {
+    updatedAt: new Date(),
+    distributionTimeZone: timeZone,
+  };
+
+  if (typeof params.eventName === 'string') update.eventName = params.eventName;
+  if (typeof params.isActive === 'boolean') update.isActive = params.isActive;
+
+  if (params.distributionStartDate || params.distributionEndDate) {
+    const normalizedDateRange = normalizeDistributionDateRange(
+      params.distributionStartDate,
+      params.distributionEndDate,
+    );
+    if (normalizedDateRange.error) {
+      return { update, error: normalizedDateRange.error };
+    }
+    update.distributionStartDate = normalizedDateRange.startDateStr;
+    update.distributionEndDate = normalizedDateRange.endDateStr;
+  }
+
+  if (Array.isArray(params.distributionAvailabilitySlots)) {
+    update.distributionAvailabilitySlots = params.distributionAvailabilitySlots.filter(
+      (slot) => typeof slot === 'string',
+    );
+  }
+
+  return { update, error: null };
 }
 
 export function serializeEventDoc(id: string, data: Record<string, unknown>) {

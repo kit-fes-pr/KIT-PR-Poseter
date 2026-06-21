@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  buildDistributionAvailabilitySlotKeys,
+  buildDistributionEventCreateDefaults,
+  buildDistributionEventUpdateDefaults,
   normalizeDistributionDateRange,
+  normalizeDistributionYear,
   serializeDateOnlyValue,
   serializeDateTimeValue,
   serializeEventDoc,
@@ -22,6 +26,61 @@ describe('events utils', () => {
       normalizeDistributionDateRange('2026-6-1', '2026-06-03').error,
       '配布日の形式が不正です',
     );
+  });
+
+  test('normalizeDistributionYear accepts 4 digit years only', () => {
+    assert.equal(normalizeDistributionYear(2026), 2026);
+    assert.equal(normalizeDistributionYear('2027'), 2027);
+    assert.equal(normalizeDistributionYear('2027.5'), null);
+    assert.equal(normalizeDistributionYear(999), null);
+  });
+
+  test('buildDistributionAvailabilitySlotKeys prefers stored slots and falls back to generated ones', () => {
+    assert.deepEqual(
+      buildDistributionAvailabilitySlotKeys('2026-06-01', '2026-06-02', ['a', 'b']),
+      ['a', 'b'],
+    );
+    assert.deepEqual(
+      buildDistributionAvailabilitySlotKeys('2026-06-01', '2026-06-02', []),
+      ['2026-06-01_am', '2026-06-01_pm', '2026-06-02_am', '2026-06-02_pm'],
+    );
+  });
+
+  test('buildDistributionEventCreateDefaults and update defaults keep payloads consistent', () => {
+    const createDefaults = buildDistributionEventCreateDefaults({
+      year: 2026,
+      eventId: '',
+      eventName: '工大祭2026',
+      distributionStartDate: '2026-06-01',
+      distributionEndDate: '2026-06-03',
+      distributionTimeZone: '',
+      distributionAvailabilitySlots: [],
+    });
+    assert.ok(!('error' in createDefaults));
+    assert.equal(createDefaults.eventId, 'kodai2026');
+    assert.equal(createDefaults.distributionTimeZone, 'Asia/Tokyo');
+    assert.deepEqual(createDefaults.distributionAvailabilitySlots, [
+      '2026-06-01_am',
+      '2026-06-01_pm',
+      '2026-06-02_am',
+      '2026-06-02_pm',
+      '2026-06-03_am',
+      '2026-06-03_pm',
+    ]);
+
+    const updateDefaults = buildDistributionEventUpdateDefaults({
+      eventName: '工大祭2027',
+      distributionStartDate: '2027-06-01',
+      distributionEndDate: '2027-06-03',
+      distributionTimeZone: '',
+      distributionAvailabilitySlots: ['2027-06-01_am'],
+      isActive: false,
+    });
+    assert.equal(updateDefaults.error, null);
+    assert.equal(updateDefaults.update.distributionTimeZone, 'Asia/Tokyo');
+    assert.equal(updateDefaults.update.eventName, '工大祭2027');
+    assert.equal(updateDefaults.update.isActive, false);
+    assert.deepEqual(updateDefaults.update.distributionAvailabilitySlots, ['2027-06-01_am']);
   });
 
   test('serializeDateOnlyValue keeps date-only values stable and serializes timestamps', () => {

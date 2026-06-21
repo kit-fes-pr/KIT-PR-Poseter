@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { buildAvailabilitySlotChoices } from '@/lib/utils/availability';
-import { DEFAULT_TIME_ZONE } from '@/lib/utils/dateUtils';
-import { normalizeDistributionDateRange, serializeEventDoc } from '@/lib/utils/events';
+import { serializeEventDoc } from '@/lib/utils/events';
+import {
+  buildDistributionEventCreateDefaults,
+  buildDistributionEventUpdateDefaults,
+  normalizeDistributionYear,
+} from '@/lib/utils/events';
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,8 +79,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const y = parseInt(String(year));
-    if (!Number.isFinite(y)) {
+    const y = normalizeDistributionYear(year);
+    if (y === null) {
       return NextResponse.json({ error: '年度の形式が不正です' }, { status: 400 });
     }
 
@@ -91,32 +94,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'この年度のイベントは既に存在します' }, { status: 409 });
     }
 
-    const id = eventId || `kodai${y}`;
+    const id = typeof eventId === 'string' && eventId.trim() ? eventId.trim() : `kodai${y}`;
     const docRef = adminDb.collection('distributionEvents').doc(id);
 
-    const timeZone =
-      typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
-        ? distributionTimeZone.trim()
-        : DEFAULT_TIME_ZONE;
-    const {
-      startDateStr,
-      endDateStr,
-      error: dateRangeError,
-    } = normalizeDistributionDateRange(distributionStartDate, distributionEndDate);
-    if (dateRangeError) {
-      return NextResponse.json({ error: dateRangeError }, { status: 400 });
+    const createDefaults = buildDistributionEventCreateDefaults({
+      year: y,
+      eventId,
+      eventName,
+      distributionStartDate,
+      distributionEndDate,
+      distributionTimeZone,
+      distributionAvailabilitySlots,
+    });
+    if ('error' in createDefaults) {
+      return NextResponse.json({ error: createDefaults.error }, { status: 400 });
     }
 
     const payload = {
-      eventId: id,
-      eventName: eventName || `工大祭${y}`,
-      distributionStartDate: startDateStr,
-      distributionEndDate: endDateStr,
-      distributionAvailabilitySlots:
-        Array.isArray(distributionAvailabilitySlots) && distributionAvailabilitySlots.length > 0
-          ? distributionAvailabilitySlots
-          : buildAvailabilitySlotChoices(startDateStr, endDateStr).map((choice) => choice.key),
-      distributionTimeZone: timeZone,
+      eventId: createDefaults.eventId,
+      eventName: createDefaults.eventName,
+      distributionStartDate: createDefaults.distributionStartDate,
+      distributionEndDate: createDefaults.distributionEndDate,
+      distributionAvailabilitySlots: createDefaults.distributionAvailabilitySlots,
+      distributionTimeZone: createDefaults.distributionTimeZone,
       year: y,
       isActive: true,
       createdAt: new Date(),
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        id,
+        id: createDefaults.eventId,
         ...payload,
         createdAt: payload.createdAt.toISOString(),
         updatedAt: payload.updatedAt.toISOString(),
@@ -180,34 +180,19 @@ export async function PATCH(request: NextRequest) {
       docRef = snap.docs[0].ref;
     }
 
-    const timeZone =
-      typeof distributionTimeZone === 'string' && distributionTimeZone.trim()
-        ? distributionTimeZone.trim()
-        : DEFAULT_TIME_ZONE;
-    const update: Record<string, unknown> = {
-      updatedAt: new Date(),
-      distributionTimeZone: timeZone,
-    };
-    if (typeof eventName === 'string') update.eventName = eventName;
-    if (typeof isActive === 'boolean') update.isActive = isActive;
-    if (distributionStartDate || distributionEndDate) {
-      const {
-        startDateStr,
-        endDateStr,
-        error: dateRangeError,
-      } = normalizeDistributionDateRange(distributionStartDate, distributionEndDate);
-      if (dateRangeError) {
-        return NextResponse.json({ error: dateRangeError }, { status: 400 });
-      }
-      update.distributionStartDate = startDateStr;
-      update.distributionEndDate = endDateStr;
-    }
-    if (Array.isArray(distributionAvailabilitySlots)) {
-      update.distributionAvailabilitySlots = distributionAvailabilitySlots.filter(
-        (slot) => typeof slot === 'string',
-      );
+    const updateDefaults = buildDistributionEventUpdateDefaults({
+      eventName,
+      distributionStartDate,
+      distributionEndDate,
+      distributionTimeZone,
+      distributionAvailabilitySlots,
+      isActive,
+    });
+    if (updateDefaults.error) {
+      return NextResponse.json({ error: updateDefaults.error }, { status: 400 });
     }
 
+    const update = updateDefaults.update;
     await docRef.update(update);
     const doc = await docRef.get();
     return NextResponse.json({
