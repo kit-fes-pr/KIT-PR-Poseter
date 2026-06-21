@@ -94,7 +94,7 @@ export async function PUT(
         const teamData = teamDoc.data() as Record<string, unknown>;
         if (
           String(teamData.areaId || '') === areaId ||
-          String(teamData.assignedArea || '') === previousAreaCode
+          (previousAreaCode && String(teamData.assignedArea || '') === previousAreaCode)
         ) {
           updates.push({
             ref: teamDoc.ref,
