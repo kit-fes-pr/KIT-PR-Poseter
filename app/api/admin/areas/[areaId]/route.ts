@@ -1,17 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAdjacentAreas } from '@/lib/utils/area';
+import {
+  buildAreaRouteUpdateData,
+  hasRequiredAreaPayload,
+  normalizeAreaAuthHeader,
+  normalizeAreaRouteAdjacency,
+} from '@/lib/utils/area/area-route';
+import {
+  shouldBlockAreaDeletion,
+  shouldRefreshTeamAfterAreaChange,
+} from '@/lib/utils/area/area-api';
+
+const FIRESTORE_SAFE_BATCH_SIZE = 450;
+
+async function commitTeamUpdatesInChunks(
+  updates: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }>,
+) {
+  for (let index = 0; index < updates.length; index += FIRESTORE_SAFE_BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = updates.slice(index, index + FIRESTORE_SAFE_BATCH_SIZE);
+    chunk.forEach((update) => {
+      batch.update(update.ref, update.data);
+    });
+    await batch.commit();
+  }
+}
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ areaId: string }> },
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAreaAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
@@ -19,9 +42,11 @@ export async function PUT(
 
     const resolvedParams = await params;
     const { areaId } = resolvedParams;
-    const { areaCode, areaName, adjacentAreas, description } = await request.json();
+    const body = await request.json();
+    const areaCode = typeof body.areaCode === 'string' ? body.areaCode.trim() : body.areaCode;
+    const { areaName, adjacentAreas, description } = body;
 
-    if (!areaCode || !areaName) {
+    if (!hasRequiredAreaPayload({ areaCode, areaName })) {
       return NextResponse.json(
         {
           error: 'areaCode, areaName は必須です',
@@ -51,45 +76,53 @@ export async function PUT(
       );
     }
 
-    const nextAdjacentAreas = normalizeAdjacentAreas(adjacentAreas);
-    const updateData = {
+    const nextAreaData = buildAreaRouteUpdateData({
       areaCode,
       areaName,
-      adjacentAreas: nextAdjacentAreas,
-      description: description || '',
+      adjacentAreas,
+      description,
       updatedAt: new Date(),
-    };
+    });
+    const nextAdjacentAreas = nextAreaData.adjacentAreas;
+    const updateData = nextAreaData;
 
     await areaRef.update(updateData);
 
     const previousAreaCode = String(currentArea.areaCode || '');
-    const previousAdjacentAreas = normalizeAdjacentAreas(currentArea.adjacentAreas).sort((a, b) =>
-      a.localeCompare(b, 'ja'),
+    const previousAdjacentAreas = normalizeAreaRouteAdjacency(currentArea.adjacentAreas).sort(
+      (a, b) => a.localeCompare(b, 'ja'),
     );
     const sortedNextAdjacentAreas = [...nextAdjacentAreas].sort((a, b) => a.localeCompare(b, 'ja'));
     const adjacentChanged =
       JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
     if (previousAreaCode !== areaCode || adjacentChanged) {
       const teamsSnap = await adminDb.collection('teams').get();
-      const batch = adminDb.batch();
-      let touched = 0;
+      const updates: Array<{
+        ref: FirebaseFirestore.DocumentReference;
+        data: Record<string, unknown>;
+      }> = [];
       teamsSnap.docs.forEach((teamDoc) => {
         const teamData = teamDoc.data() as Record<string, unknown>;
         if (
-          String(teamData.areaId || '') === areaId ||
-          String(teamData.assignedArea || '') === previousAreaCode
-        ) {
-          batch.update(teamDoc.ref, {
+          shouldRefreshTeamAfterAreaChange({
+            team: teamData,
             areaId,
-            assignedArea: areaCode,
-            adjacentAreas: nextAdjacentAreas,
-            updatedAt: new Date(),
+            previousAreaCode,
+          })
+        ) {
+          updates.push({
+            ref: teamDoc.ref,
+            data: {
+              areaId,
+              assignedArea: areaCode,
+              adjacentAreas: nextAdjacentAreas,
+              updatedAt: new Date(),
+            },
           });
-          touched++;
         }
       });
-      if (touched > 0) {
-        await batch.commit();
+      if (updates.length > 0) {
+        await commitTeamUpdatesInChunks(updates);
       }
     }
 
@@ -105,11 +138,10 @@ export async function DELETE(
   { params }: { params: Promise<{ areaId: string }> },
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAreaAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
@@ -126,15 +158,22 @@ export async function DELETE(
     }
 
     const currentArea = areaDoc.data() as Record<string, unknown>;
-    const teamsSnap = await adminDb.collection('teams').get();
-    const linkedTeams = teamsSnap.docs.filter((teamDoc) => {
-      const teamData = teamDoc.data() as Record<string, unknown>;
-      return (
-        String(teamData.areaId || '') === areaId ||
-        String(teamData.assignedArea || '') === String(currentArea.areaCode || '')
-      );
-    });
-    if (linkedTeams.length > 0) {
+    const [linkedByAreaId, linkedByAssignedArea] = await Promise.all([
+      adminDb.collection('teams').where('areaId', '==', areaId).limit(1).get(),
+      currentArea.areaCode
+        ? adminDb
+            .collection('teams')
+            .where('assignedArea', '==', String(currentArea.areaCode))
+            .limit(1)
+            .get()
+        : Promise.resolve(null),
+    ]);
+    if (
+      shouldBlockAreaDeletion({
+        linkedByAreaIdExists: !linkedByAreaId.empty,
+        linkedByAssignedAreaExists: linkedByAssignedArea ? !linkedByAssignedArea.empty : false,
+      })
+    ) {
       return NextResponse.json(
         { error: 'この配布区域に紐づくチームがあるため削除できません' },
         { status: 400 },

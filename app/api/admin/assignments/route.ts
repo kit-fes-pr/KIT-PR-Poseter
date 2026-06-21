@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import {
+  buildManualAssignmentRecord,
+  normalizeAssignmentYear,
+} from '@/lib/utils/assignment/assignment-api';
+import {
+  normalizeAssignmentAuthHeader,
+  parseAssignmentListQuery,
+  parseAssignmentMutationPayload,
+} from '@/lib/utils/assignment/assignment-route';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAssignmentAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
@@ -17,17 +23,15 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const year = searchParams.get('year');
-    const formId = searchParams.get('formId');
-
-    if (!year) {
-      return NextResponse.json({ error: '年度が必要です' }, { status: 400 });
+    const parsedQuery = parseAssignmentListQuery(searchParams);
+    if ('error' in parsedQuery) {
+      return NextResponse.json({ error: parsedQuery.error }, { status: 400 });
     }
 
-    let query = adminDb.collection('assignments').where('year', '==', parseInt(year));
+    let query = adminDb.collection('assignments').where('year', '==', parsedQuery.year);
 
-    if (formId) {
-      query = query.where('formId', '==', formId);
+    if (parsedQuery.formId) {
+      query = query.where('formId', '==', parsedQuery.formId);
     }
 
     const assignmentsSnapshot = await query.get();
@@ -49,38 +53,42 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAssignmentAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { year, formId, responseId, teamId, timeSlot } = await request.json();
+    const parsedPayload = parseAssignmentMutationPayload(await request.json());
+    if ('error' in parsedPayload) {
+      return NextResponse.json({ error: parsedPayload.error }, { status: 400 });
+    }
 
-    if (!year || !formId || !responseId || !teamId) {
+    const manualAssignment = buildManualAssignmentRecord({
+      year: parsedPayload.year,
+      formId: parsedPayload.formId,
+      responseId: parsedPayload.responseId,
+      teamId: parsedPayload.teamId,
+      timeSlot: parsedPayload.timeSlot,
+      assignedAt: new Date(),
+    });
+    if (!manualAssignment) {
       return NextResponse.json(
-        { error: 'year, formId, responseId, teamId は必須です' },
+        { error: 'year, formId, responseId, teamId, timeSlot が必要です' },
         { status: 400 },
       );
     }
 
-    if (typeof timeSlot !== 'string' || !timeSlot.trim()) {
-      return NextResponse.json({ error: 'timeSlot が必要です' }, { status: 400 });
-    }
-    const normalizedTimeSlot = timeSlot.trim();
-
     // 既存の同一参加者の割り当てを削除（同一年度・フォーム内で一意に）
     const query = await adminDb
       .collection('assignments')
-      .where('year', '==', parseInt(year))
-      .where('formId', '==', formId)
-      .where('responseId', '==', responseId)
+      .where('year', '==', manualAssignment.year)
+      .where('formId', '==', manualAssignment.formId)
+      .where('responseId', '==', manualAssignment.responseId)
       .get();
     const batch = adminDb.batch();
     query.docs.forEach((doc) => batch.delete(doc.ref));
@@ -88,13 +96,7 @@ export async function POST(request: NextRequest) {
     // 新しい割り当てを追加
     const docRef = adminDb.collection('assignments').doc();
     batch.set(docRef, {
-      responseId,
-      teamId,
-      assignedAt: new Date(),
-      assignedBy: 'manual',
-      timeSlot: normalizedTimeSlot,
-      year: parseInt(year),
-      formId,
+      ...manualAssignment,
     });
 
     await batch.commit();
@@ -108,13 +110,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAssignmentAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     if (decodedToken.role !== 'admin') {
@@ -123,11 +122,12 @@ export async function DELETE(request: NextRequest) {
 
     const { year, formId } = await request.json();
 
-    if (!year) {
+    const normalizedYear = normalizeAssignmentYear(year);
+    if (!normalizedYear) {
       return NextResponse.json({ error: '年度が必要です' }, { status: 400 });
     }
 
-    let query = adminDb.collection('assignments').where('year', '==', parseInt(year));
+    let query = adminDb.collection('assignments').where('year', '==', normalizedYear);
 
     if (formId) {
       query = query.where('formId', '==', formId);

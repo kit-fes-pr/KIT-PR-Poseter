@@ -20,9 +20,10 @@ import {
   toggleAvailabilitySelection,
   UNAVAILABLE_SLOT_KEY,
   ALL_AVAILABLE_SLOT_KEY,
-} from '@/lib/utils/availability';
+} from '@/lib/utils/availability/availability';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
-import type { AvailabilitySlotChoice } from '@/lib/utils/availability';
+import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
 
 type AdminTab = 'content' | 'overview';
 
@@ -208,8 +209,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         return;
       }
 
-      if (eventRes.ok && eventJson?.data) {
-        setEventData(eventJson.data);
+      if (eventRes.ok && Array.isArray(eventJson?.data) && eventJson.data.length > 0) {
+        setEventData(eventJson.data[0]);
       } else {
         setEventData(null);
       }
@@ -438,7 +439,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
             participantData: {
               name: String(editFormData.participantName || ''),
               section: String(editFormData.participantSection || ''),
-              grade: parseInt(String(editFormData.participantGrade || '0'), 10),
+              grade: normalizeGrade(editFormData.participantGrade),
               availableSlots,
             },
           }),

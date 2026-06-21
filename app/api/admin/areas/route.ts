@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAdjacentAreas } from '@/lib/utils/area';
+import {
+  buildAreaRouteCreateData,
+  hasRequiredAreaPayload,
+  normalizeAreaAuthHeader,
+} from '@/lib/utils/area/area-route';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAreaAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
@@ -48,9 +51,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
-    const { areaCode, areaName, adjacentAreas, description } = await request.json();
+    const body = await request.json();
+    const areaCode = typeof body.areaCode === 'string' ? body.areaCode.trim() : body.areaCode;
+    const { areaName, adjacentAreas, description } = body;
 
-    if (!areaCode || !areaName) {
+    if (!hasRequiredAreaPayload({ areaCode, areaName })) {
       return NextResponse.json(
         {
           error: 'areaCode, areaName は必須です',
@@ -71,13 +76,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const areaData = {
+    const areaData = buildAreaRouteCreateData({
       areaCode,
       areaName,
-      adjacentAreas: normalizeAdjacentAreas(adjacentAreas),
-      description: description || '',
+      adjacentAreas,
+      description,
       createdAt: new Date(),
-    };
+    });
 
     const docRef = await adminDb.collection('areas').add(areaData);
     const newArea = {

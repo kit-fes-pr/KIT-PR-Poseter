@@ -2,22 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
-import {
-  normalizeAvailabilitySlots,
-  validateAvailabilitySelection,
-} from '@/lib/utils/availability';
-
-function resolveAvailabilitySlots(
-  answers: FormAnswer[],
-  participantAvailableSlots: unknown,
-): string[] {
-  const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
-  if (availabilityAnswer) {
-    return normalizeAvailabilitySlots(availabilityAnswer.value);
-  }
-
-  return normalizeAvailabilitySlots(participantAvailableSlots);
-}
+import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
+import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
+import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
 export async function PATCH(
   request: NextRequest,
@@ -76,6 +64,14 @@ export async function PATCH(
       return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
     }
 
+    const gradeValidation = participantData
+      ? buildResponsesParticipantGradeValidation({
+          grade: participantData.grade,
+          section: participantData.section,
+        })
+      : null;
+    const gradeNum = gradeValidation?.gradeNum || 0;
+
     // 参加者データのバリデーション
     if (participantData) {
       const participantValidationErrors: string[] = [];
@@ -96,20 +92,14 @@ export async function PATCH(
         participantValidationErrors.push('所属セクションは必須です');
       }
 
-      const gradeNum = parseInt(participantData.grade);
-      if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
-        participantValidationErrors.push('学年は1-4の範囲で選択してください');
+      if (gradeValidation) {
+        participantValidationErrors.push(...gradeValidation.errors);
       }
 
-      if (gradeNum === 4 && participantData.section !== '4年') {
-        participantValidationErrors.push('4年生の場合、所属セクションは4年である必要があります');
-      }
-
-      if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
-        participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
-      }
-
-      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
+      const availableSlots = resolveResponseAvailabilitySlots(
+        answers,
+        participantData.availableSlots,
+      );
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -227,7 +217,10 @@ export async function PATCH(
     let updateData: { [key: string]: any };
 
     if (participantData) {
-      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
+      const availableSlots = resolveResponseAvailabilitySlots(
+        answers,
+        participantData.availableSlots,
+      );
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(
@@ -235,28 +228,34 @@ export async function PATCH(
           { status: 400 },
         );
       }
-      updateData = {
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
-        updatedAt: now,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
+        formId: resolvedParams.formId,
+        answers,
         participantData: {
           name: participantData.name,
           section: participantData.section,
-          grade: parseInt(participantData.grade),
+          grade: gradeNum,
           availableSlots,
         },
-        editToken: responseData.editToken,
+        editToken: responseData.editToken as string,
+        now,
+      });
+      updateData = {
+        ...rest,
+        updatedAt: now,
       };
     } else {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
+        formId: resolvedParams.formId,
+        answers,
+        editToken: responseData.editToken as string,
+        now,
+      });
       updateData = {
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
+        ...rest,
         updatedAt: now,
-        editToken: responseData.editToken,
       };
     }
 

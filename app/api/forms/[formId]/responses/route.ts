@@ -4,22 +4,10 @@ import { randomUUID } from 'crypto';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
-import {
-  normalizeAvailabilitySlots,
-  validateAvailabilitySelection,
-} from '@/lib/utils/availability';
-
-function resolveAvailabilitySlots(
-  answers: FormAnswer[],
-  participantAvailableSlots: unknown,
-): string[] {
-  const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
-  if (availabilityAnswer) {
-    return normalizeAvailabilitySlots(availabilityAnswer.value);
-  }
-
-  return normalizeAvailabilitySlots(participantAvailableSlots);
-}
+import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
+import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
+import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
 export async function GET(
   request: NextRequest,
@@ -124,20 +112,16 @@ export async function POST(
         participantValidationErrors.push('所属セクションは必須です');
       }
 
-      const gradeNum = parseInt(participantData.grade);
-      if (!participantData.grade || isNaN(gradeNum) || gradeNum < 1 || gradeNum > 4) {
-        participantValidationErrors.push('学年は1-4の範囲で選択してください');
-      }
+      const gradeValidation = buildResponsesParticipantGradeValidation({
+        grade: participantData.grade,
+        section: participantData.section,
+      });
+      participantValidationErrors.push(...gradeValidation.errors);
 
-      if (gradeNum === 4 && participantData.section !== '4年') {
-        participantValidationErrors.push('4年生の場合、所属セクションは4年である必要があります');
-      }
-
-      if (gradeNum >= 1 && gradeNum <= 3 && participantData.section === '4年') {
-        participantValidationErrors.push('1-3年生の場合、所属セクションに4年は指定できません');
-      }
-
-      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
+      const availableSlots = resolveResponseAvailabilitySlots(
+        answers,
+        participantData.availableSlots,
+      );
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -249,14 +233,19 @@ export async function POST(
     }
 
     // 回答データを保存
-    const now = new Date();
     const editToken = randomUUID();
-
-    // 参加者データがある場合はParticipantSurveyResponseとして保存
+    const now = new Date();
     let responseData: Omit<FormResponse | ParticipantSurveyResponse, 'responseId'>;
 
     if (participantData) {
-      const availableSlots = resolveAvailabilitySlots(answers, participantData.availableSlots);
+      const gradeValidation = buildResponsesParticipantGradeValidation({
+        grade: participantData.grade,
+        section: participantData.section,
+      });
+      const availableSlots = resolveResponseAvailabilitySlots(
+        answers,
+        participantData.availableSlots,
+      );
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(
@@ -264,33 +253,27 @@ export async function POST(
           { status: 400 },
         );
       }
-      responseData = {
+      responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
-        submittedAt: now,
-        editToken,
-        submitterInfo: submitterInfo || {},
+        answers,
         participantData: {
           name: participantData.name,
           section: participantData.section,
-          grade: parseInt(participantData.grade),
+          grade: gradeValidation.gradeNum,
           availableSlots,
         },
-      } as Omit<ParticipantSurveyResponse, 'responseId'>;
-    } else {
-      responseData = {
-        formId: resolvedParams.formId,
-        answers: answers.map((answer: FormAnswer) => ({
-          fieldId: answer.fieldId,
-          value: answer.value,
-        })),
-        submittedAt: now,
-        editToken,
         submitterInfo: submitterInfo || {},
-      } as Omit<FormResponse, 'responseId'>;
+        editToken,
+        now,
+      });
+    } else {
+      responseData = buildFormResponseRecord({
+        formId: resolvedParams.formId,
+        answers,
+        submitterInfo: submitterInfo || {},
+        editToken,
+        now,
+      });
     }
 
     const responseRef = await adminDb

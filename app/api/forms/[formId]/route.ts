@@ -124,7 +124,7 @@ export async function PATCH(
         }
         if (
           ['select', 'radio', 'checkbox'].includes(field.type) &&
-          (!field.options || field.options.length === 0)
+          (!Array.isArray(field.options) || field.options.length === 0)
         ) {
           return NextResponse.json(
             { error: `フィールド${i + 1}の選択肢を設定してください` },

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeAvailabilitySlots } from '@/lib/utils/availability';
+import { normalizeAvailabilitySlots } from '@/lib/utils/availability/availability';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 
 type Member = {
   memberId: string; // responseId を流用
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
         memberId: a.responseId,
         name: pd.name || '-',
         section: pd.section || '-',
-        grade: typeof pd.grade === 'number' ? pd.grade : parseInt(pd.grade) || 0,
+        grade: normalizeGrade(pd.grade),
         availableSlots,
         source: 'form',
         teamId: a.teamId,

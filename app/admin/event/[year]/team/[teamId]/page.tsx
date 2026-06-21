@@ -11,7 +11,8 @@ import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import {
   buildAvailabilitySlotChoices,
   formatAvailabilitySlotLabel,
-} from '@/lib/utils/availability';
+} from '@/lib/utils/availability/availability';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -98,7 +99,9 @@ export default function TeamDetailPage() {
         });
         if (eventRes.ok) {
           const eventJson = await eventRes.json().catch(() => ({}));
-          const eventData = eventJson?.data as {
+          const eventData = (
+            Array.isArray(eventJson?.data) && eventJson.data.length > 0 ? eventJson.data[0] : null
+          ) as {
             distributionAvailabilitySlots?: string[];
             distributionStartDate?: string | Date;
             distributionEndDate?: string | Date;
@@ -462,8 +465,9 @@ export default function TeamDetailPage() {
                     {assignedMembers
                       .slice()
                       .sort((a, b) => {
-                        if ((b.grade || 0) !== (a.grade || 0))
-                          return (b.grade || 0) - (a.grade || 0);
+                        const aGrade = normalizeGrade(a.grade);
+                        const bGrade = normalizeGrade(b.grade);
+                        if (bGrade !== aGrade) return bGrade - aGrade;
                         return new Intl.Collator('ja').compare(a.name || '', b.name || '');
                       })
                       .map((m) => (

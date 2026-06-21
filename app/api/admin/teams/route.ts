@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { Team } from '@/types';
-import { normalizeAdjacentAreas } from '@/lib/utils/area';
-import { buildAvailabilitySlotChoices, normalizeAvailabilitySlots } from '@/lib/utils/availability';
-
-const TEAM_TIME_SLOT_PATTERN = /^\d{4}-\d{2}-\d{2}_(am|pm)$/;
+import {
+  buildAvailabilitySlotChoices,
+  normalizeAvailabilitySlots,
+} from '@/lib/utils/availability/availability';
+import {
+  buildTeamCreateData,
+  normalizeTeamYear,
+  resolveTeamAreaSelection,
+} from '@/lib/utils/team/team-api';
+import { normalizeTeamTimeSlot } from '@/lib/utils/team/team';
 
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
@@ -77,13 +83,14 @@ export async function POST(request: NextRequest) {
     if (eventAvailabilitySlots.length === 0) {
       return NextResponse.json({ error: '配布枠が未設定です' }, { status: 400 });
     }
-    if (typeof timeSlot !== 'string' || !TEAM_TIME_SLOT_PATTERN.test(timeSlot)) {
+    const normalizedTimeSlot = normalizeTeamTimeSlot(timeSlot);
+    if (!normalizedTimeSlot) {
       return NextResponse.json(
         { error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' },
         { status: 400 },
       );
     }
-    if (!eventAvailabilitySlots.includes(timeSlot)) {
+    if (!eventAvailabilitySlots.includes(normalizedTimeSlot)) {
       return NextResponse.json(
         { error: 'timeSlot は配布枠キーから選択してください' },
         { status: 400 },
@@ -96,19 +103,24 @@ export async function POST(request: NextRequest) {
     }
 
     const teamRef = adminDb.collection('teams').doc();
-    const teamData: Omit<Team, 'teamId'> = {
+    const areaSelection = resolveTeamAreaSelection({
+      areaId,
+      assignedArea,
+      area,
+    });
+    if (!areaSelection) {
+      return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
+    }
+    const teamData: Omit<Team, 'teamId'> = buildTeamCreateData({
       teamCode,
       teamName,
-      timeSlot,
-      areaId: String((area as Record<string, unknown>).areaId || areaId || ''),
-      assignedArea: String((area as Record<string, unknown>).areaCode || assignedArea || ''),
-      adjacentAreas: normalizeAdjacentAreas((area as Record<string, unknown>).adjacentAreas),
+      timeSlot: normalizedTimeSlot,
+      area: areaSelection,
       eventId,
-      year: typeof year === 'number' && Number.isFinite(year) ? year : undefined,
-      isActive: true,
+      year: normalizeTeamYear(year),
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
+    });
 
     await teamRef.set({
       teamId: teamRef.id,
@@ -226,7 +238,8 @@ export async function PATCH(request: NextRequest) {
       update.year = body.year;
     }
     if (typeof body.timeSlot === 'string') {
-      if (!TEAM_TIME_SLOT_PATTERN.test(body.timeSlot)) {
+      const normalizedTimeSlot = normalizeTeamTimeSlot(body.timeSlot);
+      if (!normalizedTimeSlot) {
         return NextResponse.json(
           { error: 'timeSlot は YYYY-MM-DD_am または YYYY-MM-DD_pm 形式で指定してください' },
           { status: 400 },
@@ -235,13 +248,16 @@ export async function PATCH(request: NextRequest) {
       const eventId = currentTeam.eventId;
       const eventAvailabilitySlots =
         typeof eventId === 'string' ? await loadEventAvailabilitySlots(eventId) : [];
-      if (eventAvailabilitySlots.length > 0 && !eventAvailabilitySlots.includes(body.timeSlot)) {
+      if (
+        eventAvailabilitySlots.length > 0 &&
+        !eventAvailabilitySlots.includes(normalizedTimeSlot)
+      ) {
         return NextResponse.json(
           { error: 'timeSlot は配布枠キーから選択してください' },
           { status: 400 },
         );
       }
-      update.timeSlot = body.timeSlot;
+      update.timeSlot = normalizedTimeSlot;
     }
     if (typeof body.teamName === 'string') update.teamName = body.teamName;
     if (typeof body.teamCode === 'string') update.teamCode = body.teamCode;
@@ -250,13 +266,17 @@ export async function PATCH(request: NextRequest) {
       if (!area) {
         return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
       }
-      update.areaId = String((area as Record<string, unknown>).areaId || body.areaId || '');
-      update.assignedArea = String(
-        (area as Record<string, unknown>).areaCode || body.assignedArea || '',
-      );
-      update.adjacentAreas = normalizeAdjacentAreas(
-        (area as Record<string, unknown>).adjacentAreas,
-      );
+      const areaSelection = resolveTeamAreaSelection({
+        areaId: body.areaId,
+        assignedArea: body.assignedArea,
+        area,
+      });
+      if (!areaSelection) {
+        return NextResponse.json({ error: '配布区域が見つかりません' }, { status: 400 });
+      }
+      update.areaId = areaSelection.areaId;
+      update.assignedArea = areaSelection.assignedArea;
+      update.adjacentAreas = areaSelection.adjacentAreas;
     }
 
     await ref.update(update);

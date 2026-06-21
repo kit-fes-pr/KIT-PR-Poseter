@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { buildAvailabilitySlotChoices } from '@/lib/utils/availability/availability';
 import {
-  ALL_AVAILABLE_SLOT_KEY,
-  UNAVAILABLE_SLOT_KEY,
-  buildAvailabilitySlotChoices,
-  normalizeAvailabilitySlots,
-} from '@/lib/utils/availability';
+  effectiveSlotCount,
+  getMatchingTeamSlots,
+  resolveParticipantSlotKeys,
+} from '@/lib/utils/assignment/assignment';
+import { normalizeGrade } from '@/lib/utils/grade/grade';
 
 interface Participant {
   responseId: string;
@@ -143,8 +145,19 @@ function performAutoAssignment(
     teamGradeCount[team.teamId] = {} as Record<number, number>;
   });
 
+  const normalizedParticipants = participants.map((participant) => ({
+    ...participant,
+    grade: normalizeGrade(participant.grade),
+  }));
+  const normalizedTeams = teams.map((team) => ({
+    ...team,
+    preferredGrades: Array.isArray(team.preferredGrades)
+      ? team.preferredGrades.map((grade) => normalizeGrade(grade)).filter((grade) => grade > 0)
+      : undefined,
+  }));
+
   // 参加者を処理順序でソート（3年生以上を優先）
-  const sortedParticipants = [...participants].sort((a, b) => {
+  const sortedParticipants = [...normalizedParticipants].sort((a, b) => {
     const aIsSenior = a.grade >= 3;
     const bIsSenior = b.grade >= 3;
 
@@ -179,7 +192,7 @@ function performAutoAssignment(
       continue;
     }
 
-    const candidateTeams = teams.filter((team) => {
+    const candidateTeams = normalizedTeams.filter((team) => {
       return getMatchingTeamSlots(team, eventSlotKeys).some((slot) =>
         participantSlotKeys.includes(slot),
       );
@@ -245,28 +258,6 @@ function performAutoAssignment(
     skippedNoMatchingTeam,
     skippedFull,
   };
-}
-
-function effectiveSlotCount(slots: string[], eventSlotKeys: string[]): number {
-  const normalized = normalizeAvailabilitySlots(slots);
-  if (normalized.includes(UNAVAILABLE_SLOT_KEY)) return Number.POSITIVE_INFINITY;
-  if (normalized.includes(ALL_AVAILABLE_SLOT_KEY))
-    return eventSlotKeys.length || Number.POSITIVE_INFINITY;
-  const available = normalized.filter((slot) => eventSlotKeys.includes(slot));
-  return available.length || Number.POSITIVE_INFINITY;
-}
-
-function resolveParticipantSlotKeys(slots: string[], eventSlotKeys: string[]): string[] {
-  const normalized = normalizeAvailabilitySlots(slots);
-  if (normalized.length === 0 || normalized.includes(UNAVAILABLE_SLOT_KEY)) return [];
-  if (normalized.includes(ALL_AVAILABLE_SLOT_KEY)) {
-    return eventSlotKeys;
-  }
-  return normalized.filter((slot) => eventSlotKeys.includes(slot));
-}
-
-function getMatchingTeamSlots(team: Team, eventSlotKeys: string[]): string[] {
-  return eventSlotKeys.includes(team.timeSlot) ? [team.timeSlot] : [];
 }
 
 async function loadEventSlotChoices(year: string) {

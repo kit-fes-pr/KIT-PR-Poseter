@@ -2,87 +2,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SurveyForm, FormCreateData } from '@/types/forms';
-
-function serializeDate(value: unknown): string | unknown {
-  if (!value) return value;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return new Date(value).toISOString();
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-  return value;
-}
-
-function toMillis(value: unknown): number {
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === 'string' || typeof value === 'number') {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-  }
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    const date = (value as { toDate: () => Date }).toDate();
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-  }
-  return 0;
-}
-
-function normalizeFormEventContext(
-  eventId: unknown,
-  year: unknown,
-): { eventId: string; year: number } | null {
-  const normalizedYear =
-    typeof year === 'number'
-      ? Number.isInteger(year) && year >= 1000 && year <= 9999
-        ? year
-        : Number.NaN
-      : typeof year === 'string' && /^\d{4}$/.test(year.trim())
-        ? Number(year.trim())
-        : Number.NaN;
-
-  if (Number.isInteger(normalizedYear) && normalizedYear >= 1000 && normalizedYear <= 9999) {
-    return {
-      eventId: `kodai${normalizedYear}`,
-      year: normalizedYear,
-    };
-  }
-
-  const normalizedEventId = typeof eventId === 'string' ? eventId.trim() : '';
-  const matchedYear = normalizedEventId.match(/^kodai(\d{4})$/)?.[1];
-
-  if (matchedYear) {
-    return {
-      eventId: normalizedEventId,
-      year: Number(matchedYear),
-    };
-  }
-
-  if (normalizedEventId) {
-    return null;
-  }
-
-  return null;
-}
+import { serializeDate, toMillis } from '@/lib/utils/forms/forms';
+import {
+  buildFormsCreatePayload,
+  normalizeFormsRouteAuthHeader,
+  parseFormsListEventId,
+} from '@/lib/utils/forms/forms-route';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeFormsRouteAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
 
     try {
       const decodedToken = await adminAuth.verifyIdToken(idToken);
@@ -97,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const eventId = searchParams.get('eventId') || 'kodai2025';
+    const eventId = parseFormsListEventId(searchParams.get('eventId'));
 
     // フォーム一覧を取得（非正規化されたカウンタを使用）
     const formsSnapshot = await adminDb.collection('forms').where('eventId', '==', eventId).get();
@@ -139,13 +71,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeFormsRouteAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     // 管理者のみフォーム作成可能
@@ -160,31 +89,28 @@ export async function POST(request: NextRequest) {
       fields,
       eventId,
       year,
-    }: FormCreateData & { eventId?: string; year?: number } = body;
-    const normalizedEventContext = normalizeFormEventContext(eventId, year);
+    }: FormCreateData & {
+      eventId?: string;
+      year?: number;
+    } = body;
 
-    if (!normalizedEventContext) {
-      return NextResponse.json(
-        { error: 'eventId と year を正しく指定してください' },
-        { status: 400 },
-      );
-    }
-
-    // バリデーション
-    if (!title?.trim()) {
-      return NextResponse.json({ error: 'フォームタイトルは必須です' }, { status: 400 });
-    }
-
-    if (!fields || fields.length === 0) {
-      return NextResponse.json(
-        { error: 'フォームフィールドを最低1つ設定してください' },
-        { status: 400 },
-      );
+    const created = buildFormsCreatePayload({
+      title,
+      description,
+      fields,
+      eventId,
+      year,
+      createdBy: decodedToken.uid,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    if ('error' in created) {
+      return NextResponse.json({ error: created.error }, { status: 400 });
     }
 
     const existingFormSnapshot = await adminDb
       .collection('forms')
-      .where('eventId', '==', normalizedEventContext.eventId)
+      .where('eventId', '==', created.data.eventId)
       .limit(1)
       .get();
 
@@ -192,47 +118,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'この年度には既にフォームが存在します' }, { status: 409 });
     }
 
-    // フィールドのバリデーション
-    for (let i = 0; i < fields.length; i++) {
-      const field = fields[i];
-      if (!field.label?.trim()) {
-        return NextResponse.json(
-          { error: `フィールド${i + 1}のラベルは必須です` },
-          { status: 400 },
-        );
-      }
-      if (!['text', 'select', 'radio', 'checkbox', 'textarea', 'number'].includes(field.type)) {
-        return NextResponse.json({ error: `フィールド${i + 1}の種類が無効です` }, { status: 400 });
-      }
-      if (
-        ['select', 'radio', 'checkbox'].includes(field.type) &&
-        (!field.options || field.options.length === 0)
-      ) {
-        return NextResponse.json(
-          { error: `フィールド${i + 1}の選択肢を設定してください` },
-          { status: 400 },
-        );
-      }
-    }
-
-    const now = new Date();
-    const formData: Omit<SurveyForm, 'formId'> & { responseCount: number } = {
-      title: title.trim(),
-      description: description?.trim() || '',
-      isActive: true,
-      eventId: normalizedEventContext.eventId,
-      year: normalizedEventContext.year,
-      fields: fields.map((field, index) => ({
-        ...field,
-        fieldId: index === 0 ? 'availability' : 'remarks',
-        label: field.label.trim(),
-        order: index,
-      })),
-      createdBy: decodedToken.uid,
-      createdAt: now,
-      updatedAt: now,
-      responseCount: 0,
-    };
+    const formData = created.data;
 
     // Firestoreに保存
     const docRef = await adminDb.collection('forms').add(formData);
