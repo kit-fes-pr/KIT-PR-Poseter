@@ -17,27 +17,27 @@
     "prepare": "node -e \"if (require('fs').existsSync('.git') && require('fs').existsSync('node_modules/husky')) { process.exit(require('child_process').spawnSync('husky', { stdio: 'inherit', shell: true }).status || 0); }\""
   },
   "dependencies": {
-    "firebase": "^12.2.1",
+    "firebase": "^12.15.0",
     "firebase-admin": "^14.0.0",
-    "next": "^15.5.19",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-hook-form": "^7.62.0",
-    "swr": "^2.3.6"
+    "next": "^16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-hook-form": "^7.80.0",
+    "swr": "^2.4.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
+    "@eslint/eslintrc": "^3.3.5",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20.19.17",
+    "@types/node": "^26.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.3",
+    "eslint": "^10.5.0",
+    "eslint-config-next": "16.2.9",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
     "prettier": "^3.8.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^6"
   },
   "allowScripts": {
     "@tailwindcss/oxide@4.1.13": true,
