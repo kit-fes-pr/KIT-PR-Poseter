@@ -43,7 +43,8 @@ export default function AdminLogin() {
       // ログイン済みの場合は管理者権限をチェックしてからリダイレクト
       if (user) {
         try {
-          const idToken = await user.getIdToken();
+          // カスタムクレームが確実に含まれるよう強制リフレッシュ
+          const idToken = await user.getIdToken(true);
           const response = await fetch('/api/auth/verify', {
             headers: { Authorization: `Bearer ${idToken}` },
           });
@@ -87,7 +88,8 @@ export default function AdminLogin() {
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-      const idToken = await getIdToken(userCredential.user);
+      // カスタムクレーム（role: 'admin'）が確実に反映されるよう強制リフレッシュ
+      const idToken = await getIdToken(userCredential.user, true);
       localStorage.setItem('authToken', idToken);
 
       const response = await fetch('/api/auth/verify', {

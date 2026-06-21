@@ -43,7 +43,8 @@ export default function Home() {
               result.tempEmail,
               result.tempPassword,
             );
-            const idToken = await getIdToken(cred.user);
+            // setCustomUserClaims後にクレームが反映されるよう強制リフレッシュ
+            const idToken = await getIdToken(cred.user, true);
             localStorage.setItem('authToken', idToken);
             router.push('/dashboard');
             return;
@@ -53,7 +54,8 @@ export default function Home() {
           if (result.customToken) {
             const { signInWithCustomToken } = await import('firebase/auth');
             const cred = await signInWithCustomToken(auth, result.customToken);
-            const idToken = await getIdToken(cred.user);
+            // setCustomUserClaims後にクレームが反映されるよう強制リフレッシュ
+            const idToken = await getIdToken(cred.user, true);
             localStorage.setItem('authToken', idToken);
             router.push('/dashboard');
             return;
