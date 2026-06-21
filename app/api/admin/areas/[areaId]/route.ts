@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { buildAreaUpdateData, shouldBlockAreaDeletion, shouldRefreshTeamAfterAreaChange } from '@/lib/utils/area-api';
+import {
+  buildAreaRouteUpdateData,
+  hasRequiredAreaPayload,
+  normalizeAreaAuthHeader,
+} from '@/lib/utils/area-route';
+import { shouldBlockAreaDeletion, shouldRefreshTeamAfterAreaChange } from '@/lib/utils/area-api';
 
 const FIRESTORE_SAFE_BATCH_SIZE = 450;
 
@@ -22,11 +27,10 @@ export async function PUT(
   { params }: { params: Promise<{ areaId: string }> },
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAreaAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
@@ -36,7 +40,7 @@ export async function PUT(
     const { areaId } = resolvedParams;
     const { areaCode, areaName, adjacentAreas, description } = await request.json();
 
-    if (!areaCode || !areaName) {
+    if (!hasRequiredAreaPayload({ areaCode, areaName })) {
       return NextResponse.json(
         {
           error: 'areaCode, areaName は必須です',
@@ -66,12 +70,15 @@ export async function PUT(
       );
     }
 
-    const nextAreaData = buildAreaUpdateData({ areaCode, areaName, adjacentAreas, description });
-    const nextAdjacentAreas = nextAreaData.adjacentAreas;
-    const updateData = {
-      ...nextAreaData,
+    const nextAreaData = buildAreaRouteUpdateData({
+      areaCode,
+      areaName,
+      adjacentAreas,
+      description,
       updatedAt: new Date(),
-    };
+    });
+    const nextAdjacentAreas = nextAreaData.adjacentAreas;
+    const updateData = nextAreaData;
 
     await areaRef.update(updateData);
 
@@ -127,11 +134,10 @@ export async function DELETE(
   { params }: { params: Promise<{ areaId: string }> },
 ) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const idToken = normalizeAreaAuthHeader(request.headers.get('authorization'));
+    if (!idToken) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
-    const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     if (decodedToken.role !== 'admin') {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
