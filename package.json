@@ -52,7 +52,10 @@
       "eslint --fix",
       "prettier --write"
     ],
-    "*.{json,css,md}": [
+    "!(package-lock).json": [
+      "prettier --write"
+    ],
+    "*.{css,md}": [
       "prettier --write"
     ]
   }
