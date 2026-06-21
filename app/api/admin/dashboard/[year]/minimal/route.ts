@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FirestoreCache, ServerCache } from '@/lib/utils/server-cache';
-import { isAvailableForAnySlot } from '@/lib/utils/availability';
+import {
+  countResponsesWithAvailability,
+  extractAvailabilitySlots,
+} from '@/lib/utils/availability-api';
 import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
 
 function toISOStringLike(value: unknown): string | undefined {
@@ -123,9 +126,15 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
         ]);
 
         totalResponses = totalResponsesSnapshot.data().count;
-        availableResponses = availableResponsesSnapshot.docs.filter((doc) =>
-          isAvailableForAnySlot(doc.data()?.participantData?.availableSlots),
-        ).length;
+        availableResponses = countResponsesWithAvailability(
+          availableResponsesSnapshot.docs.map((doc) => ({
+            participantData: {
+              availableSlots: extractAvailabilitySlots(
+                doc.data() as { participantData?: { availableSlots?: unknown } },
+              ),
+            },
+          })),
+        );
       }
 
       return {
