@@ -741,6 +741,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   };
 
   const performAutoAssignment = async () => {
+    const year = resolvedParams?.year;
+    if (!year) return;
+
     if (!selectedForm || participants.length === 0 || teams.length === 0) {
       setError('フォーム、参加者、チームデータが必要です');
       return;
@@ -773,7 +776,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         setAssignments(data.assignments || []);
         setLastAutoAssignmentStats(data.stats || null);
         await loadAssignments();
-        clearDashboardCache(Number(resolvedParams.year));
+        clearDashboardCache(Number(year));
         if ((data?.stats?.assigned || 0) === 0) {
           setError(
             '自動割り当ては完了しましたが、割り当て可能な組み合わせがありませんでした。配布枠とチームの配布枠キーが一致しているか確認してください。',
@@ -793,6 +796,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   };
 
   const clearAssignments = async () => {
+    const year = resolvedParams?.year;
+    if (!year) return;
     if (!selectedForm || !user) return;
 
     try {
@@ -811,7 +816,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
       if (res.ok) {
         setAssignments([]);
-        clearDashboardCache(Number(resolvedParams.year));
+        clearDashboardCache(Number(year));
         setError('');
       } else {
         const errorData = await res.json();
