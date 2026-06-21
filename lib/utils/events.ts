@@ -156,15 +156,17 @@ export function buildDistributionEventUpdateDefaults(params: {
   distributionAvailabilitySlots?: unknown;
   isActive?: unknown;
 }): { update: Record<string, unknown>; error: string | null } {
-  const timeZone =
-    typeof params.distributionTimeZone === 'string' && params.distributionTimeZone.trim()
-      ? params.distributionTimeZone.trim()
-      : DEFAULT_TIME_ZONE;
-
   const update: Record<string, unknown> = {
     updatedAt: new Date(),
-    distributionTimeZone: timeZone,
   };
+
+  if (params.distributionTimeZone !== undefined) {
+    const timeZone =
+      typeof params.distributionTimeZone === 'string' && params.distributionTimeZone.trim()
+        ? params.distributionTimeZone.trim()
+        : DEFAULT_TIME_ZONE;
+    update.distributionTimeZone = timeZone;
+  }
 
   if (typeof params.eventName === 'string') update.eventName = params.eventName;
   if (typeof params.isActive === 'boolean') update.isActive = params.isActive;

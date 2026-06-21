@@ -83,6 +83,13 @@ describe('events utils', () => {
     assert.equal(updateDefaults.update.eventName, '工大祭2027');
     assert.equal(updateDefaults.update.isActive, false);
     assert.deepEqual(updateDefaults.update.distributionAvailabilitySlots, ['2027-06-01_am']);
+
+    const updateDefaultsNoTz = buildDistributionEventUpdateDefaults({
+      eventName: '工大祭2027',
+      isActive: false,
+    });
+    assert.equal(updateDefaultsNoTz.error, null);
+    assert.equal(updateDefaultsNoTz.update.distributionTimeZone, undefined);
   });
 
   test('serializeDateOnlyValue keeps date-only values stable and serializes timestamps', () => {
