@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { normalizeTeamTimeSlot } from '@/lib/utils/team';
+import {
+  buildManualAssignmentRecord,
+  normalizeAssignmentYear,
+} from '@/lib/utils/assignment-api';
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,17 +74,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const normalizedTimeSlot = normalizeTeamTimeSlot(timeSlot);
-    if (!normalizedTimeSlot) {
-      return NextResponse.json({ error: 'timeSlot が必要です' }, { status: 400 });
+    const manualAssignment = buildManualAssignmentRecord({
+      year,
+      formId,
+      responseId,
+      teamId,
+      timeSlot,
+      assignedAt: new Date(),
+    });
+    if (!manualAssignment) {
+      return NextResponse.json(
+        { error: 'year, formId, responseId, teamId, timeSlot が必要です' },
+        { status: 400 },
+      );
     }
 
     // 既存の同一参加者の割り当てを削除（同一年度・フォーム内で一意に）
     const query = await adminDb
       .collection('assignments')
-      .where('year', '==', parseInt(year))
-      .where('formId', '==', formId)
-      .where('responseId', '==', responseId)
+      .where('year', '==', manualAssignment.year)
+      .where('formId', '==', manualAssignment.formId)
+      .where('responseId', '==', manualAssignment.responseId)
       .get();
     const batch = adminDb.batch();
     query.docs.forEach((doc) => batch.delete(doc.ref));
@@ -89,13 +102,7 @@ export async function POST(request: NextRequest) {
     // 新しい割り当てを追加
     const docRef = adminDb.collection('assignments').doc();
     batch.set(docRef, {
-      responseId,
-      teamId,
-      assignedAt: new Date(),
-      assignedBy: 'manual',
-      timeSlot: normalizedTimeSlot,
-      year: parseInt(year),
-      formId,
+      ...manualAssignment,
     });
 
     await batch.commit();
@@ -124,11 +131,12 @@ export async function DELETE(request: NextRequest) {
 
     const { year, formId } = await request.json();
 
-    if (!year) {
+    const normalizedYear = normalizeAssignmentYear(year);
+    if (!normalizedYear) {
       return NextResponse.json({ error: '年度が必要です' }, { status: 400 });
     }
 
-    let query = adminDb.collection('assignments').where('year', '==', parseInt(year));
+    let query = adminDb.collection('assignments').where('year', '==', normalizedYear);
 
     if (formId) {
       query = query.where('formId', '==', formId);
