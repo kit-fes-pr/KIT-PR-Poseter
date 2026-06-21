@@ -4,24 +4,9 @@ import { FirestoreCache, ServerCache } from '@/lib/utils/server-cache';
 import {
   countResponsesWithAvailability,
   extractAvailabilitySlots,
+  serializeDateLikeValue,
 } from '@/lib/utils/availability-api';
 import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
-
-function toISOStringLike(value: unknown): string | undefined {
-  if (!value) return undefined;
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return new Date(value).toISOString();
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof (value as { toDate?: () => Date }).toDate === 'function'
-  ) {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-  return undefined;
-}
 
 export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {
   const startTime = Date.now();
@@ -84,8 +69,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
           id: doc.id,
           eventName: doc.data().eventName,
           year: doc.data().year,
-          distributionStartDate: toISOStringLike(doc.data().distributionStartDate),
-          distributionEndDate: toISOStringLike(doc.data().distributionEndDate),
+          distributionStartDate: serializeDateLikeValue(doc.data().distributionStartDate),
+          distributionEndDate: serializeDateLikeValue(doc.data().distributionEndDate),
         };
       }
 

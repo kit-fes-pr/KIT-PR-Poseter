@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import {
   countResponsesWithAvailability,
   extractAvailabilitySlots,
+  serializeDateLikeValue,
 } from '../lib/utils/availability-api';
 
 describe('availability api utils', () => {
@@ -27,5 +28,15 @@ describe('availability api utils', () => {
       { participantData: { availableSlots: undefined } },
     ]);
     assert.equal(count, 2);
+  });
+
+  test('serializeDateLikeValue preserves date-like inputs for dashboard routes', () => {
+    const iso = '2026-06-21T00:00:00.000Z';
+
+    assert.equal(serializeDateLikeValue(new Date(iso)), iso);
+    assert.equal(serializeDateLikeValue(iso), iso);
+    assert.equal(serializeDateLikeValue(Date.parse(iso)), iso);
+    assert.equal(serializeDateLikeValue({ toDate: () => new Date(iso) }), iso);
+    assert.equal(serializeDateLikeValue(undefined), undefined);
   });
 });
