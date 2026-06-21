@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { normalizeAdjacentAreas } from '@/lib/utils/area';
 
+const FIRESTORE_SAFE_BATCH_SIZE = 450;
+
+async function commitTeamUpdatesInChunks(
+  updates: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }>,
+) {
+  for (let index = 0; index < updates.length; index += FIRESTORE_SAFE_BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = updates.slice(index, index + FIRESTORE_SAFE_BATCH_SIZE);
+    chunk.forEach((update) => {
+      batch.update(update.ref, update.data);
+    });
+    await batch.commit();
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ areaId: string }> },
@@ -71,25 +86,26 @@ export async function PUT(
       JSON.stringify(previousAdjacentAreas) !== JSON.stringify(sortedNextAdjacentAreas);
     if (previousAreaCode !== areaCode || adjacentChanged) {
       const teamsSnap = await adminDb.collection('teams').get();
-      const batch = adminDb.batch();
-      let touched = 0;
+      const updates: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }> = [];
       teamsSnap.docs.forEach((teamDoc) => {
         const teamData = teamDoc.data() as Record<string, unknown>;
         if (
           String(teamData.areaId || '') === areaId ||
           String(teamData.assignedArea || '') === previousAreaCode
         ) {
-          batch.update(teamDoc.ref, {
-            areaId,
-            assignedArea: areaCode,
-            adjacentAreas: nextAdjacentAreas,
-            updatedAt: new Date(),
+          updates.push({
+            ref: teamDoc.ref,
+            data: {
+              areaId,
+              assignedArea: areaCode,
+              adjacentAreas: nextAdjacentAreas,
+              updatedAt: new Date(),
+            },
           });
-          touched++;
         }
       });
-      if (touched > 0) {
-        await batch.commit();
+      if (updates.length > 0) {
+        await commitTeamUpdatesInChunks(updates);
       }
     }
 
