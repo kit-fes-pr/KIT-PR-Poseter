@@ -4,7 +4,7 @@ export function normalizeGrade(value: unknown): number {
   }
 
   if (typeof value === 'string') {
-    const parsed = Number(value.trim());
+    const parsed = parseInt(value.trim(), 10);
     return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
   }
 
@@ -12,6 +12,6 @@ export function normalizeGrade(value: unknown): number {
     return 0;
   }
 
-  const parsed = Number(value);
+  const parsed = parseInt(String(value).trim(), 10);
   return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
 }
