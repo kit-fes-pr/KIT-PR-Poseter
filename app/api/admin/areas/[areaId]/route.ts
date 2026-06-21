@@ -145,15 +145,17 @@ export async function DELETE(
     }
 
     const currentArea = areaDoc.data() as Record<string, unknown>;
-    const teamsSnap = await adminDb.collection('teams').get();
-    const linkedTeams = teamsSnap.docs.filter((teamDoc) => {
-      const teamData = teamDoc.data() as Record<string, unknown>;
-      return (
-        String(teamData.areaId || '') === areaId ||
-        String(teamData.assignedArea || '') === String(currentArea.areaCode || '')
-      );
-    });
-    if (linkedTeams.length > 0) {
+    const [linkedByAreaId, linkedByAssignedArea] = await Promise.all([
+      adminDb.collection('teams').where('areaId', '==', areaId).limit(1).get(),
+      currentArea.areaCode
+        ? adminDb
+            .collection('teams')
+            .where('assignedArea', '==', String(currentArea.areaCode))
+            .limit(1)
+            .get()
+        : Promise.resolve(null),
+    ]);
+    if (!linkedByAreaId.empty || !!linkedByAssignedArea?.docs.length) {
       return NextResponse.json(
         { error: 'この配布区域に紐づくチームがあるため削除できません' },
         { status: 400 },
