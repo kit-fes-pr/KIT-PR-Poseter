@@ -66,7 +66,10 @@ export async function PUT(
       );
     }
 
-    const nextAdjacentAreas = normalizeAdjacentAreas(adjacentAreas);
+    const nextAdjacentAreas =
+      typeof adjacentAreas === 'string'
+        ? normalizeAdjacentAreas(adjacentAreas.split(',').map((area) => area.trim()))
+        : normalizeAdjacentAreas(adjacentAreas);
     const updateData = {
       areaCode,
       areaName,
