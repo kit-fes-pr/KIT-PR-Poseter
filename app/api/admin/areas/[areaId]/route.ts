@@ -155,7 +155,7 @@ export async function DELETE(
             .get()
         : Promise.resolve(null),
     ]);
-    if (!linkedByAreaId.empty || !!linkedByAssignedArea?.docs.length) {
+    if (!linkedByAreaId.empty || (linkedByAssignedArea ? !linkedByAssignedArea.empty : false)) {
       return NextResponse.json(
         { error: 'この配布区域に紐づくチームがあるため削除できません' },
         { status: 400 },
