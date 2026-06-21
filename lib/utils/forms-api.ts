@@ -22,16 +22,22 @@ export function validateFormFields(fields: unknown): string | null {
   }
 
   for (let i = 0; i < fields.length; i++) {
-    const field = fields[i] as Partial<FormField>;
-    if (!field.label?.trim()) {
+    const field = fields[i];
+    if (!field || typeof field !== 'object') {
+      return `フィールド${i + 1}のデータ形式が無効です`;
+    }
+    const typedField = field as Partial<FormField>;
+    if (!typedField.label?.trim()) {
       return `フィールド${i + 1}のラベルは必須です`;
     }
-    if (!['text', 'select', 'radio', 'checkbox', 'textarea', 'number'].includes(field.type || '')) {
+    if (
+      !['text', 'select', 'radio', 'checkbox', 'textarea', 'number'].includes(typedField.type || '')
+    ) {
       return `フィールド${i + 1}の種類が無効です`;
     }
     if (
-      ['select', 'radio', 'checkbox'].includes(field.type || '') &&
-      (!field.options || field.options.length === 0)
+      ['select', 'radio', 'checkbox'].includes(typedField.type || '') &&
+      (!typedField.options || typedField.options.length === 0)
     ) {
       return `フィールド${i + 1}の選択肢を設定してください`;
     }

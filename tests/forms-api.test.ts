@@ -32,6 +32,8 @@ describe('forms api utils', () => {
       validateFormFields([{ label: 'A', type: 'unknown' as never, required: true }]),
       'フィールド1の種類が無効です',
     );
+    assert.equal(validateFormFields([null]), 'フィールド1のデータ形式が無効です');
+    assert.equal(validateFormFields(['not-an-object']), 'フィールド1のデータ形式が無効です');
   });
 
   test('buildFormCreateRecord and buildFormUpdateRecord normalize payloads', () => {
