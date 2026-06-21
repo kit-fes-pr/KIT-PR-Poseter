@@ -1,3 +1,5 @@
+import { normalizeAvailabilitySlots } from './availability';
+
 export function serializeDate(value: unknown): string | unknown {
   if (!value) return value;
   if (value instanceof Date) return value.toISOString();
@@ -67,4 +69,16 @@ export function normalizeFormEventContext(
   }
 
   return null;
+}
+
+export function resolveResponseAvailabilitySlots(
+  answers: Array<{ fieldId: string; value: unknown }>,
+  participantAvailableSlots: unknown,
+): string[] {
+  const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
+  if (availabilityAnswer) {
+    return normalizeAvailabilitySlots(availabilityAnswer.value);
+  }
+
+  return normalizeAvailabilitySlots(participantAvailableSlots);
 }

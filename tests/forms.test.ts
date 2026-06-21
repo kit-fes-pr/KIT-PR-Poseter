@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { normalizeFormEventContext, serializeDate, toMillis } from '../lib/utils/forms';
+import {
+  normalizeFormEventContext,
+  resolveResponseAvailabilitySlots,
+  serializeDate,
+  toMillis,
+} from '../lib/utils/forms';
 
 describe('forms utils', () => {
   test('normalizeFormEventContext prefers year and normalizes eventId', () => {
@@ -32,5 +37,20 @@ describe('forms utils', () => {
     assert.equal(serializeDate(0), 0);
     assert.equal(toMillis(date), date.getTime());
     assert.equal(toMillis('2026-06-21T12:34:56.000Z'), date.getTime());
+  });
+
+  test('resolveResponseAvailabilitySlots prefers answers availability and falls back to participant data', () => {
+    assert.deepEqual(
+      resolveResponseAvailabilitySlots(
+        [{ fieldId: 'availability', value: ['2026-06-01_am', '2026-06-01_pm'] }],
+        ['2026-06-02_am'],
+      ),
+      ['2026-06-01_am', '2026-06-01_pm'],
+    );
+    assert.deepEqual(
+      resolveResponseAvailabilitySlots([{ fieldId: 'remarks', value: 'ok' }], ['2026-06-02_am']),
+      ['2026-06-02_am'],
+    );
+    assert.deepEqual(resolveResponseAvailabilitySlots([], ['unavailable']), ['unavailable']);
   });
 });
