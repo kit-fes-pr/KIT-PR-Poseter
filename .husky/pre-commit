@@ -1,1 +1,40 @@
+node --input-type=module <<'NODE'
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+const tsconfigPath = path.resolve(process.cwd(), 'tsconfig.json');
+const canonicalTsconfig = {
+  compilerOptions: {
+    target: 'ES2017',
+    lib: ['dom', 'dom.iterable', 'esnext'],
+    allowJs: true,
+    skipLibCheck: true,
+    strict: true,
+    noEmit: true,
+    esModuleInterop: true,
+    module: 'esnext',
+    moduleResolution: 'bundler',
+    resolveJsonModule: true,
+    isolatedModules: true,
+    jsx: 'react-jsx',
+    incremental: true,
+    plugins: [{ name: 'next' }],
+    paths: { '@/*': ['./*'] },
+  },
+  include: [
+    'next-env.d.ts',
+    '**/*.ts',
+    '**/*.tsx',
+    '.next/types/**/*.ts',
+    '.next/dev/types/**/*.ts',
+  ],
+  exclude: ['node_modules'],
+};
+
+const current = JSON.parse(await fs.readFile(tsconfigPath, 'utf8'));
+if (JSON.stringify(current) !== JSON.stringify(canonicalTsconfig)) {
+  await fs.writeFile(tsconfigPath, JSON.stringify(canonicalTsconfig, null, 2) + '\n', 'utf8');
+}
+NODE
+git add tsconfig.json
 npx lint-staged
