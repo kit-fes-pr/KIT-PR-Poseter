@@ -280,7 +280,7 @@ export async function POST(
           section: participantData.section,
           grade: gradeValidation.gradeNum,
           availableSlots: expandAvailabilitySlotsForStorage(
-            participantData.availableSlots ?? availableSlots,
+            availableSlots,
             availabilityDateSlotKeys,
           ),
         },
