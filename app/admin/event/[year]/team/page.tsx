@@ -549,7 +549,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     );
   };
 
-  const responseEditGrade = normalizeGrade(responseEditValues.participantGrade);
+  const responseEditGrade = normalizeGrade(responseEditValues?.participantGrade);
 
   const loadTeams = async () => {
     if (!resolvedParams || !user) return;
