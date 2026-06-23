@@ -290,7 +290,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       return;
     }
 
-    const availability = normalizeAvailabilitySlots(responseEditValues.availability);
+    const availability = normalizeAvailabilitySlots(responseEditValues?.availability);
     if (availability.length === 0) {
       setError('参加可能日時は一つ以上選択してください');
       return;
@@ -318,9 +318,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         body: JSON.stringify({
           answers,
           participantData: {
-            name: String(responseEditValues.participantName || ''),
-            grade: String(responseEditValues.participantGrade || ''),
-            section: String(responseEditValues.participantSection || ''),
+            name: String(responseEditValues?.participantName || ''),
+            grade: String(responseEditValues?.participantGrade || ''),
+            section: String(responseEditValues?.participantSection || ''),
             availableSlots: availability,
           },
         }),
@@ -1644,7 +1644,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           お名前 *
                         </label>
                         <input
-                          value={String(responseEditValues.participantName || '')}
+                          value={String(responseEditValues?.participantName || '')}
                           onChange={(e) =>
                             setResponseEditValues((current) => ({
                               ...current,
@@ -1659,7 +1659,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           学年 *
                         </label>
                         <select
-                          value={String(responseEditValues.participantGrade || '')}
+                          value={String(responseEditValues?.participantGrade || '')}
                           onChange={(e) =>
                             setResponseEditValues((current) => ({
                               ...current,
@@ -1680,7 +1680,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           所属セクション *
                         </label>
                         <input
-                          value={String(responseEditValues.participantSection || '')}
+                          value={String(responseEditValues?.participantSection || '')}
                           onChange={(e) =>
                             setResponseEditValues((current) => ({
                               ...current,
@@ -1695,7 +1695,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                     {filterVisibleFormFieldsForParticipant(
                       currentForm.fields,
                       responseEditGrade,
-                      responseEditValues.availability,
+                      responseEditValues?.availability,
                     )
                       .slice()
                       .sort((a, b) => a.order - b.order)
