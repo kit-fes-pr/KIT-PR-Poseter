@@ -442,6 +442,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     setEditSaving(false);
   };
 
+  const editParticipantGrade = normalizeGrade(editFormData.participantGrade);
+
   const updateResponse = async () => {
     if (!editingResponse || !currentForm || !resolvedParams || !user) return;
 
@@ -986,7 +988,11 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           submitting={editSaving}
           maxWidthClassName="max-w-4xl"
         >
-          {filterVisibleFormFieldsForParticipant(currentForm.fields, 4, editFormData.availability)
+          {filterVisibleFormFieldsForParticipant(
+            currentForm.fields,
+            editParticipantGrade,
+            editFormData.availability,
+          )
             .sort((a, b) => a.order - b.order)
             .map((field) => (
               <div
