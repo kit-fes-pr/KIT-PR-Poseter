@@ -515,12 +515,15 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           label: option,
         })),
       );
-      const specialOptions = (field.options || []).filter(
-        (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY,
-      );
       const dateOptions = (field.options || []).filter(
         (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
       );
+      const showAllAvailableOption = dateOptions.length > 1;
+      const displaySpecialOptions = (field.options || []).filter((option) => {
+        if (option === UNAVAILABLE_SLOT_KEY) return true;
+        if (option === ALL_AVAILABLE_SLOT_KEY) return showAllAvailableOption;
+        return false;
+      });
 
       const renderOptionCard = (
         option: string,
@@ -586,9 +589,11 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
       return (
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          {specialOptions.length > 0 && (
+          {displaySpecialOptions.length > 0 && (
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {specialOptions.map((option, index) => renderOptionCard(option, index, 'special'))}
+              {displaySpecialOptions.map((option, index) =>
+                renderOptionCard(option, index, 'special'),
+              )}
             </div>
           )}
 
