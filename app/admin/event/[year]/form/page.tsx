@@ -80,7 +80,7 @@ function buildFixedFields(availabilityOptions: string[]): FormField[] {
     {
       fieldId: 'availability',
       type: 'checkbox',
-      label: '参加可能日時',
+      label: '参加可能日時（複数選択）',
       placeholder: '参加可能な日時を選択してください',
       required: true,
       options: availabilityOptions,
@@ -572,13 +572,13 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
-              <span className="mt-1 block text-xs text-gray-500">
-                {isSpecial
-                  ? option === ALL_AVAILABLE_SLOT_KEY
+              {isSpecial && (
+                <span className="mt-1 block text-xs text-gray-500">
+                  {option === ALL_AVAILABLE_SLOT_KEY
                     ? '配布期間内の全日時に対応可能です'
-                    : 'この日時には参加できません'
-                  : '複数選択できます'}
-              </span>
+                    : 'この日時には参加できません'}
+                </span>
+              )}
             </span>
           </label>
         );
@@ -586,11 +586,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
       return (
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm text-gray-600">参加可能な日時を選択してください。</p>
-            <p className="text-xs text-gray-500">複数選択可</p>
-          </div>
-
           {specialOptions.length > 0 && (
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {specialOptions.map((option, index) => renderOptionCard(option, index, 'special'))}
@@ -961,10 +956,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
-                  <p className="text-xs text-gray-500">
-                    {field.type}
-                    {field.required ? ' ・ 必須' : ' ・ 任意'}
-                  </p>
                 </div>
               </div>
               {renderEditableField(field)}

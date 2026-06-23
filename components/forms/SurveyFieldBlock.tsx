@@ -17,8 +17,6 @@ type SurveyFieldBlockProps = {
   errorMessage?: string;
   onValueChange?: (value: string | string[]) => void;
   availabilityCopy?: {
-    intro?: string;
-    multiple?: string;
     allAvailable?: string;
     unavailable?: string;
   };
@@ -79,8 +77,6 @@ export function SurveyFieldBlock({
   const isAvailabilityField = fieldId === 'availability';
   const optionLabel = (option: string) =>
     isAvailabilityField ? formatAvailabilitySlotLabel(option) : option;
-  const availabilityIntro = availabilityCopy?.intro || '参加可能な日時を選択してください。';
-  const availabilityMultiple = availabilityCopy?.multiple || '複数選択可';
   const availabilityAllAvailable =
     availabilityCopy?.allAvailable || '配布期間内の全日時に対応可能です';
   const availabilityUnavailable = availabilityCopy?.unavailable || 'この日時には参加できません';
@@ -149,13 +145,13 @@ export function SurveyFieldBlock({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
-            <span className="mt-1 block text-xs text-gray-500">
-              {isSpecial
-                ? option === ALL_AVAILABLE_SLOT_KEY
+            {isSpecial && (
+              <span className="mt-1 block text-xs text-gray-500">
+                {option === ALL_AVAILABLE_SLOT_KEY
                   ? availabilityAllAvailable
-                  : availabilityUnavailable
-                : '複数選択できます'}
-            </span>
+                  : availabilityUnavailable}
+              </span>
+            )}
           </span>
         </label>
       );
@@ -166,11 +162,6 @@ export function SurveyFieldBlock({
         <fieldset>
           <legend className="mb-2 block text-sm font-medium text-gray-700">{label}</legend>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-sm text-gray-600">{availabilityIntro}</p>
-              <p className="text-xs text-gray-500">{availabilityMultiple}</p>
-            </div>
-
             {displaySpecialOptions.length > 0 && (
               <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {displaySpecialOptions.map((option, index) =>

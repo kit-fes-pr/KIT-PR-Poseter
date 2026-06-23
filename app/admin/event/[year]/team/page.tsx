@@ -439,7 +439,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                         <span className="block text-sm font-medium text-gray-900">
                           {optionLabel(option)}
                         </span>
-                        <span className="mt-1 block text-xs text-gray-500">複数選択できます</span>
                       </span>
                     </label>
                   );
