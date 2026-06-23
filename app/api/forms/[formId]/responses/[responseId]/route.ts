@@ -7,6 +7,7 @@ import { getAvailabilityDateSlotKeys } from '@/lib/utils/availability/availabili
 import {
   expandAvailabilitySlotsForStorage,
   filterVisibleFormFieldsForParticipant,
+  prepareAnswersForStorage,
   resolveResponseAvailabilitySlots,
   validateFormAnswersPayload,
 } from '@/lib/utils/forms/forms';
@@ -220,20 +221,14 @@ export async function PATCH(
       );
     }
 
-    const filteredAnswers = answers.filter((answer: FormAnswer) =>
-      visibleFieldIds.has(answer.fieldId),
-    );
     const availabilityField = formData.fields.find((field) => field.fieldId === 'availability');
     const availabilityDateSlotKeys = getAvailabilityDateSlotKeys(
       (availabilityField?.options || []).map((option) => ({ key: option })),
     );
-    const storedAnswers = filteredAnswers.map((answer: FormAnswer) =>
-      answer.fieldId === 'availability'
-        ? {
-            ...answer,
-            value: expandAvailabilitySlotsForStorage(answer.value, availabilityDateSlotKeys),
-          }
-        : answer,
+    const storedAnswers = prepareAnswersForStorage(
+      answers,
+      visibleFieldIds,
+      availabilityDateSlotKeys,
     );
 
     // 回答データを更新

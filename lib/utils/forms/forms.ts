@@ -4,6 +4,7 @@ import {
   normalizeAvailabilitySlots,
 } from '../availability/availability';
 import { normalizeGrade } from '../grade/grade';
+import type { FormAnswer } from '@/types/forms';
 import { serializeDateTimeValue as serializeDate } from '../dateUtils';
 
 export { serializeDate };
@@ -107,6 +108,24 @@ export function expandAvailabilitySlotsForStorage(
   }
 
   return normalized;
+}
+
+export function prepareAnswersForStorage(
+  answers: FormAnswer[],
+  visibleFieldIds: Set<string>,
+  availabilityDateSlotKeys: string[],
+): FormAnswer[] {
+  const filteredAnswers = answers.filter((answer: FormAnswer) =>
+    visibleFieldIds.has(answer.fieldId),
+  );
+  return filteredAnswers.map((answer: FormAnswer) =>
+    answer.fieldId === 'availability'
+      ? {
+          ...answer,
+          value: expandAvailabilitySlotsForStorage(answer.value, availabilityDateSlotKeys),
+        }
+      : answer,
+  );
 }
 
 export function isFormFieldVisibleForGrade(

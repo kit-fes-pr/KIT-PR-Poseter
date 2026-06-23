@@ -4,6 +4,7 @@ import {
   expandAvailabilitySlotsForStorage,
   filterVisibleFormFields,
   normalizeFormEventContext,
+  prepareAnswersForStorage,
   resolveResponseAvailabilitySlots,
   serializeDate,
   toMillis,
@@ -105,6 +106,24 @@ describe('forms utils', () => {
         ['2026-06-01_am', '2026-06-01_pm', '2026-06-02_am', '2026-06-02_pm'],
       ),
       ['2026-06-01_am', '2026-06-02_pm'],
+    );
+  });
+
+  test('prepareAnswersForStorage filters invisible answers and expands availability', () => {
+    assert.deepEqual(
+      prepareAnswersForStorage(
+        [
+          { fieldId: 'availability', value: ['all_available'] },
+          { fieldId: 'remarks', value: 'ok' },
+          { fieldId: 'carUsage', value: '運転できる' },
+        ],
+        new Set(['availability', 'remarks']),
+        ['2026-06-01_am', '2026-06-01_pm'],
+      ),
+      [
+        { fieldId: 'availability', value: ['2026-06-01_am', '2026-06-01_pm'] },
+        { fieldId: 'remarks', value: 'ok' },
+      ],
     );
   });
 
