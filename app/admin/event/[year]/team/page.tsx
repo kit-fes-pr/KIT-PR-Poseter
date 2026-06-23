@@ -549,8 +549,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     );
   };
 
-  const responseEditGrade = normalizeGrade(responseEditValues?.participantGrade);
-
   const loadTeams = async () => {
     if (!resolvedParams || !user) return;
 
@@ -1694,7 +1692,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
                     {filterVisibleFormFieldsForParticipant(
                       currentForm.fields,
-                      responseEditGrade,
+                      normalizeGrade(responseEditValues?.participantGrade),
                       responseEditValues?.availability,
                     )
                       .slice()
