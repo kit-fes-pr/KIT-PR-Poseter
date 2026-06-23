@@ -24,6 +24,7 @@ export interface FormField {
   label: string;
   placeholder?: string;
   required: boolean;
+  visibleFromGrade?: number;
   options?: string[]; // select, radio, checkbox用
   validation?: {
     minLength?: number;

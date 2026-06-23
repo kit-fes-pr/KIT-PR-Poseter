@@ -1,4 +1,5 @@
 import { normalizeAvailabilitySlots } from '../availability/availability';
+import { normalizeGrade } from '../grade/grade';
 import { serializeDateTimeValue as serializeDate } from '../dateUtils';
 
 export { serializeDate };
@@ -68,4 +69,26 @@ export function resolveResponseAvailabilitySlots(
   }
 
   return normalizeAvailabilitySlots(participantAvailableSlots);
+}
+
+export function isFormFieldVisibleForGrade(
+  field: { visibleFromGrade?: number },
+  participantGrade: unknown,
+): boolean {
+  if (field.visibleFromGrade == null) return true;
+
+  const minGrade = normalizeGrade(field.visibleFromGrade);
+  if (minGrade <= 0) return false;
+
+  const grade = normalizeGrade(participantGrade);
+  if (grade <= 0) return false;
+
+  return grade >= minGrade;
+}
+
+export function filterVisibleFormFields<T extends { visibleFromGrade?: number }>(
+  fields: T[],
+  participantGrade: unknown,
+): T[] {
+  return fields.filter((field) => isFormFieldVisibleForGrade(field, participantGrade));
 }

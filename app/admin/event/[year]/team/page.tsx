@@ -17,6 +17,7 @@ import {
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability/availability';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
+import { filterVisibleFormFields } from '@/lib/utils/forms/forms';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { MetricCard } from '@/components/ui/MetricCard';
@@ -60,6 +61,7 @@ interface FormField {
   label: string;
   placeholder?: string;
   required: boolean;
+  visibleFromGrade?: number;
   options?: string[];
   validation?: {
     minLength?: number;
@@ -1814,7 +1816,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       </div>
                     </div>
 
-                    {currentForm.fields
+                    {filterVisibleFormFields(currentForm.fields, 4)
                       .slice()
                       .sort((a, b) => a.order - b.order)
                       .map((field) => renderResponseEditField(field))}

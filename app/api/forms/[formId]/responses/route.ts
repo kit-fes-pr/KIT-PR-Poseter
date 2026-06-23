@@ -5,7 +5,10 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
-import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import {
+  isFormFieldVisibleForGrade,
+  resolveResponseAvailabilitySlots,
+} from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
 import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
@@ -93,6 +96,7 @@ export async function POST(
     }
 
     // 参加者データのバリデーション
+    let participantGradeNum = 0;
     if (participantData) {
       const participantValidationErrors: string[] = [];
 
@@ -117,6 +121,7 @@ export async function POST(
         section: participantData.section,
       });
       participantValidationErrors.push(...gradeValidation.errors);
+      participantGradeNum = gradeValidation.gradeNum || 0;
 
       const availableSlots = resolveResponseAvailabilitySlots(
         answers,
@@ -140,8 +145,12 @@ export async function POST(
 
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
+    const visibleFields = participantData
+      ? formData.fields.filter((field) => isFormFieldVisibleForGrade(field, participantGradeNum))
+      : formData.fields;
+    const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
-    for (const field of formData.fields) {
+    for (const field of visibleFields) {
       const answer = answers.find((a: FormAnswer) => a.fieldId === field.fieldId);
 
       // 必須フィールドのチェック
@@ -232,6 +241,10 @@ export async function POST(
       );
     }
 
+    const filteredAnswers = answers.filter((answer: FormAnswer) =>
+      visibleFieldIds.has(answer.fieldId),
+    );
+
     // 回答データを保存
     const editToken = randomUUID();
     const now = new Date();
@@ -255,7 +268,7 @@ export async function POST(
       }
       responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: filteredAnswers,
         participantData: {
           name: participantData.name,
           section: participantData.section,
@@ -269,7 +282,7 @@ export async function POST(
     } else {
       responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: filteredAnswers,
         submitterInfo: submitterInfo || {},
         editToken,
         now,

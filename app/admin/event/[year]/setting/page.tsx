@@ -29,7 +29,7 @@ type CurrentForm = {
   title: string;
   description?: string;
   isActive: boolean;
-  fields: { fieldId: string; options?: string[] }[];
+  fields: { fieldId: string; options?: string[]; visibleFromGrade?: number }[];
 };
 
 function buildFormAvailabilityOptions(slotKeys: string[]): string[] {
@@ -230,6 +230,8 @@ export default function DistributionSettingsPage({
         setSelectedSlots(validSlots);
 
         if (currentForm) {
+          const carUsageVisibleFromGrade =
+            currentForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade ?? 1;
           const formRes = await fetch(`/api/forms/${currentForm.formId}`, {
             method: 'PATCH',
             headers: {
@@ -251,12 +253,21 @@ export default function DistributionSettingsPage({
                   order: 0,
                 },
                 {
+                  fieldId: 'carUsage',
+                  type: 'radio',
+                  label: '車の運転ができますか',
+                  required: true,
+                  visibleFromGrade: carUsageVisibleFromGrade,
+                  options: ['運転できる', '車を利用しない'],
+                  order: 1,
+                },
+                {
                   fieldId: 'remarks',
                   type: 'textarea',
                   label: '備考',
                   placeholder: 'その他連絡事項があればご記入ください',
                   required: false,
-                  order: 1,
+                  order: 2,
                 },
               ],
             }),

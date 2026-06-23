@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingInline } from '@/components/ui/Loading';
 import { SurveyForm, FormAnswer } from '@/types/forms';
 import { normalizeAvailabilitySlots } from '@/lib/utils/availability/availability';
 import { PublicSurveyForm } from '@/components/forms/PublicSurveyForm';
 import type { ParticipantIdentityFormValues } from '@/components/forms/ParticipantIdentitySection';
+import { filterVisibleFormFields } from '@/lib/utils/forms/forms';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -26,6 +27,10 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
 
   const { handleSubmit, control, watch, setValue, getValues } = useForm<FormData>();
   const participantGrade = watch('participantGrade');
+  const visibleFields = useMemo(() => {
+    if (!form) return [];
+    return filterVisibleFormFields(form.fields, participantGrade).sort((a, b) => a.order - b.order);
+  }, [form, participantGrade]);
 
   useEffect(() => {
     if (participantGrade === '4') {
@@ -83,6 +88,10 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       setError('');
 
       for (const field of form.fields) {
+        if (!visibleFields.some((visibleField) => visibleField.fieldId === field.fieldId)) {
+          continue;
+        }
+
         const rawValue = data[field.fieldId];
 
         if (field.type === 'select' || field.type === 'radio') {
@@ -119,7 +128,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
       }
 
       // フォームデータを変換
-      const answers: FormAnswer[] = form.fields.map((field) => ({
+      const answers: FormAnswer[] = visibleFields.map((field) => ({
         fieldId: field.fieldId,
         value: data[field.fieldId] || (field.type === 'checkbox' ? [] : ''),
       }));
@@ -246,7 +255,7 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
 
             {/* フォーム */}
             <PublicSurveyForm
-              form={form}
+              form={form ? { ...form, fields: visibleFields } : form}
               control={
                 control as unknown as import('react-hook-form').Control<ParticipantIdentityFormValues>
               }

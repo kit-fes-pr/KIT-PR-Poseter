@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
-import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import {
+  isFormFieldVisibleForGrade,
+  resolveResponseAvailabilitySlots,
+} from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
 import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
@@ -71,6 +74,10 @@ export async function PATCH(
         })
       : null;
     const gradeNum = gradeValidation?.gradeNum || 0;
+    const visibleFields = participantData
+      ? formData.fields.filter((field) => isFormFieldVisibleForGrade(field, gradeNum))
+      : formData.fields;
+    const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
     // 参加者データのバリデーション
     if (participantData) {
@@ -119,7 +126,7 @@ export async function PATCH(
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
 
-    for (const field of formData.fields) {
+    for (const field of visibleFields) {
       const answer = answers.find((a: FormAnswer) => a.fieldId === field.fieldId);
 
       // 必須フィールドのチェック
@@ -210,6 +217,10 @@ export async function PATCH(
       );
     }
 
+    const filteredAnswers = answers.filter((answer: FormAnswer) =>
+      visibleFieldIds.has(answer.fieldId),
+    );
+
     // 回答データを更新
     const now = new Date();
 
@@ -231,7 +242,7 @@ export async function PATCH(
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: filteredAnswers,
         participantData: {
           name: participantData.name,
           section: participantData.section,
@@ -249,7 +260,7 @@ export async function PATCH(
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: filteredAnswers,
         editToken: responseData.editToken as string,
         now,
       });

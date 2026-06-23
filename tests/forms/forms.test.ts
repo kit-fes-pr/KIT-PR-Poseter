@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  filterVisibleFormFields,
   normalizeFormEventContext,
   resolveResponseAvailabilitySlots,
   serializeDate,
@@ -52,5 +53,39 @@ describe('forms utils', () => {
       ['2026-06-02_am'],
     );
     assert.deepEqual(resolveResponseAvailabilitySlots([], ['unavailable']), ['unavailable']);
+  });
+
+  test('filterVisibleFormFields filters fields by participant grade', () => {
+    const fields = [
+      { fieldId: 'availability', visibleFromGrade: 1 },
+      { fieldId: 'carUsage', visibleFromGrade: 0 },
+      { fieldId: 'remarks' },
+    ];
+
+    assert.deepEqual(
+      filterVisibleFormFields(fields, '2').map((field) => field.fieldId),
+      ['availability', 'remarks'],
+    );
+    assert.deepEqual(
+      filterVisibleFormFields(fields, '3').map((field) => field.fieldId),
+      ['availability', 'remarks'],
+    );
+  });
+
+  test('filterVisibleFormFields filters fields by minimum grade', () => {
+    const fields = [
+      { fieldId: 'availability', visibleFromGrade: 1 },
+      { fieldId: 'carUsage', visibleFromGrade: 3 },
+      { fieldId: 'remarks' },
+    ];
+
+    assert.deepEqual(
+      filterVisibleFormFields(fields, '2').map((field) => field.fieldId),
+      ['availability', 'remarks'],
+    );
+    assert.deepEqual(
+      filterVisibleFormFields(fields, '3').map((field) => field.fieldId),
+      ['availability', 'carUsage', 'remarks'],
+    );
   });
 });
