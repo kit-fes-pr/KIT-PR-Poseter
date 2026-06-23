@@ -258,7 +258,7 @@ export default function DistributionSettingsPage({
                   label: '車の運転ができますか',
                   required: true,
                   visibleFromGrade: carUsageVisibleFromGrade,
-                  options: ['運転できる', '車を利用しない'],
+                  options: ['運転できる', '免許はあるが運転しない', '免許を持っていない'],
                   order: 1,
                 },
                 {
