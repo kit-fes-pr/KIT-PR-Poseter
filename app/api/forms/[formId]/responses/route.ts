@@ -149,9 +149,11 @@ export async function POST(
 
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
-    const visibleFields = participantData
-      ? filterVisibleFormFieldsForParticipant(formData.fields, participantGradeNum, availableSlots)
-      : formData.fields;
+    const visibleFields = filterVisibleFormFieldsForParticipant(
+      formData.fields,
+      participantGradeNum,
+      availableSlots,
+    );
     const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
     for (const field of visibleFields) {
