@@ -10,6 +10,7 @@ import { LoadingInline } from '@/components/ui/Loading';
 import { ResponseEditModal } from '@/components/forms/ResponseEditModal';
 import { FormOverviewTab } from '@/components/forms/FormOverviewTab';
 import { FormContentTab } from '@/components/forms/FormContentTab';
+import { SurveyFieldBlock } from '@/components/forms/SurveyFieldBlock';
 import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
 import {
   buildAvailabilitySlotChoices,
@@ -106,6 +107,13 @@ function buildFixedFields(availabilityOptions: string[]): FormField[] {
   ];
 }
 
+function buildPreviewValues(fields: FormField[]): Record<string, string | string[]> {
+  return fields.reduce<Record<string, string | string[]>>((acc, field) => {
+    acc[field.fieldId] = field.type === 'checkbox' ? [] : '';
+    return acc;
+  }, {});
+}
+
 function isAvailabilityField(field: FormField): boolean {
   return field.fieldId === 'availability';
 }
@@ -157,6 +165,22 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const allAvailabilityChoices = useMemo(
     () => buildAvailabilityChoices(eventData, currentForm),
     [eventData, currentForm],
+  );
+  const availabilityChoiceKeys = useMemo(
+    () => allAvailabilityChoices.map((choice) => choice.key),
+    [allAvailabilityChoices],
+  );
+  const fixedFields = useMemo(
+    () => buildFixedFields(availabilityChoiceKeys),
+    [availabilityChoiceKeys],
+  );
+  const previewValues = useMemo(() => buildPreviewValues(fixedFields), [fixedFields]);
+  const visiblePreviewFields = useMemo(
+    () =>
+      fixedFields.filter(
+        (field) => field.fieldId !== 'carUsage' || carUsageVisibleFromGrade !== '0',
+      ),
+    [carUsageVisibleFromGrade, fixedFields],
   );
   const latestResponse = useMemo(
     () =>
@@ -287,7 +311,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         return;
       }
 
-      const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
+      const availabilityOptions = availabilityChoiceKeys;
       if (availabilityOptions.length === 0) {
         setError('参加可能日時を一つ以上選択してください');
         return;
@@ -785,33 +809,26 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                       placeholder="フォームの目的や注意事項を記載してください"
                     />
                   </div>
-                </div>
 
-                <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">配布日時の設定</h3>
-                    </div>
-                    <Link
-                      href={`/admin/event/${resolvedParams.year}/setting`}
-                      className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  <div>
+                    <label
+                      htmlFor="car-usage-visible-from-grade"
+                      className="block text-sm font-medium text-gray-700"
                     >
-                      設定を開く
-                    </Link>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {allAvailabilityChoices.length > 0 ? (
-                      allAvailabilityChoices.map((choice) => (
-                        <span
-                          key={choice.key}
-                          className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
-                        >
-                          {choice.label}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-red-600">配布日時が未設定です</span>
-                    )}
+                      車を利用するフォームの表示対象学年
+                    </label>
+                    <select
+                      id="car-usage-visible-from-grade"
+                      value={carUsageVisibleFromGrade}
+                      onChange={(e) => setCarUsageVisibleFromGrade(e.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
+                    >
+                      <option value="0">車を利用しない</option>
+                      <option value="1">1年生以上</option>
+                      <option value="2">2年生以上</option>
+                      <option value="3">3年生以上</option>
+                      <option value="4">4年生以上</option>
+                    </select>
                   </div>
                 </div>
 
@@ -835,16 +852,46 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
             </div>
 
             <div className="space-y-4 rounded-3xl border border-gray-200 bg-gray-100 p-4">
-              <FormContentTab
-                draftTitle={draftTitle}
-                draftDescription={draftDescription}
-                onDraftTitleChange={setDraftTitle}
-                onDraftDescriptionChange={setDraftDescription}
-                carUsageVisibleFromGrade={carUsageVisibleFromGrade}
-                onCarUsageVisibleFromGradeChange={setCarUsageVisibleFromGrade}
-                previewFields={buildFixedFields(allAvailabilityChoices.map((choice) => choice.key))}
-                availabilityChoices={allAvailabilityChoices.map((choice) => choice.key)}
-              />
+              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">フォームプレビュー</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      入力画面の見え方をそのまま確認できます。
+                    </p>
+                  </div>
+                  <Link
+                    href={`/admin/event/${resolvedParams.year}/setting`}
+                    className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    設定を開く
+                  </Link>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {allAvailabilityChoices.length > 0 ? (
+                    allAvailabilityChoices.map((choice) => (
+                      <span
+                        key={choice.key}
+                        className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
+                      >
+                        {choice.label}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-red-600">配布日時が未設定です</span>
+                  )}
+                </div>
+                <div className="mt-6 space-y-4">
+                  {visiblePreviewFields.map((field) => (
+                    <div
+                      key={field.fieldId}
+                      className="rounded-2xl border border-gray-200 bg-gray-50 p-5"
+                    >
+                      <SurveyFieldBlock field={field} value={previewValues[field.fieldId]} />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -952,7 +999,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                 carUsageVisibleFromGrade={carUsageVisibleFromGrade}
                 onCarUsageVisibleFromGradeChange={setCarUsageVisibleFromGrade}
                 previewFields={currentForm.fields}
-                availabilityChoices={allAvailabilityChoices.map((choice) => choice.key)}
+                availabilityChoices={availabilityChoiceKeys}
               />
             )}
 
