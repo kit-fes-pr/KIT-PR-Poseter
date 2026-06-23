@@ -220,11 +220,11 @@ function performAutoAssignment(
   existingAssignments
     .filter((assignment) => assignment.assignedBy === 'manual')
     .forEach((assignment) => {
-      usedParticipants.add(assignment.responseId);
-
       const participant = participantById.get(assignment.responseId);
       const team = teamById.get(assignment.teamId);
       if (!participant || !team) return;
+
+      usedParticipants.add(assignment.responseId);
 
       teamAssignmentCount[team.teamId]++;
 
