@@ -453,11 +453,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     setEditSaving(false);
   };
 
-  const editParticipantGrade = useMemo(
-    () => normalizeGrade(editFormData.participantGrade),
-    [editFormData.participantGrade],
-  );
-
   const updateResponse = async () => {
     if (!editingResponse || !currentForm || !resolvedParams || !user) return;
 
@@ -1004,7 +999,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         >
           {filterVisibleFormFieldsForParticipant(
             currentForm.fields,
-            editParticipantGrade,
+            normalizeGrade(editFormData.participantGrade),
             editFormData.availability,
           )
             .sort((a, b) => a.order - b.order)
