@@ -37,6 +37,11 @@ interface Assignment {
   timeSlot: string;
 }
 
+interface StoredAssignment extends Assignment {
+  year?: number;
+  formId?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -66,17 +71,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const assignmentResult = performAutoAssignment(participants, teams, eventSlotChoices);
-
-    // 既存の自動/手動割り当てを同一年度・フォーム内で一度クリアしてから再作成する
-    const existingAssignments = await adminDb
+    const existingAssignmentsSnapshot = await adminDb
       .collection('assignments')
       .where('year', '==', parseInt(year, 10))
       .where('formId', '==', formId)
       .get();
 
+    const existingAssignments: StoredAssignment[] = existingAssignmentsSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        responseId: typeof data.responseId === 'string' ? data.responseId : '',
+        teamId: typeof data.teamId === 'string' ? data.teamId : '',
+        assignedAt: data.assignedAt?.toDate ? data.assignedAt.toDate() : data.assignedAt,
+        assignedBy: data.assignedBy === 'manual' ? 'manual' : 'auto',
+        timeSlot: typeof data.timeSlot === 'string' ? data.timeSlot : '',
+        year: typeof data.year === 'number' ? data.year : parseInt(year, 10),
+        formId: typeof data.formId === 'string' ? data.formId : formId,
+      };
+    });
+
+    const manualAssignments = existingAssignments.filter(
+      (assignment) => assignment.assignedBy === 'manual',
+    );
+
+    const assignmentResult = performAutoAssignment(
+      participants,
+      teams,
+      eventSlotChoices,
+      manualAssignments,
+    );
+
+    // 既存の自動割り当てのみを削除し、手動割り当ては保持する
     const batch = adminDb.batch();
-    existingAssignments.docs.forEach((doc) => batch.delete(doc.ref));
+    existingAssignmentsSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      if (data.assignedBy !== 'manual') {
+        batch.delete(doc.ref);
+      }
+    });
 
     // 割り当て結果をFirestoreに保存
     const assignmentCollection = adminDb.collection('assignments');
@@ -96,13 +128,31 @@ export async function POST(request: NextRequest) {
       FirestoreCache.invalidateYear(parseInt(year, 10));
     }
 
+    const participantIds = new Set(
+      participants
+        .map((participant: Participant) => participant.responseId)
+        .filter((responseId: string) => typeof responseId === 'string' && responseId.length > 0),
+    );
+    const assignableParticipants = participants.filter((participant: Participant) => {
+      const normalizedSlots = resolveParticipantSlotKeys(
+        participant.availableSlots,
+        eventSlotChoices,
+      );
+      return normalizedSlots.length > 0;
+    });
+    const existingManualAssignmentCount = manualAssignments.reduce(
+      (count, assignment) => count + (participantIds.has(assignment.responseId) ? 1 : 0),
+      0,
+    );
+    const totalAssignedCount = existingManualAssignmentCount + assignmentResult.assignments.length;
+
     return NextResponse.json({
       message: '自動割り当てが完了しました',
       assignments: assignmentResult.assignments,
       stats: {
         total: participants.length,
-        assigned: assignmentResult.assignments.length,
-        unassigned: participants.length - assignmentResult.assignments.length,
+        assigned: totalAssignedCount,
+        unassigned: Math.max(assignableParticipants.length - totalAssignedCount, 0),
         skippedUnavailable: assignmentResult.skippedUnavailable,
         skippedNoMatchingTeam: assignmentResult.skippedNoMatchingTeam,
         skippedFull: assignmentResult.skippedFull,
@@ -118,6 +168,7 @@ function performAutoAssignment(
   participants: Participant[],
   teams: Team[],
   eventSlotKeys: string[],
+  existingAssignments: StoredAssignment[] = [],
 ): {
   assignments: Assignment[];
   skippedUnavailable: number;
@@ -130,26 +181,6 @@ function performAutoAssignment(
   let skippedNoMatchingTeam = 0;
   let skippedFull = 0;
 
-  // チーム毎の現在の割り当て数を追跡
-  const teamAssignmentCount: Record<string, number> = {};
-  teams.forEach((team) => {
-    teamAssignmentCount[team.teamId] = 0;
-  });
-
-  // チーム毎の上級生（3年生以上）の割り当て状況を追跡
-  const teamSeniorCount: Record<string, number> = {};
-  teams.forEach((team) => {
-    teamSeniorCount[team.teamId] = 0;
-  });
-
-  // チームごとのセクション・学年カウント
-  const teamSectionCount: Record<string, Record<string, number>> = {};
-  const teamGradeCount: Record<string, Record<number, number>> = {};
-  teams.forEach((team) => {
-    teamSectionCount[team.teamId] = {};
-    teamGradeCount[team.teamId] = {} as Record<number, number>;
-  });
-
   const normalizedParticipants = participants.map((participant) => ({
     ...participant,
     grade: normalizeGrade(participant.grade),
@@ -160,6 +191,52 @@ function performAutoAssignment(
       ? team.preferredGrades.map((grade) => normalizeGrade(grade)).filter((grade) => grade > 0)
       : undefined,
   }));
+  const participantById = new Map(
+    normalizedParticipants.map((participant) => [participant.responseId, participant] as const),
+  );
+  const teamById = new Map(normalizedTeams.map((team) => [team.teamId, team] as const));
+
+  // チーム毎の現在の割り当て数を追跡
+  const teamAssignmentCount: Record<string, number> = {};
+  normalizedTeams.forEach((team) => {
+    teamAssignmentCount[team.teamId] = 0;
+  });
+
+  // チーム毎の上級生（3年生以上）の割り当て状況を追跡
+  const teamSeniorCount: Record<string, number> = {};
+  normalizedTeams.forEach((team) => {
+    teamSeniorCount[team.teamId] = 0;
+  });
+
+  // チームごとのセクション・学年カウント
+  const teamSectionCount: Record<string, Record<string, number>> = {};
+  const teamGradeCount: Record<string, Record<number, number>> = {};
+  normalizedTeams.forEach((team) => {
+    teamSectionCount[team.teamId] = {};
+    teamGradeCount[team.teamId] = {} as Record<number, number>;
+  });
+
+  // 既存の手動割り当てを初期状態として反映
+  existingAssignments
+    .filter((assignment) => assignment.assignedBy === 'manual')
+    .forEach((assignment) => {
+      usedParticipants.add(assignment.responseId);
+
+      const participant = participantById.get(assignment.responseId);
+      const team = teamById.get(assignment.teamId);
+      if (!participant || !team) return;
+
+      teamAssignmentCount[team.teamId]++;
+
+      if (participant.grade >= 3) {
+        teamSeniorCount[team.teamId]++;
+      }
+
+      teamSectionCount[team.teamId][participant.section] =
+        (teamSectionCount[team.teamId][participant.section] || 0) + 1;
+      teamGradeCount[team.teamId][participant.grade] =
+        (teamGradeCount[team.teamId][participant.grade] || 0) + 1;
+    });
 
   // 参加者を処理順序でソート（3年生以上を優先）
   const sortedParticipants = [...normalizedParticipants].sort((a, b) => {
