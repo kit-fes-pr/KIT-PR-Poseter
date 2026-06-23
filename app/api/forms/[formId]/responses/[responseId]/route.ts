@@ -93,9 +93,11 @@ export async function PATCH(
     const availableSlots = effectiveParticipantData
       ? resolveResponseAvailabilitySlots(answers, effectiveParticipantData.availableSlots)
       : [];
-    const visibleFields = effectiveParticipantData
-      ? filterVisibleFormFieldsForParticipant(formData.fields, gradeNum, availableSlots)
-      : formData.fields;
+    const visibleFields = filterVisibleFormFieldsForParticipant(
+      formData.fields,
+      gradeNum,
+      availableSlots,
+    );
     const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
     // 参加者データのバリデーション
