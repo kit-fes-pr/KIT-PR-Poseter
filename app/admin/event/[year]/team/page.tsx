@@ -94,6 +94,12 @@ interface ResponseRecord {
   submittedAt: string | Date;
 }
 
+function parseDateTimestamp(value: string | Date | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 export default function TeamAssignmentPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
@@ -221,12 +227,8 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       const nextForm =
         availableForms.find((form) => form.isActive) ||
         [...availableForms].sort((a, b) => {
-          const aTime = new Date(
-            (a.updatedAt ?? a.createdAt ?? 0) as string | number | Date,
-          ).getTime();
-          const bTime = new Date(
-            (b.updatedAt ?? b.createdAt ?? 0) as string | number | Date,
-          ).getTime();
+          const aTime = parseDateTimestamp(a.updatedAt ?? a.createdAt);
+          const bTime = parseDateTimestamp(b.updatedAt ?? b.createdAt);
           return bTime - aTime;
         })[0] ||
         null;
