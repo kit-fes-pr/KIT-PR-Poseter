@@ -13,7 +13,6 @@ import {
   compareAvailabilitySlotKeys,
   formatAvailabilitySlotLabel,
   normalizeAvailabilitySlots,
-  getAvailabilityDateSlotKeys,
   sortAvailabilitySlotKeys,
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability/availability';
@@ -270,7 +269,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   };
 
   const updateAvailabilityField = (fieldId: string, option: string, options: string[]) => {
-    const allDateSlotKeys = getAvailabilityDateSlotKeys(options.map((key) => ({ key })));
+    const allDateSlotKeys = options.filter(
+      (key) => key !== UNAVAILABLE_SLOT_KEY && key !== ALL_AVAILABLE_SLOT_KEY,
+    );
     setResponseEditValues((current) => {
       const currentValues = normalizeAvailabilitySlots(current[fieldId]);
       const nextValues = toggleAvailabilitySelection(currentValues, option, allDateSlotKeys);

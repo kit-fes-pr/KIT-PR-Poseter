@@ -5,7 +5,6 @@ import type { RegisterOptions } from 'react-hook-form';
 import {
   ALL_AVAILABLE_SLOT_KEY,
   formatAvailabilitySlotLabel,
-  getAvailabilityDateSlotKeys,
   normalizeAvailabilitySlots,
   toggleAvailabilitySelection,
   UNAVAILABLE_SLOT_KEY,
@@ -87,15 +86,10 @@ export function SurveyFieldBlock({
 
   if (isAvailabilityField) {
     const selectedValues = normalizeAvailabilitySlots(value);
-    const allDateSlotKeys = getAvailabilityDateSlotKeys(
-      (field.options || []).map((option) => ({
-        key: option,
-        label: option,
-      })),
-    );
     const dateOptions = (field.options || []).filter(
       (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
     );
+    const allDateSlotKeys = dateOptions;
     const showAllAvailableOption = dateOptions.length > 1;
     const displaySpecialOptions = (field.options || []).filter((option) => {
       if (option === UNAVAILABLE_SLOT_KEY) return true;

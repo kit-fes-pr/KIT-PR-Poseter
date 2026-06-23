@@ -14,7 +14,6 @@ import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
 import {
   buildAvailabilitySlotChoices,
   formatAvailabilitySlotLabel,
-  getAvailabilityDateSlotKeys,
   SPECIAL_AVAILABILITY_SLOT_CHOICES,
   normalizeAvailabilitySlots,
   toggleAvailabilitySelection,
@@ -509,15 +508,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
     if (isAvailabilityField(field)) {
       const selectedValues = Array.isArray(fieldValue) ? fieldValue : [];
-      const allDateSlotKeys = getAvailabilityDateSlotKeys(
-        (field.options || []).map((option) => ({
-          key: option,
-          label: option,
-        })),
-      );
       const dateOptions = (field.options || []).filter(
         (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
       );
+      const allDateSlotKeys = dateOptions;
       const showAllAvailableOption = dateOptions.length > 1;
       const displaySpecialOptions = (field.options || []).filter((option) => {
         if (option === UNAVAILABLE_SLOT_KEY) return true;
