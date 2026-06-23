@@ -5,7 +5,9 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
+import { getAvailabilityDateSlotKeys } from '@/lib/utils/availability/availability';
 import {
+  expandAvailabilitySlotsForStorage,
   isFormFieldVisibleForGrade,
   resolveResponseAvailabilitySlots,
 } from '@/lib/utils/forms/forms';
@@ -244,6 +246,18 @@ export async function POST(
     const filteredAnswers = answers.filter((answer: FormAnswer) =>
       visibleFieldIds.has(answer.fieldId),
     );
+    const availabilityField = formData.fields.find((field) => field.fieldId === 'availability');
+    const availabilityDateSlotKeys = getAvailabilityDateSlotKeys(
+      (availabilityField?.options || []).map((option) => ({ key: option })),
+    );
+    const storedAnswers = filteredAnswers.map((answer) =>
+      answer.fieldId === 'availability'
+        ? {
+            ...answer,
+            value: expandAvailabilitySlotsForStorage(answer.value, availabilityDateSlotKeys),
+          }
+        : answer,
+    );
 
     // 回答データを保存
     const editToken = randomUUID();
@@ -268,12 +282,15 @@ export async function POST(
       }
       responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers: filteredAnswers,
+        answers: storedAnswers,
         participantData: {
           name: participantData.name,
           section: participantData.section,
           grade: gradeValidation.gradeNum,
-          availableSlots,
+          availableSlots: expandAvailabilitySlotsForStorage(
+            participantData.availableSlots ?? availableSlots,
+            availabilityDateSlotKeys,
+          ),
         },
         submitterInfo: submitterInfo || {},
         editToken,
@@ -282,7 +299,7 @@ export async function POST(
     } else {
       responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers: filteredAnswers,
+        answers: storedAnswers,
         submitterInfo: submitterInfo || {},
         editToken,
         now,

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  expandAvailabilitySlotsForStorage,
   filterVisibleFormFields,
   normalizeFormEventContext,
   resolveResponseAvailabilitySlots,
@@ -86,6 +87,23 @@ describe('forms utils', () => {
     assert.deepEqual(
       filterVisibleFormFields(fields, '3').map((field) => field.fieldId),
       ['availability', 'carUsage', 'remarks'],
+    );
+  });
+
+  test('expandAvailabilitySlotsForStorage converts all available into date slots', () => {
+    assert.deepEqual(
+      expandAvailabilitySlotsForStorage(
+        ['all_available'],
+        ['2026-06-01_am', '2026-06-01_pm', '2026-06-02_am'],
+      ),
+      ['2026-06-01_am', '2026-06-01_pm', '2026-06-02_am'],
+    );
+    assert.deepEqual(
+      expandAvailabilitySlotsForStorage(
+        ['2026-06-01_am', '2026-06-02_pm'],
+        ['2026-06-01_am', '2026-06-01_pm', '2026-06-02_am', '2026-06-02_pm'],
+      ),
+      ['2026-06-01_am', '2026-06-02_pm'],
     );
   });
 });

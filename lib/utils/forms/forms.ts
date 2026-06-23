@@ -1,4 +1,4 @@
-import { normalizeAvailabilitySlots } from '../availability/availability';
+import { ALL_AVAILABLE_SLOT_KEY, normalizeAvailabilitySlots } from '../availability/availability';
 import { normalizeGrade } from '../grade/grade';
 import { serializeDateTimeValue as serializeDate } from '../dateUtils';
 
@@ -69,6 +69,18 @@ export function resolveResponseAvailabilitySlots(
   }
 
   return normalizeAvailabilitySlots(participantAvailableSlots);
+}
+
+export function expandAvailabilitySlotsForStorage(
+  values: unknown,
+  allDateSlotKeys: string[],
+): string[] {
+  const normalized = normalizeAvailabilitySlots(values);
+  if (normalized.includes(ALL_AVAILABLE_SLOT_KEY)) {
+    return allDateSlotKeys;
+  }
+
+  return normalized;
 }
 
 export function isFormFieldVisibleForGrade(
