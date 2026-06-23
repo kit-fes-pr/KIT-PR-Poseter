@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -334,68 +334,80 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     }
   };
 
-  const persistFormSettings = async (silent = false) => {
-    if (!resolvedParams || !user || !currentForm) return;
+  const persistFormSettings = useCallback(
+    async (silent = false) => {
+      if (!resolvedParams || !user || !currentForm) return;
 
-    try {
-      setSaving(true);
-      if (!silent) {
-        setError('');
-      }
-      setSaveStatus('saving');
+      try {
+        setSaving(true);
+        if (!silent) {
+          setError('');
+        }
+        setSaveStatus('saving');
 
-      if (!draftTitle.trim()) {
-        setError('フォームタイトルを入力してください');
-        return;
-      }
+        if (!draftTitle.trim()) {
+          setError('フォームタイトルを入力してください');
+          return;
+        }
 
-      const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
-      if (availabilityOptions.length === 0) {
-        setError('参加可能日時を一つ以上選択してください');
-        return;
-      }
+        const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
+        if (availabilityOptions.length === 0) {
+          setError('参加可能日時を一つ以上選択してください');
+          return;
+        }
 
-      const visibleFromGrade = Math.min(
-        4,
-        Math.max(0, Number.parseInt(carUsageVisibleFromGrade, 10) || 0),
-      );
+        const visibleFromGrade = Math.min(
+          4,
+          Math.max(0, Number.parseInt(carUsageVisibleFromGrade, 10) || 0),
+        );
 
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/forms/${currentForm.formId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: draftTitle.trim(),
-          description: draftDescription.trim(),
-          isActive: draftIsActive,
-          fields: buildFixedFields(availabilityOptions).map((field) =>
-            field.fieldId === 'carUsage' ? { ...field, visibleFromGrade } : field,
-          ),
-        }),
-      });
+        const token = await user.getIdToken();
+        const res = await fetch(`/api/forms/${currentForm.formId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: draftTitle.trim(),
+            description: draftDescription.trim(),
+            isActive: draftIsActive,
+            fields: buildFixedFields(availabilityOptions).map((field) =>
+              field.fieldId === 'carUsage' ? { ...field, visibleFromGrade } : field,
+            ),
+          }),
+        });
 
-      const data = await res.json().catch(() => null);
+        const data = await res.json().catch(() => null);
 
-      if (!res.ok) {
-        setError(data?.error || 'フォームの更新に失敗しました');
+        if (!res.ok) {
+          setError(data?.error || 'フォームの更新に失敗しました');
+          setSaveStatus('error');
+          return;
+        }
+
+        const nextForm = data.form as FormRecord;
+        setForms([nextForm]);
+        setSaveStatus('saved');
+      } catch (err) {
+        console.error(err);
+        setError('フォームの更新に失敗しました');
         setSaveStatus('error');
-        return;
+      } finally {
+        setSaving(false);
       }
-
-      const nextForm = data.form as FormRecord;
-      setForms([nextForm]);
-      setSaveStatus('saved');
-    } catch (err) {
-      console.error(err);
-      setError('フォームの更新に失敗しました');
-      setSaveStatus('error');
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+    [
+      allAvailabilityChoices,
+      carUsageVisibleFromGrade,
+      currentForm,
+      draftDescription,
+      draftIsActive,
+      draftTitle,
+      resolvedParams,
+      user,
+    ],
+  );
 
   useEffect(() => {
     if (!currentForm || !hasLoadedFormRef.current) return;
@@ -412,8 +424,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         clearTimeout(autosaveTimerRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftTitle, draftDescription, draftIsActive, carUsageVisibleFromGrade, currentForm?.formId]);
+  }, [currentForm, persistFormSettings]);
 
   const openEditModal = (response: FormResponse | ParticipantSurveyResponse) => {
     setEditingResponse(response);
@@ -442,7 +453,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     setEditSaving(false);
   };
 
-  const editParticipantGrade = normalizeGrade(editFormData.participantGrade);
+  const editParticipantGrade = useMemo(
+    () => normalizeGrade(editFormData.participantGrade),
+    [editFormData.participantGrade],
+  );
 
   const updateResponse = async () => {
     if (!editingResponse || !currentForm || !resolvedParams || !user) return;
