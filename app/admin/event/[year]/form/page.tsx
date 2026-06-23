@@ -166,6 +166,22 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     () => buildAvailabilityChoices(eventData, currentForm),
     [eventData, currentForm],
   );
+  const availabilityChoiceKeys = useMemo(
+    () => allAvailabilityChoices.map((choice) => choice.key),
+    [allAvailabilityChoices],
+  );
+  const fixedFields = useMemo(
+    () => buildFixedFields(availabilityChoiceKeys),
+    [availabilityChoiceKeys],
+  );
+  const previewValues = useMemo(() => buildPreviewValues(fixedFields), [fixedFields]);
+  const visiblePreviewFields = useMemo(
+    () =>
+      fixedFields.filter(
+        (field) => field.fieldId !== 'carUsage' || carUsageVisibleFromGrade !== '0',
+      ),
+    [carUsageVisibleFromGrade, fixedFields],
+  );
   const latestResponse = useMemo(
     () =>
       [...responses].sort(
@@ -295,7 +311,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         return;
       }
 
-      const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
+      const availabilityOptions = availabilityChoiceKeys;
       if (availabilityOptions.length === 0) {
         setError('参加可能日時を一つ以上選択してください');
         return;
@@ -866,32 +882,14 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   )}
                 </div>
                 <div className="mt-6 space-y-4">
-                  {buildFixedFields(allAvailabilityChoices.map((choice) => choice.key))
-                    .filter(
-                      (field) => field.fieldId !== 'carUsage' || carUsageVisibleFromGrade !== '0',
-                    )
-                    .map((field) => (
-                      <div
-                        key={field.fieldId}
-                        className="rounded-2xl border border-gray-200 bg-gray-50 p-5"
-                      >
-                        <SurveyFieldBlock
-                          field={
-                            field.fieldId === 'availability'
-                              ? {
-                                  ...field,
-                                  options: allAvailabilityChoices.map((choice) => choice.key),
-                                }
-                              : field
-                          }
-                          value={
-                            buildPreviewValues(
-                              buildFixedFields(allAvailabilityChoices.map((choice) => choice.key)),
-                            )[field.fieldId]
-                          }
-                        />
-                      </div>
-                    ))}
+                  {visiblePreviewFields.map((field) => (
+                    <div
+                      key={field.fieldId}
+                      className="rounded-2xl border border-gray-200 bg-gray-50 p-5"
+                    >
+                      <SurveyFieldBlock field={field} value={previewValues[field.fieldId]} />
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1001,7 +999,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                 carUsageVisibleFromGrade={carUsageVisibleFromGrade}
                 onCarUsageVisibleFromGradeChange={setCarUsageVisibleFromGrade}
                 previewFields={currentForm.fields}
-                availabilityChoices={allAvailabilityChoices.map((choice) => choice.key)}
+                availabilityChoices={availabilityChoiceKeys}
               />
             )}
 
