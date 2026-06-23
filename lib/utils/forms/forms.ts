@@ -67,7 +67,9 @@ export function resolveResponseAvailabilitySlots(
   answers: Array<{ fieldId: string; value: unknown }>,
   participantAvailableSlots: unknown,
 ): string[] {
-  const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
+  const availabilityAnswer = answers.find(
+    (answer: { fieldId: string; value: unknown }) => answer.fieldId === 'availability',
+  );
   if (availabilityAnswer) {
     return normalizeAvailabilitySlots(availabilityAnswer.value);
   }
