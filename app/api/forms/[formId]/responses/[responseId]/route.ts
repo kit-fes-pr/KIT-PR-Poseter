@@ -59,6 +59,17 @@ export async function PATCH(
     }
 
     const responseData = responseDoc.data() as Record<string, unknown>;
+    const existingParticipantData = responseData.participantData as
+      | {
+          name: string;
+          section: string;
+          grade: number;
+          availableSlots?: string[];
+        }
+      | undefined;
+    const effectiveParticipantData = participantData
+      ? { ...existingParticipantData, ...participantData }
+      : existingParticipantData;
     const editToken = typeof body.editToken === 'string' ? body.editToken : '';
     if (!isAdmin) {
       if (!editToken || editToken !== responseData.editToken) {
@@ -72,37 +83,37 @@ export async function PATCH(
       return NextResponse.json({ error: answersValidation.error }, { status: 400 });
     }
 
-    const gradeValidation = participantData
+    const gradeValidation = effectiveParticipantData
       ? buildResponsesParticipantGradeValidation({
-          grade: participantData.grade,
-          section: participantData.section,
+          grade: effectiveParticipantData.grade,
+          section: effectiveParticipantData.section,
         })
       : null;
     const gradeNum = gradeValidation?.gradeNum || 0;
-    const availableSlots = participantData
-      ? resolveResponseAvailabilitySlots(answers, participantData.availableSlots)
+    const availableSlots = effectiveParticipantData
+      ? resolveResponseAvailabilitySlots(answers, effectiveParticipantData.availableSlots)
       : [];
-    const visibleFields = participantData
+    const visibleFields = effectiveParticipantData
       ? filterVisibleFormFieldsForParticipant(formData.fields, gradeNum, availableSlots)
       : formData.fields;
     const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
     // 参加者データのバリデーション
-    if (participantData) {
+    if (effectiveParticipantData) {
       const participantValidationErrors: string[] = [];
 
       if (
-        !participantData.name ||
-        typeof participantData.name !== 'string' ||
-        participantData.name.trim() === ''
+        !effectiveParticipantData.name ||
+        typeof effectiveParticipantData.name !== 'string' ||
+        effectiveParticipantData.name.trim() === ''
       ) {
         participantValidationErrors.push('お名前は必須です');
       }
 
       if (
-        !participantData.section ||
-        typeof participantData.section !== 'string' ||
-        participantData.section.trim() === ''
+        !effectiveParticipantData.section ||
+        typeof effectiveParticipantData.section !== 'string' ||
+        effectiveParticipantData.section.trim() === ''
       ) {
         participantValidationErrors.push('所属セクションは必須です');
       }
@@ -237,7 +248,7 @@ export async function PATCH(
     // 更新データを構築
     let updateData: { [key: string]: any };
 
-    if (participantData) {
+    if (effectiveParticipantData) {
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(
@@ -250,11 +261,11 @@ export async function PATCH(
         formId: resolvedParams.formId,
         answers: storedAnswers,
         participantData: {
-          name: participantData.name,
-          section: participantData.section,
+          name: effectiveParticipantData.name,
+          section: effectiveParticipantData.section,
           grade: gradeNum,
           availableSlots: expandAvailabilitySlotsForStorage(
-            participantData.availableSlots ?? availableSlots,
+            effectiveParticipantData.availableSlots ?? availableSlots,
             availabilityDateSlotKeys,
           ),
         },
