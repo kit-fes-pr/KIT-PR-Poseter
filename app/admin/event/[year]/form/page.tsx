@@ -14,7 +14,6 @@ import { formatDate, formatDateOnly } from '@/lib/utils/dateUtils';
 import {
   buildAvailabilitySlotChoices,
   formatAvailabilitySlotLabel,
-  getAvailabilityDateSlotKeys,
   SPECIAL_AVAILABILITY_SLOT_CHOICES,
   normalizeAvailabilitySlots,
   toggleAvailabilitySelection,
@@ -80,7 +79,7 @@ function buildFixedFields(availabilityOptions: string[]): FormField[] {
     {
       fieldId: 'availability',
       type: 'checkbox',
-      label: '参加可能日時',
+      label: '参加可能日時（複数選択）',
       placeholder: '参加可能な日時を選択してください',
       required: true,
       options: availabilityOptions,
@@ -509,18 +508,16 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
     if (isAvailabilityField(field)) {
       const selectedValues = Array.isArray(fieldValue) ? fieldValue : [];
-      const allDateSlotKeys = getAvailabilityDateSlotKeys(
-        (field.options || []).map((option) => ({
-          key: option,
-          label: option,
-        })),
-      );
-      const specialOptions = (field.options || []).filter(
-        (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY,
-      );
       const dateOptions = (field.options || []).filter(
         (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
       );
+      const allDateSlotKeys = dateOptions;
+      const showAllAvailableOption = dateOptions.length > 1;
+      const displaySpecialOptions = (field.options || []).filter((option) => {
+        if (option === UNAVAILABLE_SLOT_KEY) return true;
+        if (option === ALL_AVAILABLE_SLOT_KEY) return showAllAvailableOption;
+        return false;
+      });
 
       const renderOptionCard = (
         option: string,
@@ -572,13 +569,13 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
-              <span className="mt-1 block text-xs text-gray-500">
-                {isSpecial
-                  ? option === ALL_AVAILABLE_SLOT_KEY
+              {isSpecial && (
+                <span className="mt-1 block text-xs text-gray-500">
+                  {option === ALL_AVAILABLE_SLOT_KEY
                     ? '配布期間内の全日時に対応可能です'
-                    : 'この日時には参加できません'
-                  : '複数選択できます'}
-              </span>
+                    : 'この日時には参加できません'}
+                </span>
+              )}
             </span>
           </label>
         );
@@ -586,14 +583,11 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
       return (
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm text-gray-600">参加可能な日時を選択してください。</p>
-            <p className="text-xs text-gray-500">複数選択可</p>
-          </div>
-
-          {specialOptions.length > 0 && (
+          {displaySpecialOptions.length > 0 && (
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {specialOptions.map((option, index) => renderOptionCard(option, index, 'special'))}
+              {displaySpecialOptions.map((option, index) =>
+                renderOptionCard(option, index, 'special'),
+              )}
             </div>
           )}
 
@@ -961,10 +955,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
-                  <p className="text-xs text-gray-500">
-                    {field.type}
-                    {field.required ? ' ・ 必須' : ' ・ 任意'}
-                  </p>
                 </div>
               </div>
               {renderEditableField(field)}

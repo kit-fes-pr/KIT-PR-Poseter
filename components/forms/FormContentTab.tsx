@@ -77,20 +77,6 @@ export function FormContentTab({
             key={field.fieldId}
             className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
           >
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
-                <p className="text-xs text-gray-500">
-                  {field.type}
-                  {field.required ? ' ・ 必須' : ' ・ 任意'}
-                </p>
-              </div>
-              {field.fieldId === 'availability' && (
-                <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-                  複数選択
-                </span>
-              )}
-            </div>
             <SurveyFieldBlock
               field={
                 field.fieldId === 'availability'
@@ -103,10 +89,6 @@ export function FormContentTab({
                   ...current,
                   [field.fieldId]: value,
                 }));
-              }}
-              availabilityCopy={{
-                intro: '参加可能な日時を選択してください。',
-                multiple: '複数選択可',
               }}
             />
           </div>

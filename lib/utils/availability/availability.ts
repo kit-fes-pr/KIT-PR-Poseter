@@ -206,7 +206,7 @@ export function toggleAvailabilitySelection(
   }
 
   const nextValues = current.includes(clickedValue)
-    ? current.filter((value) => value !== clickedValue)
+    ? current.filter((value) => value !== clickedValue && value !== ALL_AVAILABLE_SLOT_KEY)
     : [
         ...current.filter(
           (value) => value !== ALL_AVAILABLE_SLOT_KEY && value !== UNAVAILABLE_SLOT_KEY,

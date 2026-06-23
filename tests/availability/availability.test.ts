@@ -106,5 +106,13 @@ describe('availability utils', () => {
       ...allDateSlotKeys,
       ALL_AVAILABLE_SLOT_KEY,
     ]);
+    assert.deepEqual(
+      toggleAvailabilitySelection(
+        [...allDateSlotKeys, ALL_AVAILABLE_SLOT_KEY],
+        '2026-06-01_am',
+        allDateSlotKeys,
+      ),
+      ['2026-06-01_pm'],
+    );
   });
 });
