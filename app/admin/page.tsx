@@ -196,28 +196,11 @@ export default function AdminLogin() {
 
           <div className="mt-6 space-y-3">
             <button
-              onClick={() => router.push('/admin/register')}
-              className="w-full flex justify-center py-2 px-4 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              初回利用の方はアカウント作成
-            </button>
-            <button
               onClick={() => router.push('/')}
               className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               ← ログインコード入力画面に戻る
             </button>
-          </div>
-
-          <div className="mt-6">
-            <div className="text-xs text-gray-500">
-              <p className="mb-2">初回利用時:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>kanazawa-it.ac.jp のメールアドレスでアカウント作成</li>
-                <li>メール認証後、管理者権限が自動付与されます</li>
-                <li>パスワードは安全な場所に保管してください</li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>

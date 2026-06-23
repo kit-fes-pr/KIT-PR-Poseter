@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged, sendPasswordResetEmail, signOut, User } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { DEFAULT_TIME_ZONE, formatDateOnly } from '@/lib/utils/dateUtils';
@@ -38,6 +38,12 @@ export default function AdminEventIndex() {
     distributionStartDate: string;
     distributionEndDate: string;
   }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: '' });
+  const [inviteResult, setInviteResult] = useState<{
+    email: string;
+    operation: 'created' | 'updated';
+  } | null>(null);
   const editingTarget = isEditing ? editTarget : null;
 
   // ログアウト処理
@@ -132,6 +138,12 @@ export default function AdminEventIndex() {
               <h1 className="text-xl font-semibold">学外配布年度管理</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsInviting(true)}
+                className="px-4 py-2 bg-white border border-indigo-300 text-indigo-700 rounded-md text-sm hover:bg-indigo-50"
+              >
+                ユーザー招待
+              </button>
               <button
                 onClick={() => router.push('/admin/event/areas')}
                 className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
@@ -429,6 +441,91 @@ export default function AdminEventIndex() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={isInviting} onClose={() => setIsInviting(false)} panelClassName="max-w-md p-6">
+        <div className="w-full">
+          <h2 className="text-lg font-semibold mb-4">ユーザー招待</h2>
+          <p className="mb-4 text-sm text-gray-600">
+            メールアドレスを入力すると Firebase からパスワード再設定メールを送信します。
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">メールアドレス</label>
+              <input
+                type="email"
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                placeholder="example@sub.kanazawa-it.ac.jp"
+              />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              onClick={() => setIsInviting(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('authToken');
+                  const res = await fetch('/api/admin/invites', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ email: inviteForm.email }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || '招待に失敗しました');
+                  await sendPasswordResetEmail(auth, inviteForm.email);
+                  setInviteResult(data.invite || null);
+                  setIsInviting(false);
+                  setInviteForm({ email: '' });
+                } catch (error: unknown) {
+                  const message = error instanceof Error ? error.message : '招待に失敗しました';
+                  alert(message);
+                }
+              }}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md"
+              disabled={!inviteForm.email}
+            >
+              招待を作成
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(inviteResult)}
+        onClose={() => setInviteResult(null)}
+        panelClassName="max-w-md p-6"
+      >
+        {inviteResult && (
+          <div className="w-full">
+            <h2 className="text-lg font-semibold mb-4">招待を作成しました</h2>
+            <div className="space-y-3 rounded-md bg-gray-50 p-4 text-sm">
+              <p>メールアドレス: {inviteResult.email}</p>
+              <p>操作: {inviteResult.operation === 'created' ? '新規作成' : '更新'}</p>
+              <p className="font-medium text-gray-900">パスワード再設定メールを送信しました。</p>
+            </div>
+            <p className="mt-4 text-xs text-gray-500">
+              受信者はメール内のリンクから初回パスワードを設定してください。
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setInviteResult(null)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal
