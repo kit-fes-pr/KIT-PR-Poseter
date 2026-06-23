@@ -77,6 +77,9 @@ interface CurrentForm {
   formId: string;
   title: string;
   fields: FormField[];
+  isActive?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 interface ResponseRecord {
@@ -208,15 +211,26 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         setDistributionEventId(eventIdForYear);
       }
 
-      const formsRes = await fetch(`/api/forms?eventId=${encodeURIComponent(eventIdForYear)}`, {
+      const formsRes = await fetch(`/api/forms?year=${encodeURIComponent(resolvedParams.year)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const formsData = formsRes.ok ? await formsRes.json() : null;
+      const availableForms = Array.isArray(formsData?.forms)
+        ? (formsData.forms as CurrentForm[])
+        : [];
       const nextForm =
-        Array.isArray(formsData?.forms) && formsData.forms.length > 0
-          ? (formsData.forms[0] as CurrentForm)
-          : null;
+        availableForms.find((form) => form.isActive) ||
+        [...availableForms].sort((a, b) => {
+          const aTime = new Date(
+            (a.updatedAt ?? a.createdAt ?? 0) as string | number | Date,
+          ).getTime();
+          const bTime = new Date(
+            (b.updatedAt ?? b.createdAt ?? 0) as string | number | Date,
+          ).getTime();
+          return bTime - aTime;
+        })[0] ||
+        null;
       if (nextForm) {
         setCurrentForm(nextForm);
         setSelectedForm(nextForm.formId);

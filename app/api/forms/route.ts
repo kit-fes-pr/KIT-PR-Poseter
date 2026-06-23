@@ -7,6 +7,7 @@ import {
   buildFormsCreatePayload,
   normalizeFormsRouteAuthHeader,
   parseFormsListEventId,
+  parseFormsListYear,
 } from '@/lib/utils/forms/forms-route';
 
 export async function GET(request: NextRequest) {
@@ -29,10 +30,14 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
+    const year = parseFormsListYear(searchParams.get('year'));
     const eventId = parseFormsListEventId(searchParams.get('eventId'));
 
     // フォーム一覧を取得（非正規化されたカウンタを使用）
-    const formsSnapshot = await adminDb.collection('forms').where('eventId', '==', eventId).get();
+    const formsSnapshot =
+      year !== null
+        ? await adminDb.collection('forms').where('year', '==', year).get()
+        : await adminDb.collection('forms').where('eventId', '==', eventId).get();
 
     const forms = formsSnapshot.docs.map((doc) => {
       const formData = doc.data() as SurveyForm & { responseCount?: number; lastResponseAt?: any };
