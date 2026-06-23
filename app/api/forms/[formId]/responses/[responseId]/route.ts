@@ -8,6 +8,7 @@ import {
   expandAvailabilitySlotsForStorage,
   filterVisibleFormFieldsForParticipant,
   resolveResponseAvailabilitySlots,
+  validateFormAnswersPayload,
 } from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
 import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
@@ -65,8 +66,9 @@ export async function PATCH(
     }
 
     // 回答データのバリデーション
-    if (!answers || !Array.isArray(answers)) {
-      return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
+    const answersValidation = validateFormAnswersPayload(answers);
+    if (!answersValidation.valid) {
+      return NextResponse.json({ error: answersValidation.error }, { status: 400 });
     }
 
     const gradeValidation = participantData
@@ -225,7 +227,7 @@ export async function PATCH(
     const availabilityDateSlotKeys = getAvailabilityDateSlotKeys(
       (availabilityField?.options || []).map((option) => ({ key: option })),
     );
-    const storedAnswers = filteredAnswers.map((answer) =>
+    const storedAnswers = filteredAnswers.map((answer: FormAnswer) =>
       answer.fieldId === 'availability'
         ? {
             ...answer,

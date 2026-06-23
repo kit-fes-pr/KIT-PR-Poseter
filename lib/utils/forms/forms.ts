@@ -75,6 +75,26 @@ export function resolveResponseAvailabilitySlots(
   return normalizeAvailabilitySlots(participantAvailableSlots);
 }
 
+export function validateFormAnswersPayload(
+  answers: unknown,
+): { valid: true } | { valid: false; error: string } {
+  if (!Array.isArray(answers)) {
+    return { valid: false, error: '回答データが正しくありません' };
+  }
+
+  for (const answer of answers) {
+    if (typeof answer !== 'object' || answer === null || Array.isArray(answer)) {
+      return { valid: false, error: '回答データの形式が正しくありません' };
+    }
+
+    if (typeof (answer as { fieldId?: unknown }).fieldId !== 'string') {
+      return { valid: false, error: '回答データの形式が正しくありません' };
+    }
+  }
+
+  return { valid: true };
+}
+
 export function expandAvailabilitySlotsForStorage(
   values: unknown,
   allDateSlotKeys: string[],

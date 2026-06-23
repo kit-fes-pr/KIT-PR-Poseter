@@ -7,6 +7,7 @@ import {
   resolveResponseAvailabilitySlots,
   serializeDate,
   toMillis,
+  validateFormAnswersPayload,
 } from '../../lib/utils/forms/forms';
 
 describe('forms utils', () => {
@@ -105,5 +106,27 @@ describe('forms utils', () => {
       ),
       ['2026-06-01_am', '2026-06-02_pm'],
     );
+  });
+
+  test('validateFormAnswersPayload rejects invalid answer entries', () => {
+    assert.deepEqual(validateFormAnswersPayload(null), {
+      valid: false,
+      error: '回答データが正しくありません',
+    });
+    assert.deepEqual(validateFormAnswersPayload(['oops']), {
+      valid: false,
+      error: '回答データの形式が正しくありません',
+    });
+    assert.deepEqual(validateFormAnswersPayload([null]), {
+      valid: false,
+      error: '回答データの形式が正しくありません',
+    });
+    assert.deepEqual(validateFormAnswersPayload([{ value: 'ok' }]), {
+      valid: false,
+      error: '回答データの形式が正しくありません',
+    });
+    assert.deepEqual(validateFormAnswersPayload([{ fieldId: 'remarks', value: 'ok' }]), {
+      valid: true,
+    });
   });
 });

@@ -10,6 +10,7 @@ import {
   expandAvailabilitySlotsForStorage,
   filterVisibleFormFieldsForParticipant,
   resolveResponseAvailabilitySlots,
+  validateFormAnswersPayload,
 } from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
 import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
@@ -93,8 +94,9 @@ export async function POST(
     const { answers, participantData, submitterInfo } = await request.json();
 
     // 回答データのバリデーション
-    if (!answers || !Array.isArray(answers)) {
-      return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
+    const answersValidation = validateFormAnswersPayload(answers);
+    if (!answersValidation.valid) {
+      return NextResponse.json({ error: answersValidation.error }, { status: 400 });
     }
 
     // 参加者データのバリデーション
