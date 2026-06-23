@@ -11,6 +11,14 @@ export function parseFormsListEventId(eventIdParam: unknown): string {
     : 'kodai2025';
 }
 
+export function parseFormsListYear(yearParam: unknown): number | null {
+  const parsed = typeof yearParam === 'number' ? yearParam : Number(String(yearParam || '').trim());
+  if (!Number.isInteger(parsed) || parsed < 1000 || parsed > 9999) {
+    return null;
+  }
+  return parsed;
+}
+
 export function buildFormsCreatePayload(
   input: FormCreateData & {
     eventId?: string;

@@ -77,6 +77,9 @@ interface CurrentForm {
   formId: string;
   title: string;
   fields: FormField[];
+  isActive?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 interface ResponseRecord {
@@ -89,6 +92,12 @@ interface ResponseRecord {
   };
   answers?: FormAnswer[];
   submittedAt: string | Date;
+}
+
+function parseDateTimestamp(value: string | Date | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 export default function TeamAssignmentPage({ params }: { params: Promise<{ year: string }> }) {
@@ -104,7 +113,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   const [distributionEventId, setDistributionEventId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [assignmentMode, setAssignmentMode] = useState<'auto' | 'manual'>('auto');
   const [selectedForm, setSelectedForm] = useState<string>('');
   const [selectedFormTitle, setSelectedFormTitle] = useState<string>('');
   const [currentForm, setCurrentForm] = useState<CurrentForm | null>(null);
@@ -208,15 +216,22 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         setDistributionEventId(eventIdForYear);
       }
 
-      const formsRes = await fetch(`/api/forms?eventId=${encodeURIComponent(eventIdForYear)}`, {
+      const formsRes = await fetch(`/api/forms?year=${encodeURIComponent(resolvedParams.year)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const formsData = formsRes.ok ? await formsRes.json() : null;
+      const availableForms = Array.isArray(formsData?.forms)
+        ? (formsData.forms as CurrentForm[])
+        : [];
       const nextForm =
-        Array.isArray(formsData?.forms) && formsData.forms.length > 0
-          ? (formsData.forms[0] as CurrentForm)
-          : null;
+        availableForms.find((form) => form.isActive) ||
+        [...availableForms].sort((a, b) => {
+          const aTime = parseDateTimestamp(a.updatedAt ?? a.createdAt);
+          const bTime = parseDateTimestamp(b.updatedAt ?? b.createdAt);
+          return bTime - aTime;
+        })[0] ||
+        null;
       if (nextForm) {
         setCurrentForm(nextForm);
         setSelectedForm(nextForm.formId);
@@ -840,7 +855,13 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
   const getAssignmentStats = () => {
     const assigned = participants.filter((p) => getAssignmentForParticipant(p.responseId));
-    const unassigned = participants.filter((p) => !getAssignmentForParticipant(p.responseId));
+    const assignableParticipants = participants.filter((p) => {
+      const normalized = normalizeAvailabilitySlots(p.availableSlots);
+      return normalized.length > 0 && !normalized.includes(UNAVAILABLE_SLOT_KEY);
+    });
+    const unassigned = assignableParticipants.filter(
+      (p) => !getAssignmentForParticipant(p.responseId),
+    );
 
     return {
       total: participants.length,
@@ -1067,77 +1088,43 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
               <p className="text-sm font-medium text-gray-700 mb-1">対象フォーム</p>
               <p className="text-sm text-gray-900">{selectedFormTitle || 'フォームが未設定です'}</p>
             </div>
-
-            {/* 割り当てモード */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">割り当てモード</label>
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="auto"
-                    checked={assignmentMode === 'auto'}
-                    onChange={(e) => setAssignmentMode(e.target.value as 'auto' | 'manual')}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">自動割り当て</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="manual"
-                    checked={assignmentMode === 'manual'}
-                    onChange={(e) => setAssignmentMode(e.target.value as 'auto' | 'manual')}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">手動割り当て</span>
-                </label>
-              </div>
-            </div>
           </div>
 
           {/* 自動割り当て実行ボタン */}
-          {assignmentMode === 'auto' && (
-            <div className="mt-6 flex flex-col gap-3">
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              onClick={performAutoAssignment}
+              disabled={!selectedForm || participants.length === 0 || teams.length === 0}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              自動割り当てを実行
+            </button>
+
+            {assignments.length > 0 && (
               <button
-                onClick={performAutoAssignment}
-                disabled={!selectedForm || participants.length === 0 || teams.length === 0}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                onClick={clearAssignments}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                   />
                 </svg>
-                自動割り当てを実行
+                割り当てをクリア
               </button>
-
-              {assignments.length > 0 && (
-                <button
-                  onClick={clearAssignments}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <svg
-                    className="mr-2 h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                  割り当てをクリア
-                </button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* 統計情報 */}
