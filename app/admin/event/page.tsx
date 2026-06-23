@@ -511,7 +511,6 @@ export default function AdminEventIndex() {
             <div className="space-y-3 rounded-md bg-gray-50 p-4 text-sm">
               <p>メールアドレス: {inviteResult.email}</p>
               <p>操作: {inviteResult.operation === 'created' ? '新規作成' : '更新'}</p>
-              <p className="font-medium text-gray-900">パスワード再設定メールを送信しました。</p>
             </div>
             <p className="mt-4 text-xs text-gray-500">
               受信者はメール内のリンクから初回パスワードを設定してください。

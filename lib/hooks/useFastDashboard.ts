@@ -9,15 +9,11 @@ export function preloadDashboard(year: number) {
   if (!token || !year) return;
 
   const minimalKey = `/api/admin/dashboard/${year}/minimal`;
-  const fullKey = `/api/admin/dashboard/${year}`;
   const progressiveKey = `/api/admin/dashboard/${year}/progressive?offset=0&limit=10&includeMembers=true`;
 
-  // バックグラウンドでデータを取得してキャッシュ
+  // バックグラウンドで最小限のデータだけ先に取得
   Promise.allSettled([
     fetch(minimalKey, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => (res.ok ? res.json() : null)),
-    fetch(fullKey, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => (res.ok ? res.json() : null)),
     fetch(progressiveKey, {
@@ -26,14 +22,10 @@ export function preloadDashboard(year: number) {
   ])
     .then((results) => {
       const minimalResult = results[0].status === 'fulfilled' ? results[0].value : null;
-      const fullResult = results[1].status === 'fulfilled' ? results[1].value : null;
-      const progressiveResult = results[2].status === 'fulfilled' ? results[2].value : null;
+      const progressiveResult = results[1].status === 'fulfilled' ? results[1].value : null;
 
       if (minimalResult) {
         swrMutate(minimalKey, minimalResult, false);
-      }
-      if (fullResult) {
-        swrMutate(fullKey, fullResult, false);
       }
       if (minimalResult) {
         const totalTeams = Number(
