@@ -265,7 +265,7 @@ export async function PATCH(
           section: effectiveParticipantData.section,
           grade: gradeNum,
           availableSlots: expandAvailabilitySlotsForStorage(
-            effectiveParticipantData.availableSlots ?? availableSlots,
+            availableSlots,
             availabilityDateSlotKeys,
           ),
         },
