@@ -9,6 +9,7 @@ import {
   buildTeamRouteUpdatePayload,
   normalizeTeamRouteAuthHeader,
 } from '@/lib/utils/team/team-route';
+import { FirestoreCache } from '@/lib/utils/server-cache';
 
 async function loadEventAvailabilitySlots(eventId: string): Promise<string[]> {
   const snap = await adminDb.collection('distributionEvents').doc(eventId).get();
@@ -119,6 +120,12 @@ export async function PATCH(
 
     await ref.update(update);
     const updated = await ref.get();
+
+    const teamYear = doc.data()?.year;
+    if (typeof teamYear === 'number') {
+      FirestoreCache.invalidateYear(teamYear);
+    }
+
     return NextResponse.json({ success: true, team: { teamId: updated.id, ...updated.data() } });
   } catch (error) {
     console.error('チーム更新エラー:', error);
@@ -175,6 +182,11 @@ export async function DELETE(
     batch.delete(ref);
 
     await batch.commit();
+
+    const teamYear = teamData?.year;
+    if (typeof teamYear === 'number') {
+      FirestoreCache.invalidateYear(teamYear);
+    }
 
     return NextResponse.json({ success: true, message: 'チームを削除しました' });
   } catch (error) {

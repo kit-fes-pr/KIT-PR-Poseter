@@ -9,6 +9,7 @@ import {
   parseAssignmentListQuery,
   parseAssignmentMutationPayload,
 } from '@/lib/utils/assignment/assignment-route';
+import { FirestoreCache } from '@/lib/utils/server-cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -101,6 +102,10 @@ export async function POST(request: NextRequest) {
 
     await batch.commit();
 
+    if (manualAssignment.year) {
+      FirestoreCache.invalidateYear(Number(manualAssignment.year));
+    }
+
     return NextResponse.json({ success: true, assignmentId: docRef.id });
   } catch (error) {
     console.error('割り当て作成エラー:', error);
@@ -141,6 +146,10 @@ export async function DELETE(request: NextRequest) {
     });
 
     await batch.commit();
+
+    if (normalizedYear) {
+      FirestoreCache.invalidateYear(normalizedYear);
+    }
 
     return NextResponse.json({
       message: '割り当てが削除されました',

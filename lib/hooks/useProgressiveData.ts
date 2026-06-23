@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { useErrorRecovery } from '@/lib/utils/error-recovery';
 import {
@@ -71,8 +71,13 @@ export function useProgressiveData(year: number | null, enabled = true) {
       hasMore: cached?.hasMore || false,
     };
   });
+  const stateRef = useRef(state);
 
   const { createRobustFetcher } = useErrorRecovery();
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // 1. 最小限データを超高速取得
   const minimalFetcher = createRobustFetcher(async (url: string) => {
@@ -105,36 +110,38 @@ export function useProgressiveData(year: number | null, enabled = true) {
       revalidateOnReconnect: false,
       dedupingInterval: 30000,
       onSuccess: (data) => {
-        setState((prev) => ({
+        const nextTotalTeams = (data as Record<string, unknown>)?.stats
+          ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
+              ?.totalTeams as number) || 0
+          : 0;
+        const prev = stateRef.current;
+        // 前回の期待総数と今回の総数が異なる場合のみ、
+        // 追加・削除が起きたとみなしてキャッシュをリセットする
+        const countMismatch = prev.totalExpected > 0 && prev.totalExpected !== nextTotalTeams;
+        const currentCache = year ? readDashboardCache(year) : null;
+        const nextState: ProgressiveDataState = {
           ...prev,
           minimalData: data as ProgressiveDataState['minimalData'],
           isLoadingMinimal: false,
-          totalExpected: (data as Record<string, unknown>)?.stats
-            ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                ?.totalTeams as number) || 0
-            : 0,
-          hasMore:
-            ((data as Record<string, unknown>)?.stats
-              ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                  ?.totalTeams as number) || 0
-              : 0) > 0,
-        }));
+          progressiveTeams: countMismatch ? [] : prev.progressiveTeams,
+          loadingProgress: countMismatch ? 0 : prev.loadingProgress,
+          totalExpected: nextTotalTeams,
+          hasMore: nextTotalTeams > 0,
+        };
+
+        setState(nextState);
 
         if (year) {
-          const current = readDashboardCache(year);
           writeDashboardCache(year, {
-            minimalData: data as ProgressiveDataState['minimalData'],
-            progressiveTeams: current?.progressiveTeams || [],
-            loadingProgress: current?.loadingProgress || 0,
-            totalExpected: (data as Record<string, unknown>)?.stats
-              ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                  ?.totalTeams as number) || 0
-              : 0,
-            hasMore:
-              ((data as Record<string, unknown>)?.stats
-                ? (((data as Record<string, unknown>)?.stats as Record<string, unknown>)
-                    ?.totalTeams as number) || 0
-                : 0) > 0,
+            minimalData: nextState.minimalData,
+            progressiveTeams: countMismatch
+              ? []
+              : currentCache?.progressiveTeams || prev.progressiveTeams,
+            loadingProgress: countMismatch
+              ? 0
+              : currentCache?.loadingProgress || prev.loadingProgress,
+            totalExpected: nextTotalTeams,
+            hasMore: nextTotalTeams > 0,
           });
         }
       },

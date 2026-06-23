@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { ServerCache } from '@/lib/utils/server-cache';
 import {
   buildAreaRouteUpdateData,
   hasRequiredAreaPayload,
@@ -126,6 +127,9 @@ export async function PUT(
       }
     }
 
+    ServerCache.delete('firestore:areas:global:count');
+    ServerCache.deletePattern('firestore:dashboard:*');
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('配布区域更新エラー:', error);
@@ -159,19 +163,28 @@ export async function DELETE(
 
     const currentArea = areaDoc.data() as Record<string, unknown>;
     const [linkedByAreaId, linkedByAssignedArea] = await Promise.all([
-      adminDb.collection('teams').where('areaId', '==', areaId).limit(1).get(),
+      adminDb.collection('teams').where('areaId', '==', areaId).get(),
       currentArea.areaCode
         ? adminDb
             .collection('teams')
             .where('assignedArea', '==', String(currentArea.areaCode))
-            .limit(1)
             .get()
         : Promise.resolve(null),
     ]);
+
+    const hasActiveTeamByAreaId = linkedByAreaId.docs.some(
+      (doc) => (doc.data() as Record<string, unknown>).isActive !== false,
+    );
+    const hasActiveTeamByAssignedArea = linkedByAssignedArea
+      ? linkedByAssignedArea.docs.some(
+          (doc) => (doc.data() as Record<string, unknown>).isActive !== false,
+        )
+      : false;
+
     if (
       shouldBlockAreaDeletion({
-        linkedByAreaIdExists: !linkedByAreaId.empty,
-        linkedByAssignedAreaExists: linkedByAssignedArea ? !linkedByAssignedArea.empty : false,
+        linkedByAreaIdExists: hasActiveTeamByAreaId,
+        linkedByAssignedAreaExists: hasActiveTeamByAssignedArea,
       })
     ) {
       return NextResponse.json(
@@ -180,6 +193,9 @@ export async function DELETE(
       );
     }
     await areaRef.delete();
+
+    ServerCache.delete('firestore:areas:global:count');
+    ServerCache.deletePattern('firestore:dashboard:*');
 
     return NextResponse.json({ success: true });
   } catch (error) {
