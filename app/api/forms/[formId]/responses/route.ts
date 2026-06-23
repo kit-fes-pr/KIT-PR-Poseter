@@ -5,7 +5,14 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
-import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import { getAvailabilityDateSlotKeys } from '@/lib/utils/availability/availability';
+import {
+  expandAvailabilitySlotsForStorage,
+  filterVisibleFormFieldsForParticipant,
+  prepareAnswersForStorage,
+  resolveResponseAvailabilitySlots,
+  validateFormAnswersPayload,
+} from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
 import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
@@ -88,11 +95,16 @@ export async function POST(
     const { answers, participantData, submitterInfo } = await request.json();
 
     // 回答データのバリデーション
-    if (!answers || !Array.isArray(answers)) {
-      return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
+    const answersValidation = validateFormAnswersPayload(answers);
+    if (!answersValidation.valid) {
+      return NextResponse.json({ error: answersValidation.error }, { status: 400 });
     }
 
     // 参加者データのバリデーション
+    let participantGradeNum = 0;
+    const availableSlots = participantData
+      ? resolveResponseAvailabilitySlots(answers, participantData.availableSlots)
+      : [];
     if (participantData) {
       const participantValidationErrors: string[] = [];
 
@@ -117,11 +129,8 @@ export async function POST(
         section: participantData.section,
       });
       participantValidationErrors.push(...gradeValidation.errors);
+      participantGradeNum = gradeValidation.gradeNum || 0;
 
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -140,8 +149,14 @@ export async function POST(
 
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
+    const visibleFields = filterVisibleFormFieldsForParticipant(
+      formData.fields,
+      participantGradeNum,
+      availableSlots,
+    );
+    const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
-    for (const field of formData.fields) {
+    for (const field of visibleFields) {
       const answer = answers.find((a: FormAnswer) => a.fieldId === field.fieldId);
 
       // 必須フィールドのチェック
@@ -232,6 +247,16 @@ export async function POST(
       );
     }
 
+    const availabilityField = formData.fields.find((field) => field.fieldId === 'availability');
+    const availabilityDateSlotKeys = getAvailabilityDateSlotKeys(
+      (availabilityField?.options || []).map((option) => ({ key: option })),
+    );
+    const storedAnswers = prepareAnswersForStorage(
+      answers,
+      visibleFieldIds,
+      availabilityDateSlotKeys,
+    );
+
     // 回答データを保存
     const editToken = randomUUID();
     const now = new Date();
@@ -242,10 +267,6 @@ export async function POST(
         grade: participantData.grade,
         section: participantData.section,
       });
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(
@@ -255,12 +276,15 @@ export async function POST(
       }
       responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: storedAnswers,
         participantData: {
           name: participantData.name,
           section: participantData.section,
           grade: gradeValidation.gradeNum,
-          availableSlots,
+          availableSlots: expandAvailabilitySlotsForStorage(
+            availableSlots,
+            availabilityDateSlotKeys,
+          ),
         },
         submitterInfo: submitterInfo || {},
         editToken,
@@ -269,7 +293,7 @@ export async function POST(
     } else {
       responseData = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: storedAnswers,
         submitterInfo: submitterInfo || {},
         editToken,
         now,

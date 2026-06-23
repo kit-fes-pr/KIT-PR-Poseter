@@ -53,7 +53,24 @@ describe('forms api utils', () => {
           required: true,
           options: ['A', 'B'],
           validation: {},
+          visibleFromGrade: 2,
           order: 0,
+        },
+        {
+          type: 'radio',
+          label: '車の運転ができますか',
+          required: true,
+          options: ['運転できる', '免許はあるが運転しない', '免許を持っていない'],
+          validation: {},
+          visibleFromGrade: 3,
+          order: 1,
+        },
+        {
+          type: 'textarea',
+          label: '備考',
+          required: false,
+          validation: {},
+          order: 2,
         },
       ],
       eventId: '',
@@ -68,6 +85,10 @@ describe('forms api utils', () => {
     assert.equal(create.data.description, '説明');
     assert.equal(create.data.responseCount, 0);
     assert.equal(create.data.fields[0].fieldId, 'availability');
+    assert.equal(create.data.fields[0].visibleFromGrade, 2);
+    assert.equal(create.data.fields[1].fieldId, 'carUsage');
+    assert.equal(create.data.fields[1].visibleFromGrade, 3);
+    assert.equal(create.data.fields[2].fieldId, 'remarks');
 
     const update = buildFormUpdateRecord({
       title: ' 更新後 ',
@@ -81,7 +102,26 @@ describe('forms api utils', () => {
           required: true,
           options: ['A', 'B'],
           validation: {},
+          visibleFromGrade: 2,
           order: 0,
+        },
+        {
+          fieldId: 'carUsage',
+          type: 'radio',
+          label: '車の運転ができますか',
+          required: true,
+          options: ['運転できる', '免許はあるが運転しない', '免許を持っていない'],
+          validation: {},
+          visibleFromGrade: 3,
+          order: 1,
+        },
+        {
+          fieldId: 'remarks',
+          type: 'textarea',
+          label: '備考',
+          required: false,
+          validation: {},
+          order: 2,
         },
       ],
       updatedAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -95,6 +135,12 @@ describe('forms api utils', () => {
       (update.updateFields.fields as Array<{ fieldId: string }>)[0].fieldId,
       'availability',
     );
+    assert.equal(
+      (update.updateFields.fields as Array<{ visibleFromGrade?: number }>)[0].visibleFromGrade,
+      2,
+    );
+    assert.equal((update.updateFields.fields as Array<{ fieldId: string }>)[1].fieldId, 'carUsage');
+    assert.equal((update.updateFields.fields as Array<{ fieldId: string }>)[2].fieldId, 'remarks');
   });
 
   test('buildFormResponseRecord normalizes response payloads', () => {

@@ -1,4 +1,10 @@
-import { normalizeAvailabilitySlots } from '../availability/availability';
+import {
+  ALL_AVAILABLE_SLOT_KEY,
+  UNAVAILABLE_SLOT_KEY,
+  normalizeAvailabilitySlots,
+} from '../availability/availability';
+import { normalizeGrade } from '../grade/grade';
+import type { FormAnswer } from '@/types/forms';
 import { serializeDateTimeValue as serializeDate } from '../dateUtils';
 
 export { serializeDate };
@@ -62,10 +68,109 @@ export function resolveResponseAvailabilitySlots(
   answers: Array<{ fieldId: string; value: unknown }>,
   participantAvailableSlots: unknown,
 ): string[] {
-  const availabilityAnswer = answers.find((answer) => answer.fieldId === 'availability');
+  const availabilityAnswer = answers.find(
+    (answer: { fieldId: string; value: unknown }) => answer.fieldId === 'availability',
+  );
   if (availabilityAnswer) {
     return normalizeAvailabilitySlots(availabilityAnswer.value);
   }
 
   return normalizeAvailabilitySlots(participantAvailableSlots);
+}
+
+export function validateFormAnswersPayload(
+  answers: unknown,
+): { valid: true } | { valid: false; error: string } {
+  if (!Array.isArray(answers)) {
+    return { valid: false, error: '回答データが正しくありません' };
+  }
+
+  for (const answer of answers) {
+    if (typeof answer !== 'object' || answer === null || Array.isArray(answer)) {
+      return { valid: false, error: '回答データの形式が正しくありません' };
+    }
+
+    if (typeof (answer as { fieldId?: unknown }).fieldId !== 'string') {
+      return { valid: false, error: '回答データの形式が正しくありません' };
+    }
+  }
+
+  return { valid: true };
+}
+
+export function expandAvailabilitySlotsForStorage(
+  values: unknown,
+  allDateSlotKeys: string[],
+): string[] {
+  const normalized = normalizeAvailabilitySlots(values);
+  if (normalized.includes(ALL_AVAILABLE_SLOT_KEY)) {
+    return allDateSlotKeys;
+  }
+
+  return normalized;
+}
+
+export function prepareAnswersForStorage(
+  answers: FormAnswer[],
+  visibleFieldIds: Set<string>,
+  availabilityDateSlotKeys: string[],
+): FormAnswer[] {
+  const filteredAnswers = answers.filter((answer: FormAnswer) =>
+    visibleFieldIds.has(answer.fieldId),
+  );
+  return filteredAnswers.map((answer: FormAnswer) =>
+    answer.fieldId === 'availability'
+      ? {
+          ...answer,
+          value: expandAvailabilitySlotsForStorage(answer.value, availabilityDateSlotKeys),
+        }
+      : answer,
+  );
+}
+
+export function isFormFieldVisibleForGrade(
+  field: { visibleFromGrade?: number },
+  participantGrade: unknown,
+): boolean {
+  if (field.visibleFromGrade == null) return true;
+
+  const minGrade = normalizeGrade(field.visibleFromGrade);
+  if (minGrade <= 0) return false;
+
+  const grade = normalizeGrade(participantGrade);
+  if (grade <= 0) return false;
+
+  return grade >= minGrade;
+}
+
+export function isFormFieldVisibleForParticipant(
+  field: { fieldId: string; visibleFromGrade?: number },
+  participantGrade: unknown,
+  availabilityValue: unknown,
+): boolean {
+  if (!isFormFieldVisibleForGrade(field, participantGrade)) {
+    return false;
+  }
+
+  if (field.fieldId !== 'carUsage') {
+    return true;
+  }
+
+  const selectedAvailability = normalizeAvailabilitySlots(availabilityValue);
+  return !selectedAvailability.includes(UNAVAILABLE_SLOT_KEY);
+}
+
+export function filterVisibleFormFieldsForParticipant<
+  T extends { fieldId: string; visibleFromGrade?: number },
+>(fields: T[], participantGrade: unknown, availabilityValue: unknown): T[] {
+  return fields.filter((field) =>
+    isFormFieldVisibleForParticipant(field, participantGrade, availabilityValue),
+  );
+}
+
+export function filterVisibleFormFields<T extends { visibleFromGrade?: number }>(
+  fields: T[],
+  participantGrade: unknown,
+): T[] {
+  return fields.filter((field) => isFormFieldVisibleForGrade(field, participantGrade));
 }

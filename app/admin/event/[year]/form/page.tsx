@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -21,6 +21,7 @@ import {
   ALL_AVAILABLE_SLOT_KEY,
 } from '@/lib/utils/availability/availability';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
+import { filterVisibleFormFieldsForParticipant } from '@/lib/utils/forms/forms';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
 
@@ -86,12 +87,21 @@ function buildFixedFields(availabilityOptions: string[]): FormField[] {
       order: 0,
     },
     {
+      fieldId: 'carUsage',
+      type: 'radio',
+      label: '車の運転ができますか',
+      placeholder: '車の運転可否を選択してください',
+      required: true,
+      options: ['運転できる', '免許はあるが運転しない', '免許を持っていない'],
+      order: 1,
+    },
+    {
       fieldId: 'remarks',
       type: 'textarea',
       label: '備考',
       placeholder: 'その他連絡事項があればご記入ください',
       required: false,
-      order: 1,
+      order: 2,
     },
   ];
 }
@@ -116,6 +126,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const [draftTitle, setDraftTitle] = useState(DEFAULT_TITLE);
   const [draftDescription, setDraftDescription] = useState(DEFAULT_DESCRIPTION);
   const [draftIsActive, setDraftIsActive] = useState(true);
+  const [carUsageVisibleFromGrade, setCarUsageVisibleFromGrade] = useState('1');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [editingResponse, setEditingResponse] = useState<
     (FormResponse | ParticipantSurveyResponse) | null
@@ -166,11 +177,18 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       setDraftTitle(currentForm.title);
       setDraftDescription(currentForm.description || '');
       setDraftIsActive(currentForm.isActive);
+      const carUsageField = currentForm.fields.find((field) => field.fieldId === 'carUsage');
+      setCarUsageVisibleFromGrade(
+        carUsageField?.visibleFromGrade === undefined
+          ? '1'
+          : String(normalizeGrade(carUsageField.visibleFromGrade)),
+      );
       hasLoadedFormRef.current = true;
     } else {
       setDraftTitle(DEFAULT_TITLE);
       setDraftDescription(DEFAULT_DESCRIPTION);
       setDraftIsActive(true);
+      setCarUsageVisibleFromGrade('1');
       hasLoadedFormRef.current = true;
     }
   }, [currentForm]);
@@ -275,6 +293,11 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         return;
       }
 
+      const visibleFromGrade = Math.min(
+        4,
+        Math.max(0, Number.parseInt(carUsageVisibleFromGrade, 10) || 0),
+      );
+
       const token = await user.getIdToken();
       const res = await fetch('/api/forms', {
         method: 'POST',
@@ -285,7 +308,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         body: JSON.stringify({
           title: draftTitle.trim(),
           description: draftDescription.trim(),
-          fields: buildFixedFields(availabilityOptions),
+          fields: buildFixedFields(availabilityOptions).map((field) =>
+            field.fieldId === 'carUsage' ? { ...field, visibleFromGrade } : field,
+          ),
           eventId: `kodai${resolvedParams.year}`,
           year: Number(resolvedParams.year),
         }),
@@ -309,61 +334,80 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     }
   };
 
-  const persistFormSettings = async (silent = false) => {
-    if (!resolvedParams || !user || !currentForm) return;
+  const persistFormSettings = useCallback(
+    async (silent = false) => {
+      if (!resolvedParams || !user || !currentForm) return;
 
-    try {
-      setSaving(true);
-      if (!silent) {
-        setError('');
-      }
-      setSaveStatus('saving');
+      try {
+        setSaving(true);
+        if (!silent) {
+          setError('');
+        }
+        setSaveStatus('saving');
 
-      if (!draftTitle.trim()) {
-        setError('フォームタイトルを入力してください');
-        return;
-      }
+        if (!draftTitle.trim()) {
+          setError('フォームタイトルを入力してください');
+          return;
+        }
 
-      const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
-      if (availabilityOptions.length === 0) {
-        setError('参加可能日時を一つ以上選択してください');
-        return;
-      }
+        const availabilityOptions = allAvailabilityChoices.map((choice) => choice.key);
+        if (availabilityOptions.length === 0) {
+          setError('参加可能日時を一つ以上選択してください');
+          return;
+        }
 
-      const token = await user.getIdToken();
-      const res = await fetch(`/api/forms/${currentForm.formId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: draftTitle.trim(),
-          description: draftDescription.trim(),
-          isActive: draftIsActive,
-          fields: buildFixedFields(availabilityOptions),
-        }),
-      });
+        const visibleFromGrade = Math.min(
+          4,
+          Math.max(0, Number.parseInt(carUsageVisibleFromGrade, 10) || 0),
+        );
 
-      const data = await res.json().catch(() => null);
+        const token = await user.getIdToken();
+        const res = await fetch(`/api/forms/${currentForm.formId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: draftTitle.trim(),
+            description: draftDescription.trim(),
+            isActive: draftIsActive,
+            fields: buildFixedFields(availabilityOptions).map((field) =>
+              field.fieldId === 'carUsage' ? { ...field, visibleFromGrade } : field,
+            ),
+          }),
+        });
 
-      if (!res.ok) {
-        setError(data?.error || 'フォームの更新に失敗しました');
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          setError(data?.error || 'フォームの更新に失敗しました');
+          setSaveStatus('error');
+          return;
+        }
+
+        const nextForm = data.form as FormRecord;
+        setForms([nextForm]);
+        setSaveStatus('saved');
+      } catch (err) {
+        console.error(err);
+        setError('フォームの更新に失敗しました');
         setSaveStatus('error');
-        return;
+      } finally {
+        setSaving(false);
       }
-
-      const nextForm = data.form as FormRecord;
-      setForms([nextForm]);
-      setSaveStatus('saved');
-    } catch (err) {
-      console.error(err);
-      setError('フォームの更新に失敗しました');
-      setSaveStatus('error');
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+    [
+      allAvailabilityChoices,
+      carUsageVisibleFromGrade,
+      currentForm,
+      draftDescription,
+      draftIsActive,
+      draftTitle,
+      resolvedParams,
+      user,
+    ],
+  );
 
   useEffect(() => {
     if (!currentForm || !hasLoadedFormRef.current) return;
@@ -380,8 +424,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         clearTimeout(autosaveTimerRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftTitle, draftDescription, draftIsActive, currentForm?.formId]);
+  }, [currentForm, persistFormSettings]);
 
   const openEditModal = (response: FormResponse | ParticipantSurveyResponse) => {
     setEditingResponse(response);
@@ -797,6 +840,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                 draftDescription={draftDescription}
                 onDraftTitleChange={setDraftTitle}
                 onDraftDescriptionChange={setDraftDescription}
+                carUsageVisibleFromGrade={carUsageVisibleFromGrade}
+                onCarUsageVisibleFromGradeChange={setCarUsageVisibleFromGrade}
                 previewFields={buildFixedFields(allAvailabilityChoices.map((choice) => choice.key))}
                 availabilityChoices={allAvailabilityChoices.map((choice) => choice.key)}
               />
@@ -904,6 +949,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                 draftDescription={draftDescription}
                 onDraftTitleChange={setDraftTitle}
                 onDraftDescriptionChange={setDraftDescription}
+                carUsageVisibleFromGrade={carUsageVisibleFromGrade}
+                onCarUsageVisibleFromGradeChange={setCarUsageVisibleFromGrade}
                 previewFields={currentForm.fields}
                 availabilityChoices={allAvailabilityChoices.map((choice) => choice.key)}
               />
@@ -950,16 +997,25 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           submitting={editSaving}
           maxWidthClassName="max-w-4xl"
         >
-          {currentForm.fields.map((field) => (
-            <div key={field.fieldId} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
+          {filterVisibleFormFieldsForParticipant(
+            currentForm.fields,
+            normalizeGrade(editFormData.participantGrade),
+            editFormData.availability,
+          )
+            .sort((a, b) => a.order - b.order)
+            .map((field) => (
+              <div
+                key={field.fieldId}
+                className="rounded-2xl border border-gray-200 bg-gray-50 p-5"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">{field.label}</h3>
+                  </div>
                 </div>
+                {renderEditableField(field)}
               </div>
-              {renderEditableField(field)}
-            </div>
-          ))}
+            ))}
         </ResponseEditModal>
       )}
     </div>

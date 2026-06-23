@@ -17,6 +17,7 @@ import {
   toggleAvailabilitySelection,
 } from '@/lib/utils/availability/availability';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
+import { filterVisibleFormFieldsForParticipant } from '@/lib/utils/forms/forms';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { MetricCard } from '@/components/ui/MetricCard';
@@ -60,6 +61,7 @@ interface FormField {
   label: string;
   placeholder?: string;
   required: boolean;
+  visibleFromGrade?: number;
   options?: string[];
   validation?: {
     minLength?: number;
@@ -288,7 +290,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       return;
     }
 
-    const availability = normalizeAvailabilitySlots(responseEditValues.availability);
+    const availability = normalizeAvailabilitySlots(responseEditValues?.availability);
     if (availability.length === 0) {
       setError('参加可能日時は一つ以上選択してください');
       return;
@@ -316,9 +318,9 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
         body: JSON.stringify({
           answers,
           participantData: {
-            name: String(responseEditValues.participantName || ''),
-            grade: String(responseEditValues.participantGrade || ''),
-            section: String(responseEditValues.participantSection || ''),
+            name: String(responseEditValues?.participantName || ''),
+            grade: String(responseEditValues?.participantGrade || ''),
+            section: String(responseEditValues?.participantSection || ''),
             availableSlots: availability,
           },
         }),
@@ -1220,132 +1222,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           </div>
         )}
 
-        {/* デバッグ情報 */}
-        <SectionCard
-          title="デバッグ確認"
-          description="配布枠、チーム、参加者の可用性を同じ画面で確認できます。"
-          actions={
-            <button
-              type="button"
-              onClick={() => setShowDebugInfo((prev) => !prev)}
-              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {showDebugInfo ? '閉じる' : '開く'}
-            </button>
-          }
-          className="mb-6"
-        >
-          {showDebugInfo && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <MetricCard label="イベント配布枠" value={`${distributionSlots.length}件`} />
-                <MetricCard
-                  label="枠一致チーム"
-                  value={`${matchingTeams.length}件 / ${teams.length}件`}
-                />
-                <MetricCard
-                  label="参加可能者"
-                  value={`${availableParticipants.length}人 / ${participants.length}人`}
-                />
-                <MetricCard label="全日可能" value={`${participantsWithAllAvailable.length}人`} />
-              </div>
-
-              {lastAutoAssignmentStats && (
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
-                  <p className="text-sm font-medium text-indigo-900">直近の自動割り当て結果</p>
-                  <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-indigo-900 md:grid-cols-3">
-                    <div>割り当て: {lastAutoAssignmentStats.assigned}件</div>
-                    <div>未割り当て: {lastAutoAssignmentStats.unassigned}人</div>
-                    <div>参加不可: {lastAutoAssignmentStats.skippedUnavailable}人</div>
-                    <div>不一致: {lastAutoAssignmentStats.skippedNoMatchingTeam}人</div>
-                    <div>定員超過: {lastAutoAssignmentStats.skippedFull}人</div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h3 className="text-sm font-medium text-gray-900">配布枠キー</h3>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {distributionSlots.length > 0 ? (
-                      distributionSlots.map((slot) => (
-                        <span
-                          key={slot}
-                          className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
-                        >
-                          {formatAvailabilitySlotLabel(slot)}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-500">未設定</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h3 className="text-sm font-medium text-gray-900">チーム枠</h3>
-                  <div className="mt-2 space-y-2">
-                    {teams.length > 0 ? (
-                      teams.slice(0, 12).map((team) => (
-                        <div
-                          key={team.teamId}
-                          className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm"
-                        >
-                          <span className="font-medium text-gray-900">
-                            {team.teamName || team.teamCode}
-                          </span>
-                          <span
-                            className={
-                              distributionSlots.includes(team.timeSlot)
-                                ? 'text-emerald-600'
-                                : 'text-rose-600'
-                            }
-                          >
-                            {formatAvailabilitySlotLabel(team.timeSlot)}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-500">チーム未作成</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-medium text-gray-900">参加者の availableSlots</h3>
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">氏名</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">学年</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">
-                          希望時間帯
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {participants.slice(0, 12).map((participant) => (
-                        <tr key={participant.responseId}>
-                          <td className="px-3 py-2 text-gray-900">{participant.name}</td>
-                          <td className="px-3 py-2 text-gray-700">{participant.grade}年</td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {getAvailabilityLabel(participant.availableSlots)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {participants.length > 12 && (
-                  <p className="mt-2 text-xs text-gray-500">先頭12件のみ表示しています。</p>
-                )}
-              </div>
-            </div>
-          )}
-        </SectionCard>
-
         {/* 参加者一覧と割り当て結果 */}
         {participants.length > 0 && (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
@@ -1766,7 +1642,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           お名前 *
                         </label>
                         <input
-                          value={String(responseEditValues.participantName || '')}
+                          value={String(responseEditValues?.participantName || '')}
                           onChange={(e) =>
                             setResponseEditValues((current) => ({
                               ...current,
@@ -1781,7 +1657,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           学年 *
                         </label>
                         <select
-                          value={String(responseEditValues.participantGrade || '')}
+                          value={String(responseEditValues?.participantGrade || '')}
                           onChange={(e) =>
                             setResponseEditValues((current) => ({
                               ...current,
@@ -1802,7 +1678,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                           所属セクション *
                         </label>
                         <input
-                          value={String(responseEditValues.participantSection || '')}
+                          value={String(responseEditValues?.participantSection || '')}
                           onChange={(e) =>
                             setResponseEditValues((current) => ({
                               ...current,
@@ -1814,7 +1690,11 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
                       </div>
                     </div>
 
-                    {currentForm.fields
+                    {filterVisibleFormFieldsForParticipant(
+                      currentForm.fields,
+                      normalizeGrade(responseEditValues?.participantGrade),
+                      responseEditValues?.availability,
+                    )
                       .slice()
                       .sort((a, b) => a.order - b.order)
                       .map((field) => renderResponseEditField(field))}

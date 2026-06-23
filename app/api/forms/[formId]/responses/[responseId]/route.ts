@@ -3,7 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { FormAnswer, SurveyForm } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
-import { resolveResponseAvailabilitySlots } from '@/lib/utils/forms/forms';
+import { getAvailabilityDateSlotKeys } from '@/lib/utils/availability/availability';
+import {
+  expandAvailabilitySlotsForStorage,
+  filterVisibleFormFieldsForParticipant,
+  prepareAnswersForStorage,
+  resolveResponseAvailabilitySlots,
+  validateFormAnswersPayload,
+} from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
 import { buildResponsesParticipantGradeValidation } from '@/lib/utils/grade/grade-route';
 
@@ -52,6 +59,17 @@ export async function PATCH(
     }
 
     const responseData = responseDoc.data() as Record<string, unknown>;
+    const existingParticipantData = responseData.participantData as
+      | {
+          name: string;
+          section: string;
+          grade: number;
+          availableSlots?: string[];
+        }
+      | undefined;
+    const effectiveParticipantData = participantData
+      ? { ...existingParticipantData, ...participantData }
+      : existingParticipantData;
     const editToken = typeof body.editToken === 'string' ? body.editToken : '';
     if (!isAdmin) {
       if (!editToken || editToken !== responseData.editToken) {
@@ -60,34 +78,44 @@ export async function PATCH(
     }
 
     // 回答データのバリデーション
-    if (!answers || !Array.isArray(answers)) {
-      return NextResponse.json({ error: '回答データが正しくありません' }, { status: 400 });
+    const answersValidation = validateFormAnswersPayload(answers);
+    if (!answersValidation.valid) {
+      return NextResponse.json({ error: answersValidation.error }, { status: 400 });
     }
 
-    const gradeValidation = participantData
+    const gradeValidation = effectiveParticipantData
       ? buildResponsesParticipantGradeValidation({
-          grade: participantData.grade,
-          section: participantData.section,
+          grade: effectiveParticipantData.grade,
+          section: effectiveParticipantData.section,
         })
       : null;
     const gradeNum = gradeValidation?.gradeNum || 0;
+    const availableSlots = effectiveParticipantData
+      ? resolveResponseAvailabilitySlots(answers, effectiveParticipantData.availableSlots)
+      : [];
+    const visibleFields = filterVisibleFormFieldsForParticipant(
+      formData.fields,
+      gradeNum,
+      availableSlots,
+    );
+    const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
     // 参加者データのバリデーション
-    if (participantData) {
+    if (effectiveParticipantData) {
       const participantValidationErrors: string[] = [];
 
       if (
-        !participantData.name ||
-        typeof participantData.name !== 'string' ||
-        participantData.name.trim() === ''
+        !effectiveParticipantData.name ||
+        typeof effectiveParticipantData.name !== 'string' ||
+        effectiveParticipantData.name.trim() === ''
       ) {
         participantValidationErrors.push('お名前は必須です');
       }
 
       if (
-        !participantData.section ||
-        typeof participantData.section !== 'string' ||
-        participantData.section.trim() === ''
+        !effectiveParticipantData.section ||
+        typeof effectiveParticipantData.section !== 'string' ||
+        effectiveParticipantData.section.trim() === ''
       ) {
         participantValidationErrors.push('所属セクションは必須です');
       }
@@ -96,10 +124,6 @@ export async function PATCH(
         participantValidationErrors.push(...gradeValidation.errors);
       }
 
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -119,7 +143,7 @@ export async function PATCH(
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
 
-    for (const field of formData.fields) {
+    for (const field of visibleFields) {
       const answer = answers.find((a: FormAnswer) => a.fieldId === field.fieldId);
 
       // 必須フィールドのチェック
@@ -210,17 +234,23 @@ export async function PATCH(
       );
     }
 
+    const availabilityField = formData.fields.find((field) => field.fieldId === 'availability');
+    const availabilityDateSlotKeys = getAvailabilityDateSlotKeys(
+      (availabilityField?.options || []).map((option) => ({ key: option })),
+    );
+    const storedAnswers = prepareAnswersForStorage(
+      answers,
+      visibleFieldIds,
+      availabilityDateSlotKeys,
+    );
+
     // 回答データを更新
     const now = new Date();
 
     // 更新データを構築
     let updateData: { [key: string]: any };
 
-    if (participantData) {
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
+    if (effectiveParticipantData) {
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(
@@ -231,12 +261,15 @@ export async function PATCH(
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: storedAnswers,
         participantData: {
-          name: participantData.name,
-          section: participantData.section,
+          name: effectiveParticipantData.name,
+          section: effectiveParticipantData.section,
           grade: gradeNum,
-          availableSlots,
+          availableSlots: expandAvailabilitySlotsForStorage(
+            availableSlots,
+            availabilityDateSlotKeys,
+          ),
         },
         editToken: responseData.editToken as string,
         now,
@@ -249,7 +282,7 @@ export async function PATCH(
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { submittedAt, submitterInfo, ...rest } = buildFormResponseRecord({
         formId: resolvedParams.formId,
-        answers,
+        answers: storedAnswers,
         editToken: responseData.editToken as string,
         now,
       });

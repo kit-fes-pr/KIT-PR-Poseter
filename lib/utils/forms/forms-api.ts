@@ -10,6 +10,13 @@ import { normalizeFormEventContext } from './forms';
 import { serializeDate } from './forms';
 import { normalizeGrade } from '../grade/grade';
 
+function resolveFixedFieldId(index: number): string {
+  if (index === 0) return 'availability';
+  if (index === 1) return 'carUsage';
+  if (index === 2) return 'remarks';
+  return `field_${index + 1}`;
+}
+
 export function normalizeFormAuthHeader(authHeader: string | null): string | null {
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.split('Bearer ')[1]?.trim();
@@ -79,7 +86,7 @@ export function buildFormCreateRecord(input: {
       year: normalizedEventContext.year,
       fields: input.fields.map((field, index) => ({
         ...field,
-        fieldId: index === 0 ? 'availability' : 'remarks',
+        fieldId: resolveFixedFieldId(index),
         label: field.label.trim(),
         order: index,
       })),
@@ -124,7 +131,7 @@ export function buildFormUpdateRecord(input: {
     }
     updateFields.fields = input.fields.map((field, index) => ({
       ...field,
-      fieldId: field.fieldId || `field_${index + 1}`,
+      fieldId: field.fieldId || resolveFixedFieldId(index),
       order: index,
     }));
   }
