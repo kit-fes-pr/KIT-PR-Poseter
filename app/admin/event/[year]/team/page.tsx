@@ -549,8 +549,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
     );
   };
 
-  const responseEditGrade = normalizeGrade(responseEditValues.participantGrade);
-
   const loadTeams = async () => {
     if (!resolvedParams || !user) return;
 
@@ -1224,131 +1222,212 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
           </div>
         )}
 
-        {/* デバッグ情報 */}
-        <SectionCard
-          title="デバッグ確認"
-          description="配布枠、チーム、参加者の可用性を同じ画面で確認できます。"
-          actions={
-            <button
-              type="button"
-              onClick={() => setShowDebugInfo((prev) => !prev)}
-              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {showDebugInfo ? '閉じる' : '開く'}
-            </button>
-          }
-          className="mb-6"
-        >
-          {showDebugInfo && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <MetricCard label="イベント配布枠" value={`${distributionSlots.length}件`} />
-                <MetricCard
-                  label="枠一致チーム"
-                  value={`${matchingTeams.length}件 / ${teams.length}件`}
-                />
-                <MetricCard
-                  label="参加可能者"
-                  value={`${availableParticipants.length}人 / ${participants.length}人`}
-                />
-                <MetricCard label="全日可能" value={`${participantsWithAllAvailable.length}人`} />
-              </div>
-
-              {lastAutoAssignmentStats && (
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
-                  <p className="text-sm font-medium text-indigo-900">直近の自動割り当て結果</p>
-                  <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-indigo-900 md:grid-cols-3">
-                    <div>割り当て: {lastAutoAssignmentStats.assigned}件</div>
-                    <div>未割り当て: {lastAutoAssignmentStats.unassigned}人</div>
-                    <div>参加不可: {lastAutoAssignmentStats.skippedUnavailable}人</div>
-                    <div>不一致: {lastAutoAssignmentStats.skippedNoMatchingTeam}人</div>
-                    <div>定員超過: {lastAutoAssignmentStats.skippedFull}人</div>
-                  </div>
+        {/* 参加者一覧と割り当て結果 */}
+        {participants.length > 0 && (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <div className="px-4 py-5 sm:px-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    参加者一覧と割り当て状況
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                    選択されたフォームの回答者とチーム割り当て状況
+                  </p>
                 </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h3 className="text-sm font-medium text-gray-900">配布枠キー</h3>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {distributionSlots.length > 0 ? (
-                      distributionSlots.map((slot) => (
-                        <span
-                          key={slot}
-                          className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
-                        >
-                          {formatAvailabilitySlotLabel(slot)}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-500">未設定</span>
-                    )}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-col">
+                    <p className="border-gray-300 rounded-md text-sm text-gray-600">エクスポート</p>
+                    <button
+                      onClick={exportAssignmentsCsv}
+                      className="px-3 py-2 text-sm rounded-md border bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    >
+                      CSV出力
+                    </button>
                   </div>
-                </div>
-
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <h3 className="text-sm font-medium text-gray-900">チーム枠</h3>
-                  <div className="mt-2 space-y-2">
-                    {teams.length > 0 ? (
-                      teams.slice(0, 12).map((team) => (
-                        <div
-                          key={team.teamId}
-                          className="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm"
-                        >
-                          <span className="font-medium text-gray-900">
-                            {team.teamName || team.teamCode}
-                          </span>
-                          <span
-                            className={
-                              distributionSlots.includes(team.timeSlot)
-                                ? 'text-emerald-600'
-                                : 'text-rose-600'
-                            }
-                          >
-                            {formatAvailabilitySlotLabel(team.timeSlot)}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-500">チーム未作成</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-medium text-gray-900">参加者の availableSlots</h3>
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">氏名</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">学年</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-500">
-                          希望時間帯
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {participants.slice(0, 12).map((participant) => (
-                        <tr key={participant.responseId}>
-                          <td className="px-3 py-2 text-gray-900">{participant.name}</td>
-                          <td className="px-3 py-2 text-gray-700">{participant.grade}年</td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {getAvailabilityLabel(participant.availableSlots)}
-                          </td>
-                        </tr>
+                  <div className="flex items-center gap-2 flex-col">
+                    <label className="text-sm text-gray-600">班で絞り込み</label>
+                    <select
+                      value={selectedTeamFilter}
+                      onChange={(e) => setSelectedTeamFilter(e.target.value)}
+                      className="block w-48 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value="">全ての班</option>
+                      {teams.map((t) => (
+                        <option key={t.teamId} value={t.teamId}>
+                          {t.teamName || getTeamAreaLabel(t)}
+                        </option>
                       ))}
-                    </tbody>
-                  </table>
+                    </select>
+                  </div>
                 </div>
-                {participants.length > 12 && (
-                  <p className="mt-2 text-xs text-gray-500">先頭12件のみ表示しています。</p>
-                )}
               </div>
             </div>
-          )}
-        </SectionCard>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      参加者情報
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      希望時間帯
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      回答日時
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      割り当て先
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      操作
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sortedParticipants.map((participant) => {
+                    const assignment = getAssignmentForParticipant(participant.responseId);
+                    const team = assignment ? getTeamById(assignment.teamId) : null;
+
+                    return (
+                      <tr key={participant.responseId}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            <div className="font-medium">{participant.name}</div>
+                            <div className="text-gray-500">
+                              {participant.grade}年 - {participant.section}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {getAvailabilityLabel(participant.availableSlots)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(participant.submittedAt)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {assignment && team ? (
+                            <div className="text-sm">
+                              <div className="font-medium text-gray-900">{team.teamName}</div>
+                              <div className="text-gray-500">{getTeamAreaLabel(team)}</div>
+                              <div className="text-gray-400 text-xs">
+                                配布枠: {formatAvailabilitySlotLabel(team.timeSlot)}
+                              </div>
+                              <div className="flex space-x-2 mt-1">
+                                <span
+                                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    assignment.assignedBy === 'auto'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-green-100 text-green-800'
+                                  }`}
+                                >
+                                  {assignment.assignedBy === 'auto' ? '自動' : '手動'}
+                                </span>
+                                {assignment.timeSlot && (
+                                  <span
+                                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                      assignment.timeSlot.endsWith('_am')
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : assignment.timeSlot.endsWith('_pm')
+                                          ? 'bg-purple-100 text-purple-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                    }`}
+                                  >
+                                    {formatAvailabilitySlotLabel(assignment.timeSlot)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                              未割り当て
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => openResponseEditModal(participant)}
+                              className="text-emerald-600 hover:text-emerald-900"
+                            >
+                              回答変更
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedParticipant(participant);
+                                setShowManualModal(true);
+                              }}
+                              className="text-indigo-600 hover:text-indigo-900"
+                            >
+                              割り当て変更
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {selectedForm && unavailableParticipants.length > 0 && (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md mt-8">
+            <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">参加不可メンバー</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                参加不可を選んだ回答者を別枠で表示します。手動割り当ては可能です。
+              </p>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {unavailableParticipants.map((participant) => {
+                const assignment = getAssignmentForParticipant(participant.responseId);
+                const team = assignment ? getTeamById(assignment.teamId) : null;
+
+                return (
+                  <div
+                    key={participant.responseId}
+                    className="px-4 py-4 sm:px-6 flex items-center justify-between gap-4"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{participant.name}</div>
+                      <div className="text-sm text-gray-500">
+                        {participant.grade}年 - {participant.section}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {getAvailabilityLabel(participant.availableSlots)}
+                      </div>
+                      {assignment && team && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          割り当て先: {team.teamName} /{' '}
+                          {formatAvailabilitySlotLabel(assignment.timeSlot)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => openResponseEditModal(participant)}
+                        className="text-emerald-600 hover:text-emerald-900 text-sm font-medium"
+                      >
+                        回答変更
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedParticipant(participant);
+                          setShowManualModal(true);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                      >
+                        割り当て変更
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* フォーム未選択時のメッセージ */}
         {participants.length === 0 && selectedForm === '' && (
@@ -1613,7 +1692,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
 
                     {filterVisibleFormFieldsForParticipant(
                       currentForm.fields,
-                      responseEditGrade,
+                      4,
                       responseEditValues.availability,
                     )
                       .slice()
