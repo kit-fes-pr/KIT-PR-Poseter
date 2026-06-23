@@ -6,7 +6,7 @@ import { validateAvailabilitySelection } from '@/lib/utils/availability/availabi
 import { getAvailabilityDateSlotKeys } from '@/lib/utils/availability/availability';
 import {
   expandAvailabilitySlotsForStorage,
-  isFormFieldVisibleForGrade,
+  filterVisibleFormFieldsForParticipant,
   resolveResponseAvailabilitySlots,
 } from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
@@ -76,8 +76,11 @@ export async function PATCH(
         })
       : null;
     const gradeNum = gradeValidation?.gradeNum || 0;
+    const availableSlots = participantData
+      ? resolveResponseAvailabilitySlots(answers, participantData.availableSlots)
+      : [];
     const visibleFields = participantData
-      ? formData.fields.filter((field) => isFormFieldVisibleForGrade(field, gradeNum))
+      ? filterVisibleFormFieldsForParticipant(formData.fields, gradeNum, availableSlots)
       : formData.fields;
     const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
@@ -105,10 +108,6 @@ export async function PATCH(
         participantValidationErrors.push(...gradeValidation.errors);
       }
 
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -242,10 +241,6 @@ export async function PATCH(
     let updateData: { [key: string]: any };
 
     if (participantData) {
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(

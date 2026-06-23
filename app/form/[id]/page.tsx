@@ -7,7 +7,7 @@ import { SurveyForm, FormAnswer } from '@/types/forms';
 import { normalizeAvailabilitySlots } from '@/lib/utils/availability/availability';
 import { PublicSurveyForm } from '@/components/forms/PublicSurveyForm';
 import type { ParticipantIdentityFormValues } from '@/components/forms/ParticipantIdentitySection';
-import { filterVisibleFormFields } from '@/lib/utils/forms/forms';
+import { filterVisibleFormFieldsForParticipant } from '@/lib/utils/forms/forms';
 
 interface FormData {
   [fieldId: string]: string | string[];
@@ -27,10 +27,15 @@ export default function FormResponsePage({ params }: { params: Promise<{ id: str
 
   const { handleSubmit, control, watch, setValue, getValues } = useForm<FormData>();
   const participantGrade = watch('participantGrade');
+  const participantAvailability = watch('availability');
   const visibleFields = useMemo(() => {
     if (!form) return [];
-    return filterVisibleFormFields(form.fields, participantGrade).sort((a, b) => a.order - b.order);
-  }, [form, participantGrade]);
+    return filterVisibleFormFieldsForParticipant(
+      form.fields,
+      participantGrade,
+      participantAvailability,
+    ).sort((a, b) => a.order - b.order);
+  }, [form, participantGrade, participantAvailability]);
 
   useEffect(() => {
     if (participantGrade === '4') {

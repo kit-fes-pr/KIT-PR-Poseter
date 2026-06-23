@@ -8,7 +8,7 @@ import { validateAvailabilitySelection } from '@/lib/utils/availability/availabi
 import { getAvailabilityDateSlotKeys } from '@/lib/utils/availability/availability';
 import {
   expandAvailabilitySlotsForStorage,
-  isFormFieldVisibleForGrade,
+  filterVisibleFormFieldsForParticipant,
   resolveResponseAvailabilitySlots,
 } from '@/lib/utils/forms/forms';
 import { buildFormResponseRecord } from '@/lib/utils/forms/forms-api';
@@ -99,6 +99,9 @@ export async function POST(
 
     // 参加者データのバリデーション
     let participantGradeNum = 0;
+    const availableSlots = participantData
+      ? resolveResponseAvailabilitySlots(answers, participantData.availableSlots)
+      : [];
     if (participantData) {
       const participantValidationErrors: string[] = [];
 
@@ -125,10 +128,6 @@ export async function POST(
       participantValidationErrors.push(...gradeValidation.errors);
       participantGradeNum = gradeValidation.gradeNum || 0;
 
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
       if (availableSlots.length === 0) {
         participantValidationErrors.push('参加可能日時は一つ以上選択してください');
       }
@@ -148,7 +147,7 @@ export async function POST(
     // 各フィールドのバリデーション
     const validationErrors: string[] = [];
     const visibleFields = participantData
-      ? formData.fields.filter((field) => isFormFieldVisibleForGrade(field, participantGradeNum))
+      ? filterVisibleFormFieldsForParticipant(formData.fields, participantGradeNum, availableSlots)
       : formData.fields;
     const visibleFieldIds = new Set(visibleFields.map((field) => field.fieldId));
 
@@ -269,10 +268,6 @@ export async function POST(
         grade: participantData.grade,
         section: participantData.section,
       });
-      const availableSlots = resolveResponseAvailabilitySlots(
-        answers,
-        participantData.availableSlots,
-      );
       const availabilitySelectionError = validateAvailabilitySelection(availableSlots);
       if (availabilitySelectionError) {
         return NextResponse.json(

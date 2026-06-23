@@ -21,7 +21,7 @@ import {
   ALL_AVAILABLE_SLOT_KEY,
 } from '@/lib/utils/availability/availability';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
-import { filterVisibleFormFields } from '@/lib/utils/forms/forms';
+import { filterVisibleFormFieldsForParticipant } from '@/lib/utils/forms/forms';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
 
@@ -986,7 +986,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           submitting={editSaving}
           maxWidthClassName="max-w-4xl"
         >
-          {filterVisibleFormFields(currentForm.fields, 4)
+          {filterVisibleFormFieldsForParticipant(currentForm.fields, 4, editFormData.availability)
             .sort((a, b) => a.order - b.order)
             .map((field) => (
               <div

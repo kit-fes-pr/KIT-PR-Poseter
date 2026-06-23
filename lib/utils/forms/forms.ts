@@ -1,4 +1,8 @@
-import { ALL_AVAILABLE_SLOT_KEY, normalizeAvailabilitySlots } from '../availability/availability';
+import {
+  ALL_AVAILABLE_SLOT_KEY,
+  UNAVAILABLE_SLOT_KEY,
+  normalizeAvailabilitySlots,
+} from '../availability/availability';
 import { normalizeGrade } from '../grade/grade';
 import { serializeDateTimeValue as serializeDate } from '../dateUtils';
 
@@ -96,6 +100,31 @@ export function isFormFieldVisibleForGrade(
   if (grade <= 0) return false;
 
   return grade >= minGrade;
+}
+
+export function isFormFieldVisibleForParticipant(
+  field: { fieldId: string; visibleFromGrade?: number },
+  participantGrade: unknown,
+  availabilityValue: unknown,
+): boolean {
+  if (!isFormFieldVisibleForGrade(field, participantGrade)) {
+    return false;
+  }
+
+  if (field.fieldId !== 'carUsage') {
+    return true;
+  }
+
+  const selectedAvailability = normalizeAvailabilitySlots(availabilityValue);
+  return !selectedAvailability.includes(UNAVAILABLE_SLOT_KEY);
+}
+
+export function filterVisibleFormFieldsForParticipant<
+  T extends { fieldId: string; visibleFromGrade?: number },
+>(fields: T[], participantGrade: unknown, availabilityValue: unknown): T[] {
+  return fields.filter((field) =>
+    isFormFieldVisibleForParticipant(field, participantGrade, availabilityValue),
+  );
 }
 
 export function filterVisibleFormFields<T extends { visibleFromGrade?: number }>(
