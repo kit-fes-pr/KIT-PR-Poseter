@@ -97,12 +97,15 @@ export function SurveyFieldBlock({
         label: option,
       })),
     );
-    const specialOptions = (field.options || []).filter(
-      (option) => option === UNAVAILABLE_SLOT_KEY || option === ALL_AVAILABLE_SLOT_KEY,
-    );
     const dateOptions = (field.options || []).filter(
       (option) => option !== UNAVAILABLE_SLOT_KEY && option !== ALL_AVAILABLE_SLOT_KEY,
     );
+    const showAllAvailableOption = dateOptions.length > 1;
+    const displaySpecialOptions = (field.options || []).filter((option) => {
+      if (option === UNAVAILABLE_SLOT_KEY) return true;
+      if (option === ALL_AVAILABLE_SLOT_KEY) return showAllAvailableOption;
+      return false;
+    });
 
     const renderOptionCard = (option: string, index: number, tone: 'date' | 'special' = 'date') => {
       const selected = selectedValues.includes(option);
@@ -168,9 +171,11 @@ export function SurveyFieldBlock({
               <p className="text-xs text-gray-500">{availabilityMultiple}</p>
             </div>
 
-            {specialOptions.length > 0 && (
+            {displaySpecialOptions.length > 0 && (
               <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {specialOptions.map((option, index) => renderOptionCard(option, index, 'special'))}
+                {displaySpecialOptions.map((option, index) =>
+                  renderOptionCard(option, index, 'special'),
+                )}
               </div>
             )}
 
