@@ -1,4 +1,4 @@
-import { DEFAULT_TIME_ZONE, serializeDateTimeValue } from '../dateUtils';
+import { DEFAULT_TIME_ZONE, formatDateOnly, serializeDateTimeValue } from '../dateUtils';
 import { buildAvailabilitySlotChoices } from '../availability/availability';
 
 export { serializeDateTimeValue };
@@ -64,6 +64,50 @@ export function normalizeDistributionYear(year: unknown): number | null {
   }
 
   return parsed;
+}
+
+function formatDateRangeLabel(
+  startValue: string | Date | number | null | undefined,
+  endValue: string | Date | number | null | undefined,
+): string {
+  const start = formatDateOnly(startValue);
+  const end = formatDateOnly(endValue);
+
+  if (start === '-' && end === '-') return '未設定';
+  if (start !== '-' && end !== '-' && start !== end) {
+    return `${start} 〜 ${end}`;
+  }
+  return start !== '-' ? start : end;
+}
+
+function getAvailabilitySlotDateRangeLabel(slots: unknown): string | null {
+  if (!Array.isArray(slots)) return null;
+
+  const dates = slots
+    .filter((slot): slot is string => typeof slot === 'string')
+    .map((slot) => slot.match(/^(\d{4}-\d{2}-\d{2})_(am|pm)$/)?.[1])
+    .filter((date): date is string => Boolean(date));
+
+  if (dates.length === 0) return null;
+
+  const uniqueDates = Array.from(new Set(dates)).sort();
+  return formatDateRangeLabel(uniqueDates[0], uniqueDates[uniqueDates.length - 1]);
+}
+
+export function buildDistributionPeriodLabel(params: {
+  distributionStartDate?: string | Date | number | null;
+  distributionEndDate?: string | Date | number | null;
+  distributionAvailabilitySlots?: unknown;
+}): string {
+  const dateRangeLabel = formatDateRangeLabel(
+    params.distributionStartDate,
+    params.distributionEndDate,
+  );
+  if (dateRangeLabel !== '未設定') {
+    return dateRangeLabel;
+  }
+
+  return getAvailabilitySlotDateRangeLabel(params.distributionAvailabilitySlots) || '未設定';
 }
 
 export function buildDistributionAvailabilitySlotKeys(

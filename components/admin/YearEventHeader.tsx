@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { FastNavButton } from '@/lib/hooks/useFastNavigation';
 
 interface YearEventHeaderProps {
@@ -7,8 +9,19 @@ interface YearEventHeaderProps {
 }
 
 export default function YearEventHeader({ year }: YearEventHeaderProps) {
+  const pathname = usePathname();
+  const yearNavItems = useMemo(
+    () => [
+      { href: `/admin/event/${year}`, label: '年度トップ', exact: true },
+      { href: `/admin/event/${year}/form`, label: 'フォーム管理' },
+      { href: `/admin/event/${year}/setting`, label: 'イベント設定' },
+      { href: `/admin/event/${year}/team`, label: 'チーム管理' },
+    ],
+    [year],
+  );
+
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur">
+    <header className="border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-gray-500">
@@ -18,18 +31,23 @@ export default function YearEventHeader({ year }: YearEventHeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <FastNavButton
-            href="/admin/event"
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            年度一覧
-          </FastNavButton>
-          <FastNavButton
-            href={`/admin/event/${year}/form`}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            フォーム管理
-          </FastNavButton>
+          {yearNavItems.map((item) => {
+            const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+
+            return (
+              <FastNavButton
+                key={item.href}
+                href={item.href}
+                className={`rounded-md px-3 py-2 text-sm transition-colors ${
+                  isActive
+                    ? 'border border-indigo-300 bg-indigo-50 text-indigo-700'
+                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {item.label}
+              </FastNavButton>
+            );
+          })}
         </div>
       </div>
     </header>

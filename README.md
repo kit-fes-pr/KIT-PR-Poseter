@@ -237,6 +237,9 @@ docker compose down
 
 | パス                                | 画面名                                           | 認証要件   |
 | ----------------------------------- | ------------------------------------------------ | ---------- |
+| `/admin`                            | 管理者ダッシュボード                             | 管理者認証 |
+| `/admin/login`                      | 管理者ログイン                                   | なし       |
+| `/admin/invite`                     | ユーザー招待                                     | 管理者認証 |
 | `/admin/event`                      | イベント管理（年度一覧）                         | 管理者認証 |
 | `/admin/event/[year]`               | 年度別イベント管理                               | 管理者認証 |
 | `/admin/event/[year]/team`          | チーム管理                                       | 管理者認証 |
@@ -244,7 +247,6 @@ docker compose down
 | `/admin/event/[year]/setting`       | イベント設定                                     | 管理者認証 |
 | `/admin/event/[year]/form`          | アンケートフォーム管理（作成・内容・回答・設定） | 管理者認証 |
 | `/admin/event/[year]/stats`         | 年次統計・レポート                               | 管理者認証 |
-| `/admin`                            | 管理者ログイン                                   | なし       |
 | `/dashboard`                        | 配布管理画面（班認証）                           | 班認証     |
 | `/dashboard/all`                    | 全体ダッシュボード（班認証）                     | 班認証     |
 | `/form/[id]`                        | アンケート回答フォーム                           | なし       |
@@ -428,8 +430,10 @@ API Routes:
 
 Pages/Components:
 
-- `app/admin/page.tsx` - ログインフォーム
-- `app/admin/event/page.tsx` - 管理画面トップ。ユーザー招待を実施できます
+- `app/admin/page.tsx` - 管理者ダッシュボード
+- `app/admin/login/page.tsx` - 管理者ログインフォーム
+- `app/admin/invite/page.tsx` - ユーザー招待フォーム
+- `app/admin/event/page.tsx` - 年度選択
 
 ### セキュリティ仕様
 

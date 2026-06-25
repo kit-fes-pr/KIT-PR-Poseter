@@ -157,7 +157,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       if (!user) {
         // ログアウト状態の場合はadminページにリダイレクト
         localStorage.removeItem('authToken');
-        router.push('/admin');
+        router.push('/admin/login');
       }
     });
 
@@ -966,15 +966,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <YearPageSectionHeader
           title={`チーム割り当て管理 (${resolvedParams?.year}年度)`}
-          description="アンケート結果を基に参加者を配布区域チームに自動割り当てします。"
-          actions={
-            <Link
-              href={`/admin/event/${resolvedParams?.year}`}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              イベント管理へ戻る
-            </Link>
-          }
+          description="アンケート結果を基に参加者を配布区域チームに割り当てます。"
         />
 
         {/* エラー表示 */}

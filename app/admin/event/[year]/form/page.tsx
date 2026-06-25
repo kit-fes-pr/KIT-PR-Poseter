@@ -154,7 +154,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       setUser(nextUser);
       setAuthLoading(false);
       if (!nextUser) {
-        router.push('/admin');
+        router.push('/admin/login');
       }
     });
 
@@ -856,9 +856,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">フォームプレビュー</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      入力画面の見え方をそのまま確認できます。
-                    </p>
                   </div>
                   <Link
                     href={`/admin/event/${resolvedParams.year}/setting`}
@@ -866,20 +863,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   >
                     設定を開く
                   </Link>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {allAvailabilityChoices.length > 0 ? (
-                    allAvailabilityChoices.map((choice) => (
-                      <span
-                        key={choice.key}
-                        className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
-                      >
-                        {choice.label}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-red-600">配布日時が未設定です</span>
-                  )}
                 </div>
                 <div className="mt-6 space-y-4">
                   {visiblePreviewFields.map((field) => (
