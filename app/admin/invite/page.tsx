@@ -60,7 +60,8 @@ export default function AdminInvitePage() {
     return () => unsubscribe();
   }, [router]);
 
-  const submitInvite = async () => {
+  const submitInvite = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     const normalizedEmail = email.trim();
     if (!user || !normalizedEmail) return;
 
@@ -135,7 +136,10 @@ export default function AdminInvitePage() {
           </div>
         )}
 
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <form
+          className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+          onSubmit={submitInvite}
+        >
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-gray-900">メールアドレスを招待</h2>
             <p className="mt-1 text-sm text-gray-600">
@@ -155,15 +159,14 @@ export default function AdminInvitePage() {
 
           <div className="mt-6 flex justify-end">
             <button
-              type="button"
-              onClick={submitInvite}
+              type="submit"
               disabled={!email || submitting}
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {submitting ? '送信中...' : '招待メールを送信'}
             </button>
           </div>
-        </div>
+        </form>
       </div>
 
       <Modal open={Boolean(success)} onClose={() => setSuccess(null)} panelClassName="max-w-md p-6">
