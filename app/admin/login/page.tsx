@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { auth } from '@/lib/firebase';
@@ -177,12 +178,12 @@ export default function AdminLogin() {
           </div>
 
           <div className="mt-6">
-            <button
-              onClick={() => router.push('/')}
+            <Link
+              href="/"
               className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               ← ログインコード入力画面に戻る
-            </button>
+            </Link>
           </div>
         </div>
       </div>

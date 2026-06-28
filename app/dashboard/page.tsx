@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
@@ -288,12 +289,12 @@ export default function Dashboard() {
               >
                 店舗を追加
               </button>
-              <button
-                onClick={() => router.push('/dashboard/all')}
+              <Link
+                href="/dashboard/all"
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
               >
                 全班表示
-              </button>
+              </Link>
               <button
                 onClick={() => {
                   localStorage.removeItem('authToken');

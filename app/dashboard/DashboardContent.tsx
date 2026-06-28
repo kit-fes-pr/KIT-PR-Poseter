@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { Modal } from '@/components/ui/Modal';
@@ -266,19 +267,19 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                 </button>
               )}
               {!readOnly ? (
-                <button
-                  onClick={() => router.push('/dashboard/all')}
+                <Link
+                  href="/dashboard/all"
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
                 >
                   全班表示
-                </button>
+                </Link>
               ) : (
-                <button
-                  onClick={() => router.push('/dashboard')}
+                <Link
+                  href="/dashboard"
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
                 >
                   自班表示
-                </button>
+                </Link>
               )}
               <button
                 onClick={() => {

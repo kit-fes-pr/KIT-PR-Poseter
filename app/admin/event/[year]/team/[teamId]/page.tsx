@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
@@ -196,12 +197,12 @@ export default function TeamDetailPage() {
           description="チーム情報の確認と編集を行います。"
           actions={
             <>
-              <button
-                onClick={() => router.push(`/admin/event/${y}/team`)}
+              <Link
+                href={`/admin/event/${y}/team`}
                 className="px-4 py-2 border rounded-md text-sm bg-white text-gray-700 hover:bg-gray-50"
               >
                 チーム管理へ戻る
-              </button>
+              </Link>
               <button
                 onClick={() => setIsBasicEditOpen(true)}
                 className="px-4 py-2 border rounded-md text-sm bg-white text-gray-700 hover:bg-gray-50"
