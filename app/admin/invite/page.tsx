@@ -98,7 +98,7 @@ export default function AdminInvitePage() {
       }
 
       setSuccess({
-        ...(data.invite || { email: normalizedEmail, operation: 'created' }),
+        ...(data?.invite || { email: normalizedEmail, operation: 'created' }),
         passwordResetSent,
       });
       setEmail('');
