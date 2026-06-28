@@ -38,12 +38,10 @@ export default function AdminHome() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      setLoading(true);
 
       if (!currentUser) {
         localStorage.removeItem('authToken');
         router.replace('/admin/login');
-        setLoading(false);
         return;
       }
 
@@ -67,11 +65,10 @@ export default function AdminHome() {
         }
 
         localStorage.setItem('authToken', token);
+        setLoading(false);
       } catch {
         localStorage.removeItem('authToken');
         router.replace('/admin/login');
-      } finally {
-        setLoading(false);
       }
     });
 
