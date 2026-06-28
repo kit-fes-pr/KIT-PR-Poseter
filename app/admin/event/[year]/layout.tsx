@@ -3,6 +3,19 @@ import { adminDb } from '@/lib/firebase-admin';
 import { normalizeDistributionEventListYear } from '@/lib/utils/events/events-api';
 import { buildDistributionPeriodLabel } from '@/lib/utils/events/events';
 
+function normalizeDateValue(value: unknown): string | Date | number | null | undefined {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+
+  return value as string | Date | number | null | undefined;
+}
+
 export default async function YearEventLayout({
   children,
   params,
@@ -29,8 +42,8 @@ export default async function YearEventLayout({
           distributionAvailabilitySlots?: unknown;
         };
         distributionPeriod = buildDistributionPeriodLabel({
-          distributionStartDate: eventData.distributionStartDate,
-          distributionEndDate: eventData.distributionEndDate,
+          distributionStartDate: normalizeDateValue(eventData.distributionStartDate),
+          distributionEndDate: normalizeDateValue(eventData.distributionEndDate),
           distributionAvailabilitySlots: eventData.distributionAvailabilitySlots,
         });
       }
