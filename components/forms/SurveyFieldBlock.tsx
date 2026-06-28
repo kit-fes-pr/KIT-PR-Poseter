@@ -148,14 +148,14 @@ export function SurveyFieldBlock({
           <legend className="mb-2 block text-sm font-medium text-gray-700">{label}</legend>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
             {displaySpecialOptions.length > 0 && (
-              <div className="mb-4 grid grid-cols-1 gap-3 [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">
+              <div className="mb-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">
                 {displaySpecialOptions.map((option, index) =>
                   renderOptionCard(option, index, 'special'),
                 )}
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-3 [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">
               {dateOptions.map((option, index) => renderOptionCard(option, index))}
             </div>
           </div>
