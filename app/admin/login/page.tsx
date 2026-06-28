@@ -193,7 +193,7 @@ export default function AdminLogin() {
               <div className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">または</span>
+              <span className="px-2 bg-gray-50 text-gray-500">または</span>
             </div>
           </div>
 
