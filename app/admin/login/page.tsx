@@ -4,13 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { auth } from '@/lib/firebase';
-import {
-  getIdToken,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  User,
-} from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 import { LoadingScreen, LoadingButtonLabel } from '@/components/ui/Loading';
 import { ADMIN_EMAIL_PATTERN } from '@/lib/utils/admin/invites';
@@ -80,21 +74,7 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-      const idToken = await getIdToken(userCredential.user);
-      localStorage.setItem('authToken', idToken);
-
-      const response = await fetch('/api/auth/verify', {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      const result = await response.json();
-
-      if (response.ok && result?.user?.isAdmin) {
-        router.push('/admin');
-      } else {
-        setError(result?.error || '管理者権限がありません');
-        await clearAuthState();
-      }
+      await signInWithEmailAndPassword(auth, data.email, data.password);
     } catch (error) {
       console.error('エラー内容:', error);
       setError('ログインに失敗しました');
