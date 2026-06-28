@@ -24,7 +24,6 @@ export default function AdminInvitePage() {
       setUser(currentUser);
       if (!currentUser) {
         localStorage.removeItem('authToken');
-        setLoading(false);
         router.push('/admin/login');
         return;
       }
@@ -49,11 +48,10 @@ export default function AdminInvitePage() {
         }
 
         localStorage.setItem('authToken', token);
+        setLoading(false);
       } catch {
         localStorage.removeItem('authToken');
         router.push('/admin/login');
-      } finally {
-        setLoading(false);
       }
     });
 
