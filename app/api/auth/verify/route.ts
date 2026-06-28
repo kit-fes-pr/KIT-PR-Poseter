@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase-admin';
+import { hasAdminPrivileges } from '@/lib/utils/admin/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
         teamCode: decodedToken.teamCode,
         teamId: decodedToken.teamId,
         role: decodedToken.role,
-        isAdmin: decodedToken.role === 'admin',
+        isAdmin: hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown }),
       },
     });
   } catch (error) {
