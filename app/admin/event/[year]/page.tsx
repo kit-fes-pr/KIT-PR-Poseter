@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import { useErrorRecovery } from '@/lib/utils/error-recovery';
@@ -120,12 +121,20 @@ export default function AdminEventYear() {
           <div className="text-red-500 text-4xl mb-4">🔒</div>
           <h2 className="text-lg font-semibold text-gray-900 mb-2">認証エラー</h2>
           <p className="text-sm text-gray-600 mb-4">{authError}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            ページを再読み込み
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              ページを再読み込み
+            </button>
+            <Link
+              href="/admin/login"
+              className="px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-100 transition-colors"
+            >
+              ログインページへ
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -137,8 +146,13 @@ export default function AdminEventYear() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">⛔</div>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">アクセス権限がありません</h2>
-          <p className="text-gray-500 mb-4">管理者権限が必要です</p>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">管理者権限が必要です</h2>
+          <Link
+            href="/admin/login"
+            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            ログインページへ
+          </Link>
         </div>
       </div>
     );
