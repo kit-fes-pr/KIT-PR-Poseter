@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -91,10 +92,9 @@ export default function AdminHome() {
 
         <section className="grid gap-4 md:grid-cols-3">
           {quickLinks.map((link) => (
-            <button
+            <Link
               key={link.href}
-              type="button"
-              onClick={() => router.push(link.href)}
+              href={link.href}
               className="group flex h-full flex-col rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <h3 className="text-lg font-semibold text-gray-900">{link.title}</h3>
@@ -102,7 +102,7 @@ export default function AdminHome() {
               <div className="mt-auto pt-6 text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
                 開く →
               </div>
-            </button>
+            </Link>
           ))}
         </section>
       </div>
