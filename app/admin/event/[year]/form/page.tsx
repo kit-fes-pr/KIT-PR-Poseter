@@ -154,7 +154,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       setUser(nextUser);
       setAuthLoading(false);
       if (!nextUser) {
-        router.push('/admin/login');
+        router.replace('/admin/login');
       }
     });
 

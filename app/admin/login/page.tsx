@@ -44,7 +44,7 @@ export default function AdminLogin() {
             const data = await response.json();
             if (data?.user?.isAdmin) {
               localStorage.setItem('authToken', idToken);
-              router.push('/admin');
+              router.replace('/admin');
             } else {
               setError('管理者権限がありません');
               await clearAuthState();

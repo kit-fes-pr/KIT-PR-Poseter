@@ -73,7 +73,7 @@ export default function DistributionSettingsPage({
       setUser(nextUser);
       setAuthLoading(false);
       if (!nextUser) {
-        router.push('/admin/login');
+        router.replace('/admin/login');
       }
     });
 

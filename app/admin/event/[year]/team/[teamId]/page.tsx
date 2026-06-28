@@ -70,7 +70,7 @@ export default function TeamDetailPage() {
       if (!user) {
         // ログアウト状態の場合はadminページにリダイレクト
         localStorage.removeItem('authToken');
-        router.push('/admin/login');
+        router.replace('/admin/login');
       }
     });
 
@@ -80,14 +80,14 @@ export default function TeamDetailPage() {
   useEffect(() => {
     if (!teamId) {
       console.error('No teamId provided');
-      router.push('/admin/event');
+      router.replace('/admin/event');
       return;
     }
 
     const init = async () => {
       try {
         const token = localStorage.getItem('authToken');
-        if (!token) return router.push('/admin/login');
+        if (!token) return router.replace('/admin/login');
         const v = await fetch('/api/auth/verify', {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -135,7 +135,7 @@ export default function TeamDetailPage() {
       } catch (error) {
         console.error('Team detail loading error:', error);
         localStorage.removeItem('authToken');
-        router.push('/admin/login');
+        router.replace('/admin/login');
       } finally {
         setLoading(false);
       }

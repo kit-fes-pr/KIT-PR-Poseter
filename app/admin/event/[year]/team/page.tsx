@@ -157,7 +157,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       if (!user) {
         // ログアウト状態の場合はadminページにリダイレクト
         localStorage.removeItem('authToken');
-        router.push('/admin/login');
+        router.replace('/admin/login');
       }
     });
 

@@ -60,7 +60,7 @@ export default function AdminEventIndex() {
       if (!user) {
         // ログアウト状態の場合はadminページにリダイレクト
         localStorage.removeItem('authToken');
-        router.push('/admin/login');
+        router.replace('/admin/login');
       }
     });
 
@@ -77,13 +77,13 @@ export default function AdminEventIndex() {
         });
         if (!v.ok) {
           localStorage.removeItem('authToken');
-          router.push('/admin/login');
+          router.replace('/admin/login');
           return;
         }
         const data = await v.json();
         if (!data?.user?.isAdmin) {
           localStorage.removeItem('authToken');
-          router.push('/admin/login');
+          router.replace('/admin/login');
           return;
         }
         setIsAdmin(true);
@@ -101,7 +101,7 @@ export default function AdminEventIndex() {
         setLoading(false);
       } catch {
         localStorage.removeItem('authToken');
-        router.push('/admin/login');
+        router.replace('/admin/login');
       }
     };
     init();

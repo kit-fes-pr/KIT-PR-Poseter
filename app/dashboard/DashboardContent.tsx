@@ -70,7 +70,7 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    if (!token) router.push('/');
+    if (!token) router.replace('/');
   }, [router]);
 
   const filteredStores: Store[] = useMemo(() => {
@@ -284,7 +284,7 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
               <button
                 onClick={() => {
                   localStorage.removeItem('authToken');
-                  router.push('/');
+                  router.replace('/');
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
                 title="ログアウト"

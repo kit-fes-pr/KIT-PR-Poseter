@@ -52,7 +52,7 @@ export default function AdminHeader() {
       await signOut(auth);
     } finally {
       localStorage.removeItem('authToken');
-      router.push('/admin/login');
+      router.replace('/admin/login');
     }
   };
 
