@@ -43,6 +43,10 @@ export default function AdminHeader() {
     return prefixMatches[0]?.href || '/admin';
   }, [pathname]);
 
+  if (pathname === '/admin/login') {
+    return null;
+  }
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
