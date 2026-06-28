@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { hasAdminPrivileges } from '@/lib/utils/admin/auth';
 import { SurveyForm, FormUpdateData } from '@/types/forms';
 
 function serializeDate(value: unknown): string | unknown {
@@ -45,7 +46,7 @@ export async function GET(
       const idToken = authHeader.split('Bearer ')[1];
       const decodedToken = await adminAuth.verifyIdToken(idToken);
 
-      if (decodedToken.role !== 'admin') {
+      if (!hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown })) {
         return NextResponse.json({ error: 'このフォームは現在利用できません' }, { status: 403 });
       }
     }
@@ -77,7 +78,7 @@ export async function PATCH(
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     // 管理者のみフォーム更新可能
-    if (decodedToken.role !== 'admin') {
+    if (!hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown })) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
@@ -176,7 +177,7 @@ export async function DELETE(
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     // 管理者のみフォーム削除可能
-    if (decodedToken.role !== 'admin') {
+    if (!hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown })) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 

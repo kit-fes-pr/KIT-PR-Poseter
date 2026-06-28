@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { hasAdminPrivileges } from '@/lib/utils/admin/auth';
 import { ServerCache } from '@/lib/utils/server-cache';
 import {
   buildAreaRouteCreateData,
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    if (decodedToken.role !== 'admin') {
+    if (!hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown })) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    if (decodedToken.role !== 'admin') {
+    if (!hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown })) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 
