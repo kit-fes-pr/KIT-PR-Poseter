@@ -25,12 +25,15 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
     try {
       decodedToken = await adminAuth.verifyIdToken(idToken);
     } catch (error) {
-      logError('認証トークンの検証に失敗しました', {
-        component: 'minimal-dashboard-api',
-        year: yearNum,
-        operation: 'auth_verification_failed',
+      logError(
+        '認証トークンの検証に失敗しました',
+        {
+          component: 'minimal-dashboard-api',
+          year: yearNum,
+          operation: 'auth_verification_failed',
+        },
         error,
-      });
+      );
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
