@@ -18,6 +18,7 @@ export default function AdminInvitePage() {
   const [success, setSuccess] = useState<{
     email: string;
     operation: 'created' | 'updated';
+    passwordResetSent: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -87,8 +88,18 @@ export default function AdminInvitePage() {
         throw new Error(data?.error || '招待に失敗しました');
       }
 
-      await sendPasswordResetEmail(auth, normalizedEmail);
-      setSuccess(data.invite || { email: normalizedEmail, operation: 'created' });
+      let passwordResetSent = true;
+      try {
+        await sendPasswordResetEmail(auth, normalizedEmail);
+      } catch (sendError) {
+        passwordResetSent = false;
+        console.error('パスワード再設定メールの送信に失敗しました:', sendError);
+      }
+
+      setSuccess({
+        ...(data.invite || { email: normalizedEmail, operation: 'created' }),
+        passwordResetSent,
+      });
       setEmail('');
     } catch (err) {
       setError(err instanceof Error ? err.message : '招待に失敗しました');
@@ -160,8 +171,13 @@ export default function AdminInvitePage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">招待を送信しました</h2>
             <p className="mt-3 text-sm text-gray-600">
-              {success.email} 宛にパスワード再設定メールを送信しました。
+              {success.email} 宛の管理者登録は完了しました。
             </p>
+            {!success.passwordResetSent && (
+              <p className="mt-2 text-sm text-amber-700">
+                パスワード再設定メールの送信には失敗しました。必要なら手動で再送してください。
+              </p>
+            )}
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setSuccess(null)}
