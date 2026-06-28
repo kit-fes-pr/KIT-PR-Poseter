@@ -21,6 +21,7 @@ const fetcher = async (url: string) => {
 
 export default function Dashboard() {
   const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const [isAddingStore, setIsAddingStore] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,8 +82,12 @@ export default function Dashboard() {
     const token = localStorage.getItem('authToken');
     if (!token) {
       router.replace('/');
+    } else {
+      setAuthChecked(true);
     }
   }, [router]);
+
+  if (!authChecked) return null;
 
   const filteredStores = (storesData?.stores || [])
     .filter((store: Store) => {

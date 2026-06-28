@@ -19,6 +19,7 @@ const fetcher = async (url: string) => {
 
 export default function DashboardContent({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const readOnly = mode === 'all';
   const swrKey = mode === 'all' ? '/api/stores?scope=all' : '/api/stores';
   const { data: storesData, mutate } = useSWR(swrKey, fetcher);
@@ -70,8 +71,14 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    if (!token) router.replace('/');
+    if (!token) {
+      router.replace('/');
+    } else {
+      setAuthChecked(true);
+    }
   }, [router]);
+
+  if (!authChecked) return null;
 
   const filteredStores: Store[] = useMemo(() => {
     const list: Store[] = storesData?.stores || [];
