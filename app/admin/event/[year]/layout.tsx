@@ -15,23 +15,27 @@ export default async function YearEventLayout({
 
   let distributionPeriod = '未設定';
   if (yearNumber !== null) {
-    const snap = await adminDb
-      .collection('distributionEvents')
-      .where('year', '==', yearNumber)
-      .limit(1)
-      .get();
+    try {
+      const snap = await adminDb
+        .collection('distributionEvents')
+        .where('year', '==', yearNumber)
+        .limit(1)
+        .get();
 
-    if (!snap.empty) {
-      const eventData = snap.docs[0].data() as {
-        distributionStartDate?: string | Date | number | null;
-        distributionEndDate?: string | Date | number | null;
-        distributionAvailabilitySlots?: unknown;
-      };
-      distributionPeriod = buildDistributionPeriodLabel({
-        distributionStartDate: eventData.distributionStartDate,
-        distributionEndDate: eventData.distributionEndDate,
-        distributionAvailabilitySlots: eventData.distributionAvailabilitySlots,
-      });
+      if (!snap.empty) {
+        const eventData = snap.docs[0].data() as {
+          distributionStartDate?: string | Date | number | null;
+          distributionEndDate?: string | Date | number | null;
+          distributionAvailabilitySlots?: unknown;
+        };
+        distributionPeriod = buildDistributionPeriodLabel({
+          distributionStartDate: eventData.distributionStartDate,
+          distributionEndDate: eventData.distributionEndDate,
+          distributionAvailabilitySlots: eventData.distributionAvailabilitySlots,
+        });
+      }
+    } catch (error) {
+      console.error('配布期間の取得に失敗しました:', error);
     }
   }
 
