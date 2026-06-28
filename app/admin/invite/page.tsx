@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, sendPasswordResetEmail, User } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
+import { ADMIN_EMAIL_PATTERN } from '@/lib/utils/admin/invites';
 
 export default function AdminInvitePage() {
   const router = useRouter();
@@ -59,7 +60,13 @@ export default function AdminInvitePage() {
   }, [router]);
 
   const submitInvite = async () => {
-    if (!user || !email) return;
+    const normalizedEmail = email.trim();
+    if (!user || !normalizedEmail) return;
+
+    if (!ADMIN_EMAIL_PATTERN.test(normalizedEmail)) {
+      setError('kanazawa-it.ac.jp のメールアドレスを入力してください');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -72,7 +79,7 @@ export default function AdminInvitePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: normalizedEmail }),
       });
 
       const data = await response.json().catch(() => null);
@@ -80,8 +87,8 @@ export default function AdminInvitePage() {
         throw new Error(data?.error || '招待に失敗しました');
       }
 
-      await sendPasswordResetEmail(auth, email);
-      setSuccess(data.invite || { email, operation: 'created' });
+      await sendPasswordResetEmail(auth, normalizedEmail);
+      setSuccess(data.invite || { email: normalizedEmail, operation: 'created' });
       setEmail('');
     } catch (err) {
       setError(err instanceof Error ? err.message : '招待に失敗しました');
