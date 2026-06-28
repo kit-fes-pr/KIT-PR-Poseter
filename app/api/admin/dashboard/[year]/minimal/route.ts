@@ -7,7 +7,7 @@ import {
   serializeDateLikeValue,
 } from '@/lib/utils/availability/availability-api';
 import { buildMinimalDashboardResponseData } from '@/lib/utils/availability/availability-route';
-import { logInfo, logError, logPerformance } from '@/lib/utils/logger';
+import { logInfo, logPerformance } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest, context: { params: Promise<{ year: string }> }) {
   const startTime = Date.now();
@@ -26,15 +26,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
     try {
       decodedToken = await adminAuth.verifyIdToken(idToken);
     } catch (error) {
-      logError(
-        '認証トークンの検証に失敗しました',
-        {
-          component: 'minimal-dashboard-api',
-          year: yearNum,
-          operation: 'auth_verification_failed',
-        },
-        error,
-      );
+      console.error('認証トークンの検証に失敗しました', error);
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
@@ -181,16 +173,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
     });
   } catch (error) {
     const responseTime = Date.now() - startTime;
-    logError(
-      '最小限データ取得エラー',
-      {
-        component: 'minimal-dashboard-api',
-        year: yearNum,
-        duration: responseTime,
-        operation: 'error',
-      },
+    console.error('最小限データ取得エラー', {
+      component: 'minimal-dashboard-api',
+      year: yearNum,
+      duration: responseTime,
+      operation: 'error',
       error,
-    );
+    });
 
     return NextResponse.json(
       {
