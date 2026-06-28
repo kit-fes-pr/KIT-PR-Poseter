@@ -2,7 +2,7 @@ export const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)*kanazawa-it\.ac\.jp$/
 
 export function normalizeAdminInviteEmail(email: unknown): string {
   if (typeof email !== 'string') return '';
-  const normalized = email.trim();
+  const normalized = email.trim().toLowerCase();
   return ADMIN_EMAIL_PATTERN.test(normalized) ? normalized : '';
 }
 

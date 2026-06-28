@@ -18,7 +18,7 @@ describe('admin invite utils', () => {
 
   test('normalizeAdminInviteEmail trims and validates email addresses', () => {
     assert.equal(
-      normalizeAdminInviteEmail('  admin@sub.kanazawa-it.ac.jp '),
+      normalizeAdminInviteEmail('  ADMIN@Sub.Kanazawa-IT.ac.jp '),
       'admin@sub.kanazawa-it.ac.jp',
     );
     assert.equal(normalizeAdminInviteEmail('admin@example.com'), '');

@@ -62,7 +62,7 @@ export default function AdminInvitePage() {
 
   const submitInvite = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedEmail = email.trim();
+    const normalizedEmail = email.trim().toLowerCase();
     if (!user || !normalizedEmail) return;
 
     if (!ADMIN_EMAIL_PATTERN.test(normalizedEmail)) {
