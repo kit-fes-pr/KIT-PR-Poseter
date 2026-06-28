@@ -24,6 +24,7 @@ export default function AdminInvitePage() {
       setUser(currentUser);
       if (!currentUser) {
         localStorage.removeItem('authToken');
+        setLoading(false);
         router.push('/admin/login');
         return;
       }

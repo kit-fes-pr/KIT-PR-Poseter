@@ -59,6 +59,7 @@ export default function AdminEventIndex() {
       if (!user) {
         // ログアウト状態の場合はadminページにリダイレクト
         localStorage.removeItem('authToken');
+        setLoading(false);
         router.push('/admin/login');
       }
     });

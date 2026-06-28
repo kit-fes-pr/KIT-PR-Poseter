@@ -39,6 +39,7 @@ export default function AreasPage() {
       setUser(currentUser);
       if (!currentUser) {
         localStorage.removeItem('authToken');
+        setLoading(false);
         router.push('/admin/login');
       }
     });
