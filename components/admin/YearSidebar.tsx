@@ -103,10 +103,11 @@ export default function YearSidebar({ year, distributionPeriod }: YearSidebarPro
           </button>
 
           <div
+            aria-hidden={!mobileMenuOpen}
             className={`absolute left-0 top-[calc(100%-1px)] z-30 w-full overflow-hidden rounded-3xl border border-gray-200 bg-white transition-all duration-300 ${
               mobileMenuOpen
-                ? 'pointer-events-auto translate-y-0 opacity-100'
-                : 'pointer-events-none -translate-y-2 opacity-0'
+                ? 'visible pointer-events-auto translate-y-0 opacity-100'
+                : 'invisible pointer-events-none -translate-y-2 opacity-0'
             }`}
           >
             <div className="space-y-4 p-6">
