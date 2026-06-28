@@ -156,10 +156,15 @@ export default function AdminEventIndex() {
                 {events.map((ev) => (
                   <div
                     key={ev.id as string}
-                    className="border border-gray-200 rounded-lg p-4 bg-white transition transform duration-150 ease-out hover:shadow-md hover:-translate-y-0.5 md:hover:shadow-lg md:hover:-translate-y-1 active:translate-y-0 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500"
+                    className="relative border border-gray-200 rounded-lg p-4 bg-white transition transform duration-150 ease-out hover:shadow-md hover:-translate-y-0.5 md:hover:shadow-lg md:hover:-translate-y-1 active:translate-y-0 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <Link href={`/admin/event/${ev.year}`} className="min-w-0 flex-1">
+                    <Link
+                      href={`/admin/event/${ev.year}`}
+                      className="absolute inset-0 z-0 rounded-lg after:absolute after:inset-0 after:content-['']"
+                      aria-label={`${String(ev.year)} 年度を開く`}
+                    />
+                    <div className="relative z-10 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
                         <p className="text-base font-semibold">{String(ev.year)} 年度</p>
                         <p className="text-sm text-gray-500">
                           {String(ev.eventName) || '学外配布'} /{' '}
@@ -172,8 +177,8 @@ export default function AdminEventIndex() {
                             return sd === ed ? sd : `${sd} 〜 ${ed}`;
                           })()}
                         </p>
-                      </Link>
-                      <div className="relative shrink-0" data-menu-root>
+                      </div>
+                      <div className="relative z-10 shrink-0" data-menu-root>
                         <button
                           className="px-2 py-1 border rounded text-sm"
                           onClick={(e) => {
