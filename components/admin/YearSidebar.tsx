@@ -23,10 +23,11 @@ export default function YearSidebar({ year, distributionPeriod }: YearSidebarPro
   );
 
   const activeHref = useMemo(() => {
+    if (!pathname) return '';
     const exactMatch = items.find((item) => item.exact && pathname === item.href);
     if (exactMatch) return exactMatch.href;
     const prefixMatches = items
-      .filter((item) => !item.exact && pathname.startsWith(item.href))
+      .filter((item) => !item.exact && pathname?.startsWith(item.href))
       .sort((a, b) => b.href.length - a.href.length);
     return prefixMatches[0]?.href || '';
   }, [items, pathname]);

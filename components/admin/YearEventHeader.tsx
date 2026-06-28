@@ -32,7 +32,7 @@ export default function YearEventHeader({ year }: YearEventHeaderProps) {
 
         <div className="flex items-center gap-2">
           {yearNavItems.map((item) => {
-            const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+            const isActive = item.exact ? pathname === item.href : pathname?.startsWith(item.href);
 
             return (
               <NavButton

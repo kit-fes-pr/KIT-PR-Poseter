@@ -38,7 +38,7 @@ export default function AdminHeader() {
     const exactMatch = adminNavItems.find((item) => item.exact && pathname === item.href);
     if (exactMatch) return exactMatch.href;
     const prefixMatches = adminNavItems
-      .filter((item) => !item.exact && pathname.startsWith(item.href))
+      .filter((item) => !item.exact && pathname?.startsWith(item.href))
       .sort((a, b) => b.href.length - a.href.length);
     return prefixMatches[0]?.href || '/admin';
   }, [pathname]);
