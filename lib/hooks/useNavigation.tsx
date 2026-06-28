@@ -11,7 +11,7 @@ interface NavigationState {
   startTime: number;
 }
 
-export function useFastNavigation() {
+export function useNavigation() {
   const router = useRouter();
   const [navState, setNavState] = useState<NavigationState>({
     isNavigating: false,
@@ -22,9 +22,9 @@ export function useFastNavigation() {
   const prefetcher = SmartPrefetcher.getInstance();
 
   /**
-   * 超高速ナビゲーション（即座UIフィードバック + プリロード）
+   * ナビゲーション
    */
-  const fastNavigate = useCallback(
+  const Navigate = useCallback(
     async (
       path: string,
       options?: {
@@ -120,7 +120,7 @@ export function useFastNavigation() {
   }, []);
 
   return {
-    fastNavigate,
+    Navigate,
     preloadOnHover,
     cancelNavigation,
     isNavigating: navState.isNavigating,
@@ -132,7 +132,7 @@ export function useFastNavigation() {
 /**
  * 高速ナビゲーションボタンコンポーネント
  */
-interface FastNavButtonProps {
+interface NavButtonProps {
   href: string;
   children: React.ReactNode;
   className?: string;
@@ -141,20 +141,20 @@ interface FastNavButtonProps {
   onClick?: () => void;
 }
 
-export function FastNavButton({
+export function NavButton({
   href,
   children,
   className = '',
   replace = false,
   preloadData = true,
   onClick,
-}: FastNavButtonProps) {
-  const { fastNavigate, preloadOnHover, isNavigating } = useFastNavigation();
+}: NavButtonProps) {
+  const { Navigate, preloadOnHover, isNavigating } = useNavigation();
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     onClick?.();
-    await fastNavigate(href, { replace, preloadData });
+    await Navigate(href, { replace, preloadData });
   };
 
   const handleMouseEnter = () => {
@@ -168,11 +168,6 @@ export function FastNavButton({
       className={`${className} ${isNavigating ? 'opacity-75 cursor-wait' : ''} relative`}
       disabled={isNavigating}
     >
-      {isNavigating && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
-          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      )}
       <span className={isNavigating ? 'opacity-50' : ''}>{children}</span>
     </button>
   );

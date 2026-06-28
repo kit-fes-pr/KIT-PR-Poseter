@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { FastNavButton } from '@/lib/hooks/useFastNavigation';
+import { NavButton } from '@/lib/hooks/useNavigation';
 
 interface YearEventHeaderProps {
   year: string;
@@ -35,7 +35,7 @@ export default function YearEventHeader({ year }: YearEventHeaderProps) {
             const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
 
             return (
-              <FastNavButton
+              <NavButton
                 key={item.href}
                 href={item.href}
                 className={`rounded-md px-3 py-2 text-sm transition-colors ${
@@ -45,7 +45,7 @@ export default function YearEventHeader({ year }: YearEventHeaderProps) {
                 }`}
               >
                 {item.label}
-              </FastNavButton>
+              </NavButton>
             );
           })}
         </div>

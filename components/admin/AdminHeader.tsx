@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { FastNavButton } from '@/lib/hooks/useFastNavigation';
+import { NavButton } from '@/lib/hooks/useNavigation';
 
 type AdminNavItem = {
   href: string;
@@ -64,7 +64,7 @@ export default function AdminHeader() {
             {adminNavItems.map((item) => {
               const isActive = activeHref === item.href;
               return (
-                <FastNavButton
+                <NavButton
                   key={item.href}
                   href={item.href}
                   className={`rounded-md px-3 py-2 text-sm transition-colors ${
@@ -74,7 +74,7 @@ export default function AdminHeader() {
                   }`}
                 >
                   {item.label}
-                </FastNavButton>
+                </NavButton>
               );
             })}
 
