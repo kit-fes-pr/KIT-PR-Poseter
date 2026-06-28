@@ -91,6 +91,7 @@ export default function AdminInvitePage() {
 
       let passwordResetSent = true;
       try {
+        auth.languageCode = 'ja';
         await sendPasswordResetEmail(auth, normalizedEmail);
       } catch (sendError) {
         passwordResetSent = false;
