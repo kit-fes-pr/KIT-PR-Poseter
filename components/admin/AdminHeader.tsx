@@ -81,23 +81,13 @@ export default function AdminHeader() {
                 </NavButton>
               );
             })}
-
-            {user ? (
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                ログアウト
-              </button>
-            ) : (
-              <Link
-                href="/admin/login"
-                className="rounded-md border border-indigo-300 bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700"
-              >
-                ログイン
-              </Link>
-            )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              ログアウト
+            </button>
           </div>
         </div>
       </div>
