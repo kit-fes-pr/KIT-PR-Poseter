@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-
-const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
+import {
+  buildAdminRecordCreatePayload,
+  buildAdminRecordUpdatePayload,
+  buildAdminInviteDisplayName,
+  buildAdminInviteLogPayload,
+  normalizeAdminInviteEmail,
+} from '@/lib/utils/admin/invites';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,16 +24,16 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => null)) as {
       email?: string;
     } | null;
-    const email = body?.email?.trim() || '';
+    const email = normalizeAdminInviteEmail(body?.email);
 
-    if (!email || !ADMIN_EMAIL_PATTERN.test(email)) {
+    if (!email) {
       return NextResponse.json(
         { error: 'kanazawa-it.ac.jp のメールアドレスを入力してください' },
         { status: 400 },
       );
     }
 
-    const displayName = email.split('@')[0];
+    const displayName = buildAdminInviteDisplayName(email);
 
     let userRecord;
     let operation: 'created' | 'updated';
@@ -64,34 +69,34 @@ export async function POST(request: NextRequest) {
     const adminDoc = await adminRef.get();
     if (adminDoc.exists) {
       await adminRef.set(
-        {
-          adminId: userRecord.uid,
-          email: userRecord.email,
-          name: userRecord.displayName || displayName,
-          isActive: true,
-          updatedAt: new Date(),
-        },
+        buildAdminRecordUpdatePayload({
+          email: userRecord.email || email,
+          displayName: userRecord.displayName || displayName,
+          now: new Date(),
+        }),
         { merge: true },
       );
     } else {
-      await adminRef.set({
-        adminId: userRecord.uid,
-        email: userRecord.email,
-        name: userRecord.displayName || displayName,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      await adminRef.set(
+        buildAdminRecordCreatePayload({
+          adminId: userRecord.uid,
+          email: userRecord.email || email,
+          displayName: userRecord.displayName || displayName,
+          now: new Date(),
+        }),
+      );
     }
 
-    await adminDb.collection('adminInvites').add({
-      email,
-      name: displayName,
-      invitedBy: decodedToken.email || decodedToken.uid,
-      invitedAt: new Date(),
-      operation,
-      uid: userRecord.uid,
-    });
+    await adminDb.collection('adminInvites').add(
+      buildAdminInviteLogPayload({
+        email,
+        displayName,
+        invitedBy: decodedToken.email || decodedToken.uid,
+        now: new Date(),
+        operation,
+        uid: userRecord.uid,
+      }),
+    );
 
     return NextResponse.json({
       success: true,
