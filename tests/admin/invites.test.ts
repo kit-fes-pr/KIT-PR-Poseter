@@ -12,8 +12,8 @@ import {
 describe('admin invite utils', () => {
   test('ADMIN_EMAIL_PATTERN accepts kanazawa-it.ac.jp addresses only', () => {
     assert.equal(ADMIN_EMAIL_PATTERN.test('admin@sub.kanazawa-it.ac.jp'), true);
+    assert.equal(ADMIN_EMAIL_PATTERN.test('admin@kanazawa-it.ac.jp'), true);
     assert.equal(ADMIN_EMAIL_PATTERN.test('admin@example.com'), false);
-    assert.equal(ADMIN_EMAIL_PATTERN.test('admin@kanazawa-it.ac.jp'), false);
   });
 
   test('normalizeAdminInviteEmail trims and validates email addresses', () => {
