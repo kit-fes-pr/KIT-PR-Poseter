@@ -24,7 +24,7 @@ export function useNavigation() {
   /**
    * ナビゲーション
    */
-  const Navigate = useCallback(
+  const navigate = useCallback(
     async (
       path: string,
       options?: {
@@ -120,7 +120,7 @@ export function useNavigation() {
   }, []);
 
   return {
-    Navigate,
+    navigate,
     preloadOnHover,
     cancelNavigation,
     isNavigating: navState.isNavigating,
@@ -149,12 +149,12 @@ export function NavButton({
   preloadData = true,
   onClick,
 }: NavButtonProps) {
-  const { Navigate, preloadOnHover, isNavigating } = useNavigation();
+  const { navigate, preloadOnHover, isNavigating } = useNavigation();
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     onClick?.();
-    await Navigate(href, { replace, preloadData });
+    await navigate(href, { replace, preloadData });
   };
 
   const handleMouseEnter = () => {
