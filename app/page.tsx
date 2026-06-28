@@ -46,7 +46,7 @@ export default function Home() {
             );
             const idToken = await getIdToken(cred.user);
             localStorage.setItem('authToken', idToken);
-            router.push('/dashboard');
+            router.replace('/dashboard');
             return;
           }
 
@@ -56,7 +56,7 @@ export default function Home() {
             const cred = await signInWithCustomToken(auth, result.customToken);
             const idToken = await getIdToken(cred.user);
             localStorage.setItem('authToken', idToken);
-            router.push('/dashboard');
+            router.replace('/dashboard');
             return;
           }
 
