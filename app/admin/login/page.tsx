@@ -13,8 +13,7 @@ import {
 } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
 import { LoadingScreen, LoadingButtonLabel } from '@/components/ui/Loading';
-
-const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
+import { ADMIN_EMAIL_PATTERN } from '@/lib/utils/admin/invites';
 
 export default function AdminLogin() {
   const router = useRouter();
