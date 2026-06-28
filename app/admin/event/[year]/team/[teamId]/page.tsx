@@ -28,7 +28,7 @@ export default function TeamDetailPage() {
   const y = params?.year;
   const teamId = params?.teamId;
 
-  const { user, isAdmin } = useRequireAdmin();
+  const { user, isAdmin, loading: authLoading } = useRequireAdmin();
   const [team, setTeam] = useState<Team | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [distributionSlots, setDistributionSlots] = useState<string[]>([]);
@@ -123,11 +123,10 @@ export default function TeamDetailPage() {
   // 割り当てメンバー取得
   useEffect(() => {
     const loadMembers = async () => {
-      if (!teamId || !y) return;
+      if (!teamId || !y || authLoading || !user) return;
       try {
         setMemberLoading(true);
-        const token = localStorage.getItem('authToken');
-        if (!token) return;
+        const token = await user.getIdToken();
         const res = await fetch(`/api/admin/teams/${teamId}/members?year=${y}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -144,8 +143,15 @@ export default function TeamDetailPage() {
       }
     };
     loadMembers();
-  }, [teamId, y]);
+  }, [teamId, y, user, authLoading]);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
   if (!isAdmin) return null;
 
   const StatusBadge = ({ status }: { status: string }) => {

@@ -15,7 +15,7 @@ const fetcher = async (url: string) => {
 };
 
 export default function AdminEventIndex() {
-  const { user, isAdmin } = useRequireAdmin();
+  const { user, isAdmin, loading: authLoading } = useRequireAdmin();
   const [events, setEvents] = useState<Record<string, unknown>[]>([]);
   const [latest, setLatest] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +72,13 @@ export default function AdminEventIndex() {
     init();
   }, [isAdmin, user]);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
   if (!isAdmin) return null;
 
   return (
