@@ -40,12 +40,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const displayName = buildAdminInviteDisplayName(email);
+    const fallbackDisplayName = buildAdminInviteDisplayName(email);
 
     let userRecord;
     let operation: 'created' | 'updated';
     try {
       const existingUser = await adminAuth.getUserByEmail(email);
+      const displayName = existingUser.displayName || fallbackDisplayName;
       userRecord = await adminAuth.updateUser(existingUser.uid, {
         displayName,
         emailVerified: true,
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
         throw error;
       }
 
+      const displayName = fallbackDisplayName;
       userRecord = await adminAuth.createUser({
         email,
         displayName,
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
       await adminRef.set(
         buildAdminRecordUpdatePayload({
           email: userRecord.email || email,
-          displayName: userRecord.displayName || displayName,
+          displayName: userRecord.displayName || fallbackDisplayName,
           now: new Date(),
         }),
         { merge: true },
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
         buildAdminRecordCreatePayload({
           adminId: userRecord.uid,
           email: userRecord.email || email,
-          displayName: userRecord.displayName || displayName,
+          displayName: userRecord.displayName || fallbackDisplayName,
           now: new Date(),
         }),
       );
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
     await adminDb.collection('adminInvites').add(
       buildAdminInviteLogPayload({
         email,
-        displayName,
+        displayName: userRecord.displayName || fallbackDisplayName,
         invitedBy: decodedToken.email || decodedToken.uid,
         now: new Date(),
         operation,
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
       success: true,
       invite: {
         email,
-        name: displayName,
+        name: userRecord.displayName || fallbackDisplayName,
         operation,
       },
     });
