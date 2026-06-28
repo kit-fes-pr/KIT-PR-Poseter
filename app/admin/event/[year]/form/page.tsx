@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { LoadingInline } from '@/components/ui/Loading';
 import { ResponseEditModal } from '@/components/forms/ResponseEditModal';
@@ -25,10 +23,12 @@ import { normalizeGrade } from '@/lib/utils/grade/grade';
 import { filterVisibleFormFieldsForParticipant } from '@/lib/utils/forms/forms';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 type AdminTab = 'content' | 'overview';
 
 type FormRecord = SurveyForm & {
+  isNew?: boolean; // Keep it if defined in forms.ts, or check
   responseCount: number;
   lastResponseAt?: string | Date;
 };
@@ -121,8 +121,7 @@ function isAvailabilityField(field: FormField): boolean {
 export default function FormDashboardPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, loading: authLoading } = useRequireAdmin();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -148,18 +147,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   useEffect(() => {
     params.then(setResolvedParams);
   }, [params]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setAuthLoading(false);
-      if (!nextUser) {
-        router.replace('/admin/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   const currentForm = forms[0] ?? null;
   const allAvailabilityChoices = useMemo(

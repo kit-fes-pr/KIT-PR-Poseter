@@ -1,10 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 import { LoadingScreen } from '@/components/ui/Loading';
 
 type QuickLink = {
@@ -32,49 +29,7 @@ const quickLinks: QuickLink[] = [
 ];
 
 export default function AdminHome() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-
-      if (!currentUser) {
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
-        return;
-      }
-
-      try {
-        const token = await currentUser.getIdToken();
-        const response = await fetch('/api/auth/verify', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) {
-          localStorage.removeItem('authToken');
-          router.replace('/admin/login');
-          return;
-        }
-
-        const data = await response.json();
-        if (!data?.user?.isAdmin) {
-          localStorage.removeItem('authToken');
-          router.replace('/admin/login');
-          return;
-        }
-
-        localStorage.setItem('authToken', token);
-        setLoading(false);
-      } catch {
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+  const { user, loading } = useRequireAdmin();
 
   if (loading) {
     return <LoadingScreen />;

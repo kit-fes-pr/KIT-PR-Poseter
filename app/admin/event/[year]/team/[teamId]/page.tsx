@@ -6,8 +6,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { Team, Store } from '@/types';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import {
   buildAvailabilitySlotChoices,
@@ -15,6 +13,7 @@ import {
 } from '@/lib/utils/availability/availability';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
 import { clearDashboardCache } from '@/lib/utils/dashboard/dashboard-cache';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -29,7 +28,7 @@ export default function TeamDetailPage() {
   const y = params?.year;
   const teamId = params?.teamId;
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, isAdmin } = useRequireAdmin();
   const [team, setTeam] = useState<Team | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [distributionSlots, setDistributionSlots] = useState<string[]>([]);
@@ -64,19 +63,6 @@ export default function TeamDetailPage() {
     }>
   >([]);
 
-  // Firebase認証状態を監視
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        // ログアウト状態の場合はadminページにリダイレクト
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
   useEffect(() => {
     if (!teamId) {
       console.error('No teamId provided');
@@ -85,16 +71,9 @@ export default function TeamDetailPage() {
     }
 
     const init = async () => {
+      if (!isAdmin || !user) return;
       try {
-        const token = localStorage.getItem('authToken');
-        if (!token) return router.replace('/admin/login');
-        const v = await fetch('/api/auth/verify', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!v.ok) throw new Error('unauthorized');
-        const data = await v.json();
-        if (!data?.user?.isAdmin) throw new Error('forbidden');
-        setIsAdmin(true);
+        const token = await user.getIdToken();
 
         const eventRes = await fetch(`/api/admin/events?year=${y}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -134,14 +113,12 @@ export default function TeamDetailPage() {
         setStores(st.stores || []);
       } catch (error) {
         console.error('Team detail loading error:', error);
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
       } finally {
         setLoading(false);
       }
     };
-    if (teamId) init();
-  }, [router, teamId, y]);
+    init();
+  }, [router, teamId, y, isAdmin, user]);
 
   // 割り当てメンバー取得
   useEffect(() => {

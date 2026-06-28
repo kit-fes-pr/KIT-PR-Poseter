@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { DEFAULT_TIME_ZONE, formatDateOnly } from '@/lib/utils/dateUtils';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -17,9 +15,7 @@ const fetcher = async (url: string) => {
 };
 
 export default function AdminEventIndex() {
-  const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, isAdmin } = useRequireAdmin();
   const [events, setEvents] = useState<Record<string, unknown>[]>([]);
   const [latest, setLatest] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,41 +49,11 @@ export default function AdminEventIndex() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuEventId]);
 
-  // Firebase認証状態を監視
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (!user) {
-        // ログアウト状態の場合はadminページにリダイレクト
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
   useEffect(() => {
     const init = async () => {
-      if (!currentUser) return;
+      if (!isAdmin || !user) return;
       try {
-        const token = await currentUser.getIdToken();
-        const v = await fetch('/api/auth/verify', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!v.ok) {
-          localStorage.removeItem('authToken');
-          router.replace('/admin/login');
-          return;
-        }
-        const data = await v.json();
-        if (!data?.user?.isAdmin) {
-          localStorage.removeItem('authToken');
-          router.replace('/admin/login');
-          return;
-        }
-        setIsAdmin(true);
-        localStorage.setItem('authToken', token);
+        const token = await user.getIdToken();
         const { events, latest } = await fetch('/api/admin/events', {
           headers: { Authorization: `Bearer ${token}` },
         }).then(async (res) => {
@@ -99,13 +65,12 @@ export default function AdminEventIndex() {
         setEvents(events || []);
         setLatest(latest || null);
         setLoading(false);
-      } catch {
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
+      } catch (err) {
+        console.error('Failed to load events:', err);
       }
     };
     init();
-  }, [currentUser, router]);
+  }, [isAdmin, user]);
 
   if (!isAdmin) return null;
 

@@ -1,17 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, sendPasswordResetEmail, User } from 'firebase/auth';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { ADMIN_EMAIL_PATTERN } from '@/lib/utils/admin/invites';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 export default function AdminInvitePage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useRequireAdmin();
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -20,45 +18,6 @@ export default function AdminInvitePage() {
     operation: 'created' | 'updated';
     passwordResetSent: boolean;
   } | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) {
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
-        return;
-      }
-
-      try {
-        const token = await currentUser.getIdToken();
-        const response = await fetch('/api/auth/verify', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) {
-          localStorage.removeItem('authToken');
-          router.replace('/admin/login');
-          return;
-        }
-
-        const data = await response.json();
-        if (!data?.user?.isAdmin) {
-          localStorage.removeItem('authToken');
-          router.replace('/admin/login');
-          return;
-        }
-
-        localStorage.setItem('authToken', token);
-        setLoading(false);
-      } catch {
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   const submitInvite = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

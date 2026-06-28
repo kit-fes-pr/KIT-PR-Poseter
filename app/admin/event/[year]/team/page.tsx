@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
 import {
   UNAVAILABLE_SLOT_KEY,
@@ -26,6 +24,7 @@ import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { Area } from '@/types';
 import type { FormAnswer } from '@/types/forms';
 import { clearDashboardCache } from '@/lib/utils/dashboard/dashboard-cache';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 interface Participant {
   responseId: string;
@@ -103,8 +102,7 @@ function parseDateTimestamp(value: string | Date | number | null | undefined): n
 export default function TeamAssignmentPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, loading: authLoading } = useRequireAdmin();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -149,20 +147,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   useEffect(() => {
     params.then(setResolvedParams);
   }, [params]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setAuthLoading(false);
-      if (!user) {
-        // ログアウト状態の場合はadminページにリダイレクト
-        localStorage.removeItem('authToken');
-        router.replace('/admin/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   useEffect(() => {
     if (!resolvedParams || !user || authLoading) return;
