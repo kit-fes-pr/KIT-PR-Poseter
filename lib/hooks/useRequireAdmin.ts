@@ -97,7 +97,7 @@ export function useRequireAdmin(options: UseRequireAdminOptions = {}) {
       }
 
       try {
-        const token = await currentUser.getIdToken();
+        const token = await currentUser.getIdToken(true);
         await verifyToken(token, currentUser);
       } catch (err) {
         console.error('Failed to get token:', err);
