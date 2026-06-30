@@ -190,15 +190,11 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   );
   useEffect(() => {
     if (currentForm) {
+      const carUsageField = currentForm.fields.find((field) => field.fieldId === 'carUsage');
       const nextCarUsageVisibleFromGrade =
-        currentForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade ===
-        undefined
+        carUsageField?.visibleFromGrade === undefined
           ? '1'
-          : String(
-              normalizeGrade(
-                currentForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade,
-              ),
-            );
+          : String(normalizeGrade(carUsageField.visibleFromGrade));
 
       savedSnapshotRef.current = JSON.stringify({
         title: currentForm.title,
@@ -459,6 +455,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         }
 
         const nextForm = data.form as FormRecord;
+        const nextCarUsageField = nextForm.fields.find((field) => field.fieldId === 'carUsage');
         setForms([nextForm]);
         setSaveStatus('saved');
         savedSnapshotRef.current = JSON.stringify({
@@ -466,14 +463,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
           description: nextForm.description || '',
           isActive: nextForm.isActive,
           carUsageVisibleFromGrade:
-            nextForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade ===
-            undefined
+            nextCarUsageField?.visibleFromGrade === undefined
               ? '1'
-              : String(
-                  normalizeGrade(
-                    nextForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade,
-                  ),
-                ),
+              : String(normalizeGrade(nextCarUsageField.visibleFromGrade)),
         });
         if (draftSnapshotRef.current === snapshotAtRequest) {
           setIsDirty(false);
