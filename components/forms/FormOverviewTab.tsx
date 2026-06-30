@@ -200,10 +200,6 @@ export function FormOverviewTab({
           {deleting ? '削除中...' : 'フォームを削除'}
         </button>
       </div>
-      <p className="text-sm text-gray-500">
-        保存状態:{' '}
-        {saveStatus === 'saving' ? '保存中' : saveStatus === 'saved' ? '保存済み' : '保存エラー'}
-      </p>
     </div>
   );
 }

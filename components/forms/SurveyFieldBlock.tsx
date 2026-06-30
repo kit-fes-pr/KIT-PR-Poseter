@@ -19,6 +19,7 @@ type SurveyFieldBlockProps = {
     allAvailable?: string;
     unavailable?: string;
   };
+  interactive?: boolean;
 };
 
 export function buildSurveyFieldRules(field: FormField): RegisterOptions {
@@ -69,6 +70,7 @@ export function SurveyFieldBlock({
   errorMessage,
   onValueChange,
   availabilityCopy,
+  interactive = true,
 }: SurveyFieldBlockProps) {
   const fieldId = field.fieldId;
   const isRequired = field.required;
@@ -77,6 +79,7 @@ export function SurveyFieldBlock({
   const optionLabel = (option: string) =>
     isAvailabilityField ? formatAvailabilitySlotLabel(option) : option;
   const updateValue = (nextValue: string | string[]) => {
+    if (!interactive) return;
     onValueChange?.(nextValue);
   };
 
@@ -110,7 +113,9 @@ export function SurveyFieldBlock({
             type="checkbox"
             value={option}
             checked={selected}
+            disabled={!interactive}
             onChange={() => {
+              if (!interactive) return;
               const currentValues = normalizeAvailabilitySlots(value);
               const nextValues = toggleAvailabilitySelection(
                 currentValues,
@@ -176,6 +181,8 @@ export function SurveyFieldBlock({
           rows={4}
           placeholder={field.placeholder || ''}
           value={typeof value === 'string' ? value : ''}
+          readOnly={!interactive}
+          disabled={!interactive}
           onChange={(e) => updateValue(e.target.value)}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
         />
@@ -195,6 +202,8 @@ export function SurveyFieldBlock({
           type="number"
           placeholder={field.placeholder || ''}
           value={typeof value === 'string' ? value : ''}
+          readOnly={!interactive}
+          disabled={!interactive}
           onChange={(e) => updateValue(e.target.value)}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
         />
@@ -212,6 +221,7 @@ export function SurveyFieldBlock({
         <select
           id={fieldId}
           value={typeof value === 'string' ? value : ''}
+          disabled={!interactive}
           onChange={(e) => updateValue(e.target.value)}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
         >
@@ -239,6 +249,7 @@ export function SurveyFieldBlock({
                   type="radio"
                   value={option}
                   checked={value === option}
+                  disabled={!interactive}
                   onChange={(e) => updateValue(e.target.value)}
                   className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
@@ -268,7 +279,9 @@ export function SurveyFieldBlock({
                     type="checkbox"
                     value={option}
                     checked={checked}
+                    disabled={!interactive}
                     onChange={() => {
+                      if (!interactive) return;
                       const nextValues = checked
                         ? selectedValues.filter((item) => item !== option)
                         : [...selectedValues, option];
@@ -297,6 +310,8 @@ export function SurveyFieldBlock({
         type="text"
         placeholder={field.placeholder || ''}
         value={typeof value === 'string' ? value : ''}
+        readOnly={!interactive}
+        disabled={!interactive}
         onChange={(e) => updateValue(e.target.value)}
         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
       />
