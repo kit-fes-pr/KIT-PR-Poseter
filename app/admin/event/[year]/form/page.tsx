@@ -143,7 +143,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const [editSaving, setEditSaving] = useState(false);
   const hasLoadedFormRef = useRef(false);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftSnapshotRef = useRef('');
   const savedSnapshotRef = useRef('');
   const responsesCardRef = useRef<HTMLDivElement | null>(null);
 
@@ -188,6 +187,16 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       ),
     [responses],
   );
+  const draftSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        title: draftTitle.trim(),
+        description: draftDescription.trim(),
+        isActive: draftIsActive,
+        carUsageVisibleFromGrade,
+      }),
+    [carUsageVisibleFromGrade, draftDescription, draftIsActive, draftTitle],
+  );
   useEffect(() => {
     if (loading || hasLoadedFormRef.current) {
       return;
@@ -228,15 +237,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   useEffect(() => {
     setPreviewValues(buildPreviewValues(fixedFields));
   }, [fixedFields]);
-
-  useEffect(() => {
-    draftSnapshotRef.current = JSON.stringify({
-      title: draftTitle.trim(),
-      description: draftDescription.trim(),
-      isActive: draftIsActive,
-      carUsageVisibleFromGrade,
-    });
-  }, [carUsageVisibleFromGrade, draftDescription, draftIsActive, draftTitle]);
 
   const handleDraftTitleChange = (value: string) => {
     setDraftTitle(value);
@@ -405,7 +405,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     async (silent = false) => {
       if (!resolvedParams || !user || !currentForm) return;
 
-      const snapshotAtRequest = draftSnapshotRef.current;
+      const snapshotAtRequest = draftSnapshot;
 
       try {
         setSaving(true);
@@ -468,7 +468,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
               ? '1'
               : String(normalizeGrade(nextCarUsageField.visibleFromGrade)),
         });
-        if (draftSnapshotRef.current === snapshotAtRequest) {
+        if (draftSnapshot === snapshotAtRequest) {
           setIsDirty(false);
         }
       } catch (err) {
@@ -486,6 +486,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       draftDescription,
       draftIsActive,
       draftTitle,
+      draftSnapshot,
       resolvedParams,
       user,
     ],
@@ -495,7 +496,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     if (!currentForm || !hasLoadedFormRef.current) return;
     if (!isDirty) return;
     if (saving) return;
-    if (draftSnapshotRef.current === savedSnapshotRef.current) return;
+    if (draftSnapshot === savedSnapshotRef.current) return;
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
     }
@@ -516,6 +517,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     draftIsActive,
     draftTitle,
     isDirty,
+    draftSnapshot,
     persistFormSettings,
     saving,
   ]);
