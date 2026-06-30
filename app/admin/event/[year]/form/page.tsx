@@ -189,6 +189,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     [responses],
   );
   useEffect(() => {
+    if (loading || hasLoadedFormRef.current) {
+      return;
+    }
+
     if (currentForm) {
       const carUsageField = currentForm.fields.find((field) => field.fieldId === 'carUsage');
       const nextCarUsageVisibleFromGrade =
@@ -208,10 +212,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       setDraftDescription(currentForm.description || '');
       setDraftIsActive(currentForm.isActive);
       setCarUsageVisibleFromGrade(nextCarUsageVisibleFromGrade);
-      if (!hasLoadedFormRef.current) {
-        setIsDirty(false);
-      }
-      hasLoadedFormRef.current = true;
     } else {
       savedSnapshotRef.current = '';
       setSaveStatus('saved');
@@ -220,9 +220,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       setDraftIsActive(true);
       setCarUsageVisibleFromGrade('1');
       setIsDirty(false);
-      hasLoadedFormRef.current = true;
     }
-  }, [currentForm]);
+    setIsDirty(false);
+    hasLoadedFormRef.current = true;
+  }, [currentForm, loading]);
 
   useEffect(() => {
     setPreviewValues(buildPreviewValues(fixedFields));
