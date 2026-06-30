@@ -33,7 +33,7 @@ export default function AdminInvitePage() {
       setSubmitting(true);
       setError('');
 
-      const token = await user.getIdToken();
+      const token = await user.getIdToken(true);
       const response = await fetch('/api/admin/invites', {
         method: 'POST',
         headers: {
