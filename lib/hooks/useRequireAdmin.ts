@@ -114,5 +114,5 @@ export function useRequireAdmin(options: UseRequireAdminOptions = {}) {
     };
   }, [router, onRedirect, handleError, retryOperation]);
 
-  return { user, loading, isAdmin, error };
+  return { user, loading, authLoading: loading, isAdmin, error };
 }

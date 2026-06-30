@@ -9,7 +9,7 @@ import { ADMIN_EMAIL_PATTERN } from '@/lib/utils/admin/invites';
 import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 export default function AdminInvitePage() {
-  const { user, loading } = useRequireAdmin();
+  const { user, loading: authLoading } = useRequireAdmin();
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -69,7 +69,7 @@ export default function AdminInvitePage() {
     }
   };
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LoadingInline size="lg" />
@@ -77,7 +77,13 @@ export default function AdminInvitePage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

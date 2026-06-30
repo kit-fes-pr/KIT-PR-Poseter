@@ -29,9 +29,9 @@ const quickLinks: QuickLink[] = [
 ];
 
 export default function AdminHome() {
-  const { user, loading } = useRequireAdmin();
+  const { user, loading: authLoading } = useRequireAdmin();
 
-  if (loading) {
+  if (authLoading) {
     return <LoadingScreen />;
   }
 

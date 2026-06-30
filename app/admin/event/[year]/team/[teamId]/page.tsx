@@ -152,7 +152,13 @@ export default function TeamDetailPage() {
       </div>
     );
   }
-  if (!isAdmin) return null;
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
 
   const StatusBadge = ({ status }: { status: string }) => {
     const map: Record<string, string> = {
