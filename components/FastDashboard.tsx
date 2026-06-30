@@ -67,50 +67,6 @@ export default function FastDashboard({ year, isAdmin }: FastDashboardProps) {
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
-          {/* イベント情報カード */}
-          {Boolean((data as Record<string, unknown> | undefined)?.event) && (
-            <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    {String(
-                      ((data as Record<string, unknown>)?.event as Record<string, unknown>)
-                        ?.eventName,
-                    ) || `${year}年度イベント`}
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-2">
-                    配布期間:{' '}
-                    {(() => {
-                      const eventData = (data as Record<string, unknown>)?.event as Record<
-                        string,
-                        unknown
-                      >;
-                      const start = formatDateOnly(
-                        eventData?.distributionStartDate as
-                          | string
-                          | number
-                          | Date
-                          | null
-                          | undefined,
-                      );
-                      const end = formatDateOnly(
-                        eventData?.distributionEndDate as string | number | Date | null | undefined,
-                      );
-
-                      if (start !== '-' && end !== '-' && start !== end)
-                        return `${start} 〜 ${end}`;
-                      return start !== '-' ? start : '未設定';
-                    })()}
-                  </p>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  {isLoadingMore && <LoadingInline size="sm" />}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* リアルタイム統計カード */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[

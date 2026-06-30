@@ -2,19 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { Area } from '@/types';
 import { useFastPageTransition } from '@/lib/hooks/usePageTransition';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { clearAllDashboardCaches } from '@/lib/utils/dashboard/dashboard-cache';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 export default function AreasPage() {
   const router = useRouter();
   const { navigateWithPreload } = useFastPageTransition();
-  const [user, setUser] = useState<User | null>(null);
+  const { user, loading: authLoading } = useRequireAdmin();
   const [loading, setLoading] = useState(true);
   const [areas, setAreas] = useState<Area[]>([]);
   const [error, setError] = useState('');
@@ -33,17 +32,6 @@ export default function AreasPage() {
     adjacentAreas: '',
     description: '',
   });
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) {
-        localStorage.removeItem('authToken');
-        router.push('/admin');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
 
   useEffect(() => {
     if (!user) return;
@@ -177,7 +165,7 @@ export default function AreasPage() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LoadingInline size="lg" />

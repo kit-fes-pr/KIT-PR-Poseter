@@ -1,4 +1,20 @@
-import YearEventHeader from '@/components/admin/YearEventHeader';
+import YearSidebar from '@/components/admin/YearSidebar';
+import { adminDb } from '@/lib/firebase-admin';
+import { normalizeDistributionEventListYear } from '@/lib/utils/events/events-api';
+import { buildDistributionPeriodLabel } from '@/lib/utils/events/events';
+
+function normalizeDateValue(value: unknown): string | Date | number | null | undefined {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: () => Date }).toDate === 'function'
+  ) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+
+  return value as string | Date | number | null | undefined;
+}
 
 export default async function YearEventLayout({
   children,
@@ -8,11 +24,42 @@ export default async function YearEventLayout({
   params: Promise<{ year: string }>;
 }) {
   const resolvedParams = await params;
+  const yearNumber = normalizeDistributionEventListYear(resolvedParams.year);
+
+  let distributionPeriod = '未設定';
+  if (yearNumber !== null) {
+    try {
+      const snap = await adminDb
+        .collection('distributionEvents')
+        .where('year', '==', yearNumber)
+        .limit(1)
+        .get();
+
+      if (!snap.empty) {
+        const eventData = snap.docs[0].data() as {
+          distributionStartDate?: string | Date | number | null;
+          distributionEndDate?: string | Date | number | null;
+          distributionAvailabilitySlots?: unknown;
+        };
+        distributionPeriod = buildDistributionPeriodLabel({
+          distributionStartDate: normalizeDateValue(eventData.distributionStartDate),
+          distributionEndDate: normalizeDateValue(eventData.distributionEndDate),
+          distributionAvailabilitySlots: eventData.distributionAvailabilitySlots,
+        });
+      }
+    } catch (error) {
+      console.error('配布期間の取得に失敗しました:', error);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <YearEventHeader year={resolvedParams.year} />
-      <main>{children}</main>
+      <div className="w-full px-0 py-6">
+        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-stretch">
+          <YearSidebar year={resolvedParams.year} distributionPeriod={distributionPeriod} />
+          <main className="min-w-0 lg:self-stretch">{children}</main>
+        </div>
+      </div>
     </div>
   );
 }

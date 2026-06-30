@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { formatDate } from '@/lib/utils/dateUtils';
 import {
   UNAVAILABLE_SLOT_KEY,
@@ -26,6 +24,7 @@ import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { Area } from '@/types';
 import type { FormAnswer } from '@/types/forms';
 import { clearDashboardCache } from '@/lib/utils/dashboard/dashboard-cache';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 interface Participant {
   responseId: string;
@@ -103,8 +102,7 @@ function parseDateTimestamp(value: string | Date | number | null | undefined): n
 export default function TeamAssignmentPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, loading: authLoading } = useRequireAdmin();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -149,20 +147,6 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
   useEffect(() => {
     params.then(setResolvedParams);
   }, [params]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setAuthLoading(false);
-      if (!user) {
-        // ログアウト状態の場合はadminページにリダイレクト
-        localStorage.removeItem('authToken');
-        router.push('/admin');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   useEffect(() => {
     if (!resolvedParams || !user || authLoading) return;
@@ -966,15 +950,7 @@ export default function TeamAssignmentPage({ params }: { params: Promise<{ year:
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <YearPageSectionHeader
           title={`チーム割り当て管理 (${resolvedParams?.year}年度)`}
-          description="アンケート結果を基に参加者を配布区域チームに自動割り当てします。"
-          actions={
-            <Link
-              href={`/admin/event/${resolvedParams?.year}`}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              イベント管理へ戻る
-            </Link>
-          }
+          description="アンケート結果を基に参加者を配布区域チームに割り当てます。"
         />
 
         {/* エラー表示 */}

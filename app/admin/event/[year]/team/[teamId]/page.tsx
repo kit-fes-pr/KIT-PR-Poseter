@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { Team, Store } from '@/types';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import {
   buildAvailabilitySlotChoices,
@@ -14,6 +13,7 @@ import {
 } from '@/lib/utils/availability/availability';
 import { normalizeGrade } from '@/lib/utils/grade/grade';
 import { clearDashboardCache } from '@/lib/utils/dashboard/dashboard-cache';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 const fetcherAuth = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -28,7 +28,7 @@ export default function TeamDetailPage() {
   const y = params?.year;
   const teamId = params?.teamId;
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, isAdmin, loading: authLoading } = useRequireAdmin();
   const [team, setTeam] = useState<Team | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [distributionSlots, setDistributionSlots] = useState<string[]>([]);
@@ -63,37 +63,17 @@ export default function TeamDetailPage() {
     }>
   >([]);
 
-  // Firebase認証状態を監視
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        // ログアウト状態の場合はadminページにリダイレクト
-        localStorage.removeItem('authToken');
-        router.push('/admin');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
   useEffect(() => {
     if (!teamId) {
       console.error('No teamId provided');
-      router.push('/admin/event');
+      router.replace('/admin/event');
       return;
     }
 
     const init = async () => {
+      if (!isAdmin || !user) return;
       try {
-        const token = localStorage.getItem('authToken');
-        if (!token) return router.push('/admin');
-        const v = await fetch('/api/auth/verify', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!v.ok) throw new Error('unauthorized');
-        const data = await v.json();
-        if (!data?.user?.isAdmin) throw new Error('forbidden');
-        setIsAdmin(true);
+        const token = await user.getIdToken();
 
         const eventRes = await fetch(`/api/admin/events?year=${y}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -133,23 +113,20 @@ export default function TeamDetailPage() {
         setStores(st.stores || []);
       } catch (error) {
         console.error('Team detail loading error:', error);
-        localStorage.removeItem('authToken');
-        router.push('/admin');
       } finally {
         setLoading(false);
       }
     };
-    if (teamId) init();
-  }, [router, teamId, y]);
+    init();
+  }, [router, teamId, y, isAdmin, user]);
 
   // 割り当てメンバー取得
   useEffect(() => {
     const loadMembers = async () => {
-      if (!teamId || !y) return;
+      if (!teamId || !y || authLoading || !user) return;
       try {
         setMemberLoading(true);
-        const token = localStorage.getItem('authToken');
-        if (!token) return;
+        const token = await user.getIdToken();
         const res = await fetch(`/api/admin/teams/${teamId}/members?year=${y}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -166,9 +143,22 @@ export default function TeamDetailPage() {
       }
     };
     loadMembers();
-  }, [teamId, y]);
+  }, [teamId, y, user, authLoading]);
 
-  if (!isAdmin) return null;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
 
   const StatusBadge = ({ status }: { status: string }) => {
     const map: Record<string, string> = {
@@ -196,12 +186,12 @@ export default function TeamDetailPage() {
           description="チーム情報の確認と編集を行います。"
           actions={
             <>
-              <button
-                onClick={() => router.push(`/admin/event/${y}/team`)}
+              <Link
+                href={`/admin/event/${y}/team`}
                 className="px-4 py-2 border rounded-md text-sm bg-white text-gray-700 hover:bg-gray-50"
               >
                 チーム管理へ戻る
-              </button>
+              </Link>
               <button
                 onClick={() => setIsBasicEditOpen(true)}
                 className="px-4 py-2 border rounded-md text-sm bg-white text-gray-700 hover:bg-gray-50"

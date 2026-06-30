@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { LoadingInline } from '@/components/ui/Loading';
 import { ResponseEditModal } from '@/components/forms/ResponseEditModal';
@@ -25,10 +23,12 @@ import { normalizeGrade } from '@/lib/utils/grade/grade';
 import { filterVisibleFormFieldsForParticipant } from '@/lib/utils/forms/forms';
 import { FormField, FormResponse, ParticipantSurveyResponse, SurveyForm } from '@/types/forms';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 type AdminTab = 'content' | 'overview';
 
 type FormRecord = SurveyForm & {
+  isNew?: boolean; // Keep it if defined in forms.ts, or check
   responseCount: number;
   lastResponseAt?: string | Date;
 };
@@ -121,8 +121,7 @@ function isAvailabilityField(field: FormField): boolean {
 export default function FormDashboardPage({ params }: { params: Promise<{ year: string }> }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, loading: authLoading } = useRequireAdmin();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -148,18 +147,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   useEffect(() => {
     params.then(setResolvedParams);
   }, [params]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setAuthLoading(false);
-      if (!nextUser) {
-        router.push('/admin');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   const currentForm = forms[0] ?? null;
   const allAvailabilityChoices = useMemo(
@@ -856,9 +843,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">フォームプレビュー</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      入力画面の見え方をそのまま確認できます。
-                    </p>
                   </div>
                   <Link
                     href={`/admin/event/${resolvedParams.year}/setting`}
@@ -866,20 +850,6 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                   >
                     設定を開く
                   </Link>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {allAvailabilityChoices.length > 0 ? (
-                    allAvailabilityChoices.map((choice) => (
-                      <span
-                        key={choice.key}
-                        className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
-                      >
-                        {choice.label}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-red-600">配布日時が未設定です</span>
-                  )}
                 </div>
                 <div className="mt-6 space-y-4">
                   {visiblePreviewFields.map((field) => (

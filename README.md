@@ -237,6 +237,9 @@ docker compose down
 
 | パス                                | 画面名                                           | 認証要件   |
 | ----------------------------------- | ------------------------------------------------ | ---------- |
+| `/admin`                            | 管理者ダッシュボード                             | 管理者認証 |
+| `/admin/login`                      | 管理者ログイン                                   | なし       |
+| `/admin/invite`                     | ユーザー招待                                     | 管理者認証 |
 | `/admin/event`                      | イベント管理（年度一覧）                         | 管理者認証 |
 | `/admin/event/[year]`               | 年度別イベント管理                               | 管理者認証 |
 | `/admin/event/[year]/team`          | チーム管理                                       | 管理者認証 |
@@ -244,7 +247,6 @@ docker compose down
 | `/admin/event/[year]/setting`       | イベント設定                                     | 管理者認証 |
 | `/admin/event/[year]/form`          | アンケートフォーム管理（作成・内容・回答・設定） | 管理者認証 |
 | `/admin/event/[year]/stats`         | 年次統計・レポート                               | 管理者認証 |
-| `/admin`                            | 管理者ログイン                                   | なし       |
 | `/dashboard`                        | 配布管理画面（班認証）                           | 班認証     |
 | `/dashboard/all`                    | 全体ダッシュボード（班認証）                     | 班認証     |
 | `/form/[id]`                        | アンケート回答フォーム                           | なし       |
@@ -377,15 +379,17 @@ interface Member {
 
 #### 2. 管理者認証（Firebase Authentication）
 
-- **Firebase Auth**: createUserWithEmailAndPassword + sendEmailVerification を使用
-- **ドメイン制限**: sub.kanazawa-it.ac.jp ドメイン限定
+- **Firebase Auth**: `signInWithEmailAndPassword` を使用
+- **招待制**: 管理者が admin 画面からユーザー招待を作成します
+- **招待メール**: メールアドレスを入力すると Firebase のパスワード再設定メールを送信します
+- **初期作成**: `make admin` でローカル作成できます
 - **認証フロー**:
-  1. 管理者がメールアドレス・パスワードを入力
-  2. Firebase Authentication でアカウント作成
-  3. 自動でメール認証リンクを送信
-  4. メール内のリンクから認証確認
+  1. 管理者が admin 画面で招待を作成
+  2. Firebase からパスワード再設定メールが送信される
+  3. 対象ユーザーがメール内リンクから初回パスワードを設定する
+  4. 管理者ログイン画面からログインする
   5. Custom Claims で管理者権限を付与
-- **セキュリティ**: Firebase標準のセキュリティ機能を活用
+- **セキュリティ**: 管理者以外は admin ページにアクセスできない
 
 #### Firebase Authentication実装方法
 
@@ -422,20 +426,21 @@ Firebase設定:
 
 API Routes:
 
-- `app/api/admin/register/route.ts` - 管理者登録（Firebase Auth使用）
-- `app/api/admin/set-claims/route.ts` - Custom Claims設定
+- `app/api/admin/invites/route.ts` - 管理者招待の作成
 
 Pages/Components:
 
-- `app/admin/register/page.tsx` - 管理者登録フォーム
-- `app/admin/page.tsx` - ログインフォーム
-- `app/admin/verify-email/page.tsx` - メール認証完了ページ
+- `app/admin/page.tsx` - 管理者ダッシュボード
+- `app/admin/login/page.tsx` - 管理者ログインフォーム
+- `app/admin/invite/page.tsx` - ユーザー招待フォーム
+- `app/admin/event/page.tsx` - 年度選択
 
 ### セキュリティ仕様
 
 - **セッション制限**: 24時間で自動ログアウト
 - **複数ログイン**: 同一ログインコードでの複数人同時利用を許可
 - **アクセス制御**: 未認証時は認証画面に自動リダイレクト
+- **管理者招待**: `app/admin/register/page.tsx` と `app/api/auth/admin-register/route.ts` は削除済みで、管理者招待は `app/api/admin/invites/route.ts` に一本化されています
 
 ### エラーハンドリング
 

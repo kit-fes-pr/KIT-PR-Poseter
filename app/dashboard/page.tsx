@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
@@ -20,6 +21,7 @@ const fetcher = async (url: string) => {
 
 export default function Dashboard() {
   const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const [isAddingStore, setIsAddingStore] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,9 +81,13 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (!token) {
-      router.push('/');
+      router.replace('/');
+    } else {
+      setAuthChecked(true);
     }
   }, [router]);
+
+  if (!authChecked) return null;
 
   const filteredStores = (storesData?.stores || [])
     .filter((store: Store) => {
@@ -288,16 +294,16 @@ export default function Dashboard() {
               >
                 店舗を追加
               </button>
-              <button
-                onClick={() => router.push('/dashboard/all')}
+              <Link
+                href="/dashboard/all"
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
               >
                 全班表示
-              </button>
+              </Link>
               <button
                 onClick={() => {
                   localStorage.removeItem('authToken');
-                  router.push('/');
+                  router.replace('/');
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
                 title="ログアウト"

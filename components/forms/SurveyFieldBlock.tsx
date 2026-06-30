@@ -76,10 +76,6 @@ export function SurveyFieldBlock({
   const isAvailabilityField = fieldId === 'availability';
   const optionLabel = (option: string) =>
     isAvailabilityField ? formatAvailabilitySlotLabel(option) : option;
-  const availabilityAllAvailable =
-    availabilityCopy?.allAvailable || '配布期間内の全日時に対応可能です';
-  const availabilityUnavailable = availabilityCopy?.unavailable || 'この日時には参加できません';
-
   const updateValue = (nextValue: string | string[]) => {
     onValueChange?.(nextValue);
   };
@@ -104,7 +100,7 @@ export function SurveyFieldBlock({
       return (
         <label
           key={`${option}-${index}`}
-          className={`group flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${
+          className={`group flex w-full min-w-0 cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all duration-150 ${
             selected
               ? 'border-indigo-500 bg-indigo-50 shadow-sm ring-2 ring-indigo-200'
               : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-gray-50'
@@ -138,14 +134,9 @@ export function SurveyFieldBlock({
             </svg>
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium text-gray-900">{optionLabel(option)}</span>
-            {isSpecial && (
-              <span className="mt-1 block text-xs text-gray-500">
-                {option === ALL_AVAILABLE_SLOT_KEY
-                  ? availabilityAllAvailable
-                  : availabilityUnavailable}
-              </span>
-            )}
+            <span className="block break-words text-sm font-medium leading-5 text-gray-900">
+              {optionLabel(option)}
+            </span>
           </span>
         </label>
       );
@@ -157,14 +148,14 @@ export function SurveyFieldBlock({
           <legend className="mb-2 block text-sm font-medium text-gray-700">{label}</legend>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
             {displaySpecialOptions.length > 0 && (
-              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mb-4 grid gap-3 grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]">
                 {displaySpecialOptions.map((option, index) =>
                   renderOptionCard(option, index, 'special'),
                 )}
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]">
               {dateOptions.map((option, index) => renderOptionCard(option, index))}
             </div>
           </div>

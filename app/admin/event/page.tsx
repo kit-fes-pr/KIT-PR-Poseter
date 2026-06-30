@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import Link from 'next/link';
 import { LoadingInline } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { DEFAULT_TIME_ZONE, formatDateOnly } from '@/lib/utils/dateUtils';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 const fetcher = async (url: string) => {
   const token = localStorage.getItem('authToken');
@@ -16,9 +15,7 @@ const fetcher = async (url: string) => {
 };
 
 export default function AdminEventIndex() {
-  const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, isAdmin, loading: authLoading } = useRequireAdmin();
   const [events, setEvents] = useState<Record<string, unknown>[]>([]);
   const [latest, setLatest] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,20 +37,6 @@ export default function AdminEventIndex() {
   }>({ eventName: '', distributionStartDate: '', distributionEndDate: '' });
   const editingTarget = isEditing ? editTarget : null;
 
-  // ログアウト処理
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      localStorage.removeItem('authToken');
-      router.push('/admin');
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
-      // Firebase サインアウトが失敗してもローカルをクリア
-      localStorage.removeItem('authToken');
-      router.push('/admin');
-    }
-  };
-
   // Close popup menu on outside click
   useEffect(() => {
     if (!menuEventId) return;
@@ -66,41 +49,11 @@ export default function AdminEventIndex() {
     return () => document.removeEventListener('mousedown', onDown);
   }, [menuEventId]);
 
-  // Firebase認証状態を監視
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (!user) {
-        // ログアウト状態の場合はadminページにリダイレクト
-        localStorage.removeItem('authToken');
-        router.push('/admin');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
   useEffect(() => {
     const init = async () => {
-      if (!currentUser) return;
+      if (!isAdmin || !user) return;
       try {
-        const token = await currentUser.getIdToken();
-        const v = await fetch('/api/auth/verify', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!v.ok) {
-          localStorage.removeItem('authToken');
-          router.push('/admin');
-          return;
-        }
-        const data = await v.json();
-        if (!data?.user?.isAdmin) {
-          localStorage.removeItem('authToken');
-          router.push('/admin');
-          return;
-        }
-        setIsAdmin(true);
-        localStorage.setItem('authToken', token);
+        const token = await user.getIdToken();
         const { events, latest } = await fetch('/api/admin/events', {
           headers: { Authorization: `Bearer ${token}` },
         }).then(async (res) => {
@@ -111,51 +64,44 @@ export default function AdminEventIndex() {
         });
         setEvents(events || []);
         setLatest(latest || null);
-      } catch {
-        localStorage.removeItem('authToken');
-        router.push('/admin');
-      } finally {
         setLoading(false);
+      } catch (err) {
+        console.error('Failed to load events:', err);
       }
     };
     init();
-  }, [currentUser, router]);
+  }, [isAdmin, user]);
 
-  if (!isAdmin) return null;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingInline size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold">学外配布年度管理</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/admin/event/areas')}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
-              >
-                配布区域管理
-              </button>
-              <button
-                onClick={() => setIsCreating(true)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
-              >
-                学外配布年度を追加
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md text-sm"
-              >
-                ログアウト
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-900">年度選択</h2>
+          </div>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            学外配布年度を追加
+          </button>
+        </div>
+
         {loading ? (
           <LoadingInline />
         ) : error ? (
@@ -172,12 +118,12 @@ export default function AdminEventIndex() {
                       {String(latest.eventName) || '学外配布'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => router.push(`/admin/event/${latest.year}`)}
+                  <Link
+                    href={`/admin/event/${latest.year}`}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
                   >
                     この年度を開く
-                  </button>
+                  </Link>
                 </div>
               </div>
             )}
@@ -188,19 +134,15 @@ export default function AdminEventIndex() {
                 {events.map((ev) => (
                   <div
                     key={ev.id as string}
-                    onClick={() => router.push(`/admin/event/${ev.year}`)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        router.push(`/admin/event/${ev.year}`);
-                      }
-                    }}
-                    className="border border-gray-200 rounded-lg p-4 bg-white cursor-pointer transition transform duration-150 ease-out hover:shadow-md hover:-translate-y-0.5 md:hover:shadow-lg md:hover:-translate-y-1 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="relative border border-gray-200 rounded-lg p-4 bg-white transition transform duration-150 ease-out hover:shadow-md hover:-translate-y-0.5 md:hover:shadow-lg md:hover:-translate-y-1 active:translate-y-0 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500"
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <Link
+                      href={`/admin/event/${ev.year}`}
+                      className="absolute inset-0 z-0 rounded-lg after:absolute after:inset-0 after:content-['']"
+                      aria-label={`${String(ev.year)} 年度を開く`}
+                    />
+                    <div className="relative z-10 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
                         <p className="text-base font-semibold">{String(ev.year)} 年度</p>
                         <p className="text-sm text-gray-500">
                           {String(ev.eventName) || '学外配布'} /{' '}
@@ -214,16 +156,10 @@ export default function AdminEventIndex() {
                           })()}
                         </p>
                       </div>
-                      <div
-                        className="relative"
-                        data-menu-root
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      >
+                      <div className="relative z-10 shrink-0" data-menu-root>
                         <button
                           className="px-2 py-1 border rounded text-sm"
                           onClick={(e) => {
-                            e.stopPropagation();
                             setMenuEventId(menuEventId === ev.id ? null : (ev.id as string));
                           }}
                           aria-label="メニュー"
@@ -233,26 +169,20 @@ export default function AdminEventIndex() {
                         </button>
                         {menuEventId === ev.id && (
                           <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded shadow-md z-10">
-                            <button
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/admin/event/${ev.year}`);
-                                setMenuEventId(null);
-                              }}
+                            <Link
+                              href={`/admin/event/${ev.year}`}
+                              className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={() => setMenuEventId(null)}
                             >
                               開く
-                            </button>
-                            <button
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push('/admin/event/areas');
-                                setMenuEventId(null);
-                              }}
+                            </Link>
+                            <Link
+                              href="/admin/event/areas"
+                              className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                              onClick={() => setMenuEventId(null)}
                             >
                               配布区域
-                            </button>
+                            </Link>
                             <button
                               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                               onClick={() => {

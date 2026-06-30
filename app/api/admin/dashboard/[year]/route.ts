@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { hasAdminPrivileges } from '@/lib/utils/admin/auth';
 import {
   buildDashboardAreaStats,
   buildDashboardEventData,
@@ -20,9 +21,15 @@ export async function GET(request: NextRequest, context: { params: Promise<{ yea
     }
 
     const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken, true);
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(idToken, true);
+    } catch (error) {
+      console.error('Auth token verification failed:', error);
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
 
-    if (decodedToken.role !== 'admin') {
+    if (!hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown })) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 

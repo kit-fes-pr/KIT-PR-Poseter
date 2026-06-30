@@ -1,18 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { auth } from '@/lib/firebase';
-import { signInWithCustomToken, getIdToken, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
 import { AdminLoginFormData } from '@/types';
+import { LoadingScreen, LoadingButtonLabel } from '@/components/ui/Loading';
+import { ADMIN_EMAIL_PATTERN } from '@/lib/utils/admin/invites';
 
-const ADMIN_EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@]+\.)+kanazawa-it\.ac\.jp$/i;
-
-export default function AdminRegister() {
+export default function AdminLogin() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
   const clearAuthState = async () => {
@@ -22,8 +24,45 @@ export default function AdminRegister() {
       console.error('サインアウトエラー:', signOutError);
     } finally {
       localStorage.removeItem('authToken');
+      setUser(null);
     }
   };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+
+      if (currentUser) {
+        try {
+          const idToken = await currentUser.getIdToken();
+          const response = await fetch('/api/auth/verify', {
+            headers: { Authorization: `Bearer ${idToken}` },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.user?.isAdmin) {
+              localStorage.setItem('authToken', idToken);
+              router.replace('/admin');
+            } else {
+              setError('管理者権限がありません');
+              await clearAuthState();
+            }
+          } else {
+            setError('認証に失敗しました');
+            await clearAuthState();
+          }
+        } catch (authError) {
+          console.error('認証チェックエラー:', authError);
+          setError('認証チェックに失敗しました');
+          await clearAuthState();
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const {
     register,
@@ -34,66 +73,32 @@ export default function AdminRegister() {
   const onSubmit = async (data: AdminLoginFormData) => {
     setIsLoading(true);
     setError('');
-    setSuccess('');
 
     try {
-      const response = await fetch('/api/auth/admin-register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setSuccess('管理者アカウントが作成されました！管理画面に移動します...');
-
-        if (result.customToken) {
-          try {
-            // カスタムトークンでサインイン
-            const userCredential = await signInWithCustomToken(auth, result.customToken);
-            console.log('Signed in with custom token after registration:', userCredential.user.uid);
-
-            const idToken = await getIdToken(userCredential.user);
-            localStorage.setItem('authToken', idToken);
-
-            setTimeout(() => {
-              router.push('/admin/event');
-            }, 2000);
-          } catch (authError) {
-            console.error('Custom token authentication failed after registration:', authError);
-            await clearAuthState();
-            setTimeout(() => {
-              router.push('/admin');
-            }, 2000);
-          }
-        } else {
-          await clearAuthState();
-          setTimeout(() => {
-            router.push('/admin');
-          }, 2000);
-        }
-      } else {
-        setError(result.error || 'アカウント作成に失敗しました');
-      }
+      await signInWithEmailAndPassword(auth, data.email, data.password);
     } catch (error) {
       console.error('エラー内容:', error);
-      setError('アカウント作成に失敗しました');
+      setError('ログインに失敗しました');
+      await clearAuthState();
     } finally {
       setIsLoading(false);
     }
   };
 
+  if (authLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (user) {
+    return <LoadingScreen />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          管理者アカウント作成
-        </h2>
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">管理者ログイン</h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          kanazawa-it.ac.jp 配下のメールアドレスで管理者アカウントを作成してください
+          kanazawa-it.ac.jp のメールアドレスでログインしてください
         </p>
       </div>
 
@@ -114,7 +119,7 @@ export default function AdminRegister() {
                     required: 'メールアドレスを入力してください',
                     pattern: {
                       value: ADMIN_EMAIL_PATTERN,
-                      message: 'kanazawa-it.ac.jp 配下のメールアドレスを入力してください',
+                      message: 'kanazawa-it.ac.jp のメールアドレスを入力してください',
                     },
                   })}
                 />
@@ -151,41 +156,34 @@ export default function AdminRegister() {
               </div>
             )}
 
-            {success && (
-              <div className="rounded-md bg-green-50 p-4">
-                <div className="text-sm text-green-700">{success}</div>
-              </div>
-            )}
-
             <div>
               <button
                 type="submit"
-                disabled={isLoading || !!success}
+                disabled={isLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
               >
-                {isLoading ? 'アカウント作成中...' : 'アカウント作成'}
+                {isLoading ? <LoadingButtonLabel /> : 'ログイン'}
               </button>
             </div>
           </form>
-
-          <div className="mt-6">
-            <button
-              onClick={() => router.push('/admin')}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              ← 既にアカウントをお持ちの場合はログイン
-            </button>
+        </div>
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-gray-50 text-gray-500">または</span>
+            </div>
           </div>
 
           <div className="mt-6">
-            <div className="text-xs text-gray-500">
-              <p className="mb-2">注意事項:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>kanazawa-it.ac.jp 配下のメールアドレスのみ使用可能</li>
-                <li>パスワードは6文字以上で設定してください</li>
-                <li>作成後は管理者権限が自動的に付与されます</li>
-              </ul>
-            </div>
+            <Link
+              href="/"
+              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              ← ログインコード入力画面に戻る
+            </Link>
           </div>
         </div>
       </div>

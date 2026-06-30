@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { hasAdminPrivileges } from '@/lib/utils/admin/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FormResponse, FormAnswer, SurveyForm, ParticipantSurveyResponse } from '@/types/forms';
 import { validateAvailabilitySelection } from '@/lib/utils/availability/availability';
@@ -31,7 +32,7 @@ export async function GET(
     const decodedToken = await adminAuth.verifyIdToken(idToken);
 
     // 管理者のみ回答一覧を取得可能
-    if (decodedToken.role !== 'admin') {
+    if (!hasAdminPrivileges(decodedToken as { role?: unknown; isAdmin?: unknown })) {
       return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 });
     }
 

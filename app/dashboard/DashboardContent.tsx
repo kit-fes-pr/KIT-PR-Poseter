@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { Modal } from '@/components/ui/Modal';
@@ -18,6 +19,7 @@ const fetcher = async (url: string) => {
 
 export default function DashboardContent({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
   const readOnly = mode === 'all';
   const swrKey = mode === 'all' ? '/api/stores?scope=all' : '/api/stores';
   const { data: storesData, mutate } = useSWR(swrKey, fetcher);
@@ -69,8 +71,14 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    if (!token) router.push('/');
+    if (!token) {
+      router.replace('/');
+    } else {
+      setAuthChecked(true);
+    }
   }, [router]);
+
+  if (!authChecked) return null;
 
   const filteredStores: Store[] = useMemo(() => {
     const list: Store[] = storesData?.stores || [];
@@ -266,24 +274,24 @@ export default function DashboardContent({ mode }: { mode: Mode }) {
                 </button>
               )}
               {!readOnly ? (
-                <button
-                  onClick={() => router.push('/dashboard/all')}
+                <Link
+                  href="/dashboard/all"
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
                 >
                   全班表示
-                </button>
+                </Link>
               ) : (
-                <button
-                  onClick={() => router.push('/dashboard')}
+                <Link
+                  href="/dashboard"
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
                 >
                   自班表示
-                </button>
+                </Link>
               )}
               <button
                 onClick={() => {
                   localStorage.removeItem('authToken');
-                  router.push('/');
+                  router.replace('/');
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
                 title="ログアウト"

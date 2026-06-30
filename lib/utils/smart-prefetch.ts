@@ -47,20 +47,8 @@ export class SmartPrefetcher {
     if (yearMatch) {
       const year = parseInt(yearMatch[1]);
 
-      // よくアクセスされるサブページを先読み
-      const subPages = [
-        `/api/admin/dashboard/${year}`,
-        `/api/admin/teams/incremental?year=${year}`,
-        `/api/admin/stats?year=${year}`,
-      ];
-
-      subPages.forEach((url) => this.queuePrefetch(url));
-
-      // 前年・来年のダッシュボードも予測先読み
-      if (this.shouldPrefetchAdjacentYears(year)) {
-        this.queuePrefetch(`/api/admin/dashboard/${year - 1}`);
-        this.queuePrefetch(`/api/admin/dashboard/${year + 1}`);
-      }
+      // 初期表示に必要な最小データだけ先読み
+      this.queuePrefetch(`/api/admin/dashboard/${year}/minimal`);
     }
 
     // チーム詳細ページからの予測
@@ -73,15 +61,6 @@ export class SmartPrefetcher {
 
     // プリフェッチキューを処理
     this.processPrefetchQueue();
-  }
-
-  /**
-   * 隣接年度のプリフェッチが必要かを判定
-   */
-  private shouldPrefetchAdjacentYears(year: number): boolean {
-    // 現在年度の前後2年以内なら先読み対象
-    const currentYear = new Date().getFullYear();
-    return Math.abs(year - currentYear) <= 2;
   }
 
   /**

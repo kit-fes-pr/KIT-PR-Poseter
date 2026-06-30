@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import YearPageSectionHeader from '@/components/admin/YearPageSectionHeader';
 import { LoadingInline } from '@/components/ui/Loading';
 import { formatDateOnly } from '@/lib/utils/dateUtils';
@@ -14,6 +12,7 @@ import {
   ALL_AVAILABLE_SLOT_KEY,
 } from '@/lib/utils/availability/availability';
 import type { AvailabilitySlotChoice } from '@/lib/utils/availability/availability';
+import { useRequireAdmin } from '@/lib/hooks/useRequireAdmin';
 
 type EventSummary = {
   id?: string;
@@ -49,8 +48,7 @@ export default function DistributionSettingsPage({
 }) {
   const router = useRouter();
   const [resolvedParams, setResolvedParams] = useState<{ year: string } | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, loading: authLoading } = useRequireAdmin();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [eventData, setEventData] = useState<EventSummary | null>(null);
@@ -67,18 +65,6 @@ export default function DistributionSettingsPage({
   useEffect(() => {
     params.then(setResolvedParams);
   }, [params]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setAuthLoading(false);
-      if (!nextUser) {
-        router.push('/admin');
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
 
   const allChoices = useMemo<AvailabilitySlotChoice[]>(
     () => buildAvailabilitySlotChoices(distributionStartDate, distributionEndDate),
