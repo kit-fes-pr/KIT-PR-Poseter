@@ -508,7 +508,16 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [currentForm, isDirty, persistFormSettings, saving]);
+  }, [
+    carUsageVisibleFromGrade,
+    currentForm,
+    draftDescription,
+    draftIsActive,
+    draftTitle,
+    isDirty,
+    persistFormSettings,
+    saving,
+  ]);
 
   const openEditModal = (response: FormResponse | ParticipantSurveyResponse) => {
     setEditingResponse(response);
