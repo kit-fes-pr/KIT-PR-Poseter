@@ -135,6 +135,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const [draftIsActive, setDraftIsActive] = useState(true);
   const [carUsageVisibleFromGrade, setCarUsageVisibleFromGrade] = useState('1');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [isDirty, setIsDirty] = useState(false);
   const [editingResponse, setEditingResponse] = useState<
     (FormResponse | ParticipantSurveyResponse) | null
   >(null);
@@ -142,6 +143,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const [editSaving, setEditSaving] = useState(false);
   const hasLoadedFormRef = useRef(false);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftSnapshotRef = useRef('');
+  const savedSnapshotRef = useRef('');
   const responsesCardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -185,24 +188,72 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   );
   useEffect(() => {
     if (currentForm) {
+      const nextCarUsageVisibleFromGrade =
+        currentForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade ===
+        undefined
+          ? '1'
+          : String(
+              normalizeGrade(
+                currentForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade,
+              ),
+            );
+
+      savedSnapshotRef.current = JSON.stringify({
+        title: currentForm.title,
+        description: currentForm.description || '',
+        isActive: currentForm.isActive,
+        carUsageVisibleFromGrade: nextCarUsageVisibleFromGrade,
+      });
+      setSaveStatus('saved');
+
       setDraftTitle(currentForm.title);
       setDraftDescription(currentForm.description || '');
       setDraftIsActive(currentForm.isActive);
-      const carUsageField = currentForm.fields.find((field) => field.fieldId === 'carUsage');
-      setCarUsageVisibleFromGrade(
-        carUsageField?.visibleFromGrade === undefined
-          ? '1'
-          : String(normalizeGrade(carUsageField.visibleFromGrade)),
-      );
+      setCarUsageVisibleFromGrade(nextCarUsageVisibleFromGrade);
+      if (!hasLoadedFormRef.current) {
+        setIsDirty(false);
+      }
       hasLoadedFormRef.current = true;
     } else {
+      savedSnapshotRef.current = '';
+      setSaveStatus('saved');
       setDraftTitle(DEFAULT_TITLE);
       setDraftDescription(DEFAULT_DESCRIPTION);
       setDraftIsActive(true);
       setCarUsageVisibleFromGrade('1');
+      setIsDirty(false);
       hasLoadedFormRef.current = true;
     }
   }, [currentForm]);
+
+  useEffect(() => {
+    draftSnapshotRef.current = JSON.stringify({
+      title: draftTitle.trim(),
+      description: draftDescription.trim(),
+      isActive: draftIsActive,
+      carUsageVisibleFromGrade,
+    });
+  }, [carUsageVisibleFromGrade, draftDescription, draftIsActive, draftTitle]);
+
+  const handleDraftTitleChange = (value: string) => {
+    setDraftTitle(value);
+    setIsDirty(true);
+  };
+
+  const handleDraftDescriptionChange = (value: string) => {
+    setDraftDescription(value);
+    setIsDirty(true);
+  };
+
+  const handleCarUsageVisibleFromGradeChange = (value: string) => {
+    setCarUsageVisibleFromGrade(value);
+    setIsDirty(true);
+  };
+
+  const handleDraftIsActiveChange = (value: boolean) => {
+    setDraftIsActive(value);
+    setIsDirty(true);
+  };
 
   const loadDashboard = async () => {
     if (!resolvedParams || !user) return;
@@ -337,6 +388,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       setForms([data.form as FormRecord]);
       setResponses([]);
       setActiveTab('content');
+      setIsDirty(false);
+      setSaveStatus('saved');
     } catch (err) {
       console.error(err);
       setError('フォームの作成に失敗しました');
@@ -348,6 +401,8 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
   const persistFormSettings = useCallback(
     async (silent = false) => {
       if (!resolvedParams || !user || !currentForm) return;
+
+      const snapshotAtRequest = draftSnapshotRef.current;
 
       try {
         setSaving(true);
@@ -400,6 +455,23 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         const nextForm = data.form as FormRecord;
         setForms([nextForm]);
         setSaveStatus('saved');
+        savedSnapshotRef.current = JSON.stringify({
+          title: nextForm.title,
+          description: nextForm.description || '',
+          isActive: nextForm.isActive,
+          carUsageVisibleFromGrade:
+            nextForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade ===
+            undefined
+              ? '1'
+              : String(
+                  normalizeGrade(
+                    nextForm.fields.find((field) => field.fieldId === 'carUsage')?.visibleFromGrade,
+                  ),
+                ),
+        });
+        if (draftSnapshotRef.current === snapshotAtRequest) {
+          setIsDirty(false);
+        }
       } catch (err) {
         console.error(err);
         setError('フォームの更新に失敗しました');
@@ -422,6 +494,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
 
   useEffect(() => {
     if (!currentForm || !hasLoadedFormRef.current) return;
+    if (!isDirty) return;
+    if (saving) return;
+    if (draftSnapshotRef.current === savedSnapshotRef.current) return;
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
     }
@@ -435,7 +510,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [currentForm, persistFormSettings]);
+  }, [currentForm, isDirty, persistFormSettings, saving]);
 
   const openEditModal = (response: FormResponse | ParticipantSurveyResponse) => {
     setEditingResponse(response);
@@ -728,7 +803,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
         <input
           type="checkbox"
           checked={draftIsActive}
-          onChange={(e) => setDraftIsActive(e.target.checked)}
+          onChange={(e) => handleDraftIsActiveChange(e.target.checked)}
           className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
         />
         フォームを公開する
@@ -774,7 +849,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                     <input
                       id="title"
                       value={draftTitle}
-                      onChange={(e) => setDraftTitle(e.target.value)}
+                      onChange={(e) => handleDraftTitleChange(e.target.value)}
                       className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
                       placeholder="例: 工大祭準備に関するアンケート"
                     />
@@ -791,7 +866,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                       id="description"
                       rows={4}
                       value={draftDescription}
-                      onChange={(e) => setDraftDescription(e.target.value)}
+                      onChange={(e) => handleDraftDescriptionChange(e.target.value)}
                       className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
                       placeholder="フォームの目的や注意事項を記載してください"
                     />
@@ -807,7 +882,7 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                     <select
                       id="car-usage-visible-from-grade"
                       value={carUsageVisibleFromGrade}
-                      onChange={(e) => setCarUsageVisibleFromGrade(e.target.value)}
+                      onChange={(e) => handleCarUsageVisibleFromGradeChange(e.target.value)}
                       className="mt-1 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none ring-0 focus:border-indigo-500"
                     >
                       <option value="0">車を利用しない</option>
@@ -964,10 +1039,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
               <FormContentTab
                 draftTitle={draftTitle}
                 draftDescription={draftDescription}
-                onDraftTitleChange={setDraftTitle}
-                onDraftDescriptionChange={setDraftDescription}
+                onDraftTitleChange={handleDraftTitleChange}
+                onDraftDescriptionChange={handleDraftDescriptionChange}
                 carUsageVisibleFromGrade={carUsageVisibleFromGrade}
-                onCarUsageVisibleFromGradeChange={setCarUsageVisibleFromGrade}
+                onCarUsageVisibleFromGradeChange={handleCarUsageVisibleFromGradeChange}
                 previewFields={currentForm.fields}
                 availabilityChoices={availabilityChoiceKeys}
               />

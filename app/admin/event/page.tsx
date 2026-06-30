@@ -134,15 +134,15 @@ export default function AdminEventIndex() {
                 {events.map((ev) => (
                   <div
                     key={ev.id as string}
-                    className="relative border border-gray-200 rounded-lg p-4 bg-white transition transform duration-150 ease-out hover:shadow-md hover:-translate-y-0.5 md:hover:shadow-lg md:hover:-translate-y-1 active:translate-y-0 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500"
+                    className="group relative border border-gray-200 rounded-lg bg-white p-4 transition transform duration-150 ease-out hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500 md:hover:-translate-y-1 md:hover:shadow-lg"
                   >
                     <Link
                       href={`/admin/event/${ev.year}`}
-                      className="absolute inset-0 z-0 rounded-lg after:absolute after:inset-0 after:content-['']"
+                      className="absolute inset-0 z-10 rounded-lg"
                       aria-label={`${String(ev.year)} 年度を開く`}
                     />
-                    <div className="relative z-10 flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
+                    <div className="relative z-0 flex items-start justify-between gap-3">
+                      <div className="pointer-events-none min-w-0 flex-1">
                         <p className="text-base font-semibold">{String(ev.year)} 年度</p>
                         <p className="text-sm text-gray-500">
                           {String(ev.eventName) || '学外配布'} /{' '}
@@ -156,10 +156,12 @@ export default function AdminEventIndex() {
                           })()}
                         </p>
                       </div>
-                      <div className="relative z-10 shrink-0" data-menu-root>
+                      <div className="relative z-20 shrink-0 pointer-events-auto" data-menu-root>
                         <button
                           className="px-2 py-1 border rounded text-sm"
                           onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setMenuEventId(menuEventId === ev.id ? null : (ev.id as string));
                           }}
                           aria-label="メニュー"
@@ -172,20 +174,27 @@ export default function AdminEventIndex() {
                             <Link
                               href={`/admin/event/${ev.year}`}
                               className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={() => setMenuEventId(null)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuEventId(null);
+                              }}
                             >
                               開く
                             </Link>
                             <Link
                               href="/admin/event/areas"
                               className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                              onClick={() => setMenuEventId(null)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuEventId(null);
+                              }}
                             >
                               配布区域
                             </Link>
                             <button
                               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                              onClick={() => {
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 setEditTarget(ev);
                                 const parse = (v: Record<string, unknown>) =>
                                   (v?._seconds as number)
@@ -194,13 +203,15 @@ export default function AdminEventIndex() {
                                 const s = ev.distributionStartDate
                                   ? parse(ev.distributionStartDate as Record<string, unknown>)
                                   : null;
-                                const e = ev.distributionEndDate
+                                const endDate = ev.distributionEndDate
                                   ? parse(ev.distributionEndDate as Record<string, unknown>)
                                   : null;
                                 setEditForm({
                                   eventName: String(ev.eventName) || '',
                                   distributionStartDate: s ? s.toISOString().slice(0, 10) : '',
-                                  distributionEndDate: e ? e.toISOString().slice(0, 10) : '',
+                                  distributionEndDate: endDate
+                                    ? endDate.toISOString().slice(0, 10)
+                                    : '',
                                 });
                                 setIsEditing(true);
                                 setMenuEventId(null);
