@@ -29,9 +29,11 @@ export function useRequireAdmin(options: UseRequireAdminOptions = {}) {
 
   useEffect(() => {
     let isMounted = true;
-    let authVerified = false;
 
-    const verifyToken = async (token: string, currentUser?: User, isCached = false) => {
+    // onAuthStateChanged に一本化することで /api/auth/verify への重複リクエストを防ぐ。
+    // Firebase Auth は IndexedDB のローカルキャッシュからユーザー情報を迅速に復元するため、
+    // キャッシュトークンの即時検証を分ける必要はない。
+    const verifyToken = async (token: string, currentUser: User) => {
       try {
         const response = await retryOperation(
           () =>
@@ -39,44 +41,35 @@ export function useRequireAdmin(options: UseRequireAdminOptions = {}) {
               headers: { Authorization: `Bearer ${token}` },
               signal: AbortSignal.timeout(5000),
             }),
-          `require-admin-verify-${isCached ? 'cached' : 'fresh'}`,
+          'require-admin-verify',
           { maxRetries: 2 },
         );
 
         if (!response.ok) {
-          if (!isCached && isMounted) {
+          if (isMounted) {
             localStorage.removeItem('authToken');
             handleRedirect('/admin/login');
           }
-          return false;
+          return;
         }
 
         const data = await response.json();
         if (!data?.user?.isAdmin) {
-          if (!isCached && isMounted) {
+          if (isMounted) {
             localStorage.removeItem('authToken');
             handleRedirect('/admin/login');
           }
-          return false;
+          return;
         }
 
         if (isMounted) {
           localStorage.setItem('authToken', token);
-          if (currentUser) {
-            setUser(currentUser);
-          }
+          setUser(currentUser);
           setIsAdmin(true);
           setError(null);
           setLoading(false);
         }
-        return true;
       } catch (err) {
-        if (isCached) {
-          // If cached verification fails due to error, we do not redirect yet.
-          // We wait for onAuthStateChanged to check if there is a valid Firebase session.
-          return false;
-        }
-
         const diagnosis = handleError(err, 'require-admin-verify');
         if (isMounted) {
           if (diagnosis.type === 'auth') {
@@ -88,22 +81,8 @@ export function useRequireAdmin(options: UseRequireAdminOptions = {}) {
             setError('システムエラーが発生しました');
           }
         }
-        return false;
       }
     };
-
-    // Fast path: if token is cached, try to verify it immediately
-    const verifyCachedToken = async () => {
-      const cachedToken = localStorage.getItem('authToken');
-      if (!cachedToken) return;
-
-      const success = await verifyToken(cachedToken, undefined, true);
-      if (success) {
-        authVerified = true;
-      }
-    };
-
-    verifyCachedToken();
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
@@ -117,16 +96,9 @@ export function useRequireAdmin(options: UseRequireAdminOptions = {}) {
         return;
       }
 
-      // If already verified using cached token, just update the User object and stop loading
-      if (authVerified && isMounted) {
-        setUser(currentUser);
-        setLoading(false);
-        return;
-      }
-
       try {
         const token = await currentUser.getIdToken();
-        await verifyToken(token, currentUser, false);
+        await verifyToken(token, currentUser);
       } catch (err) {
         console.error('Failed to get token:', err);
         if (isMounted) {
