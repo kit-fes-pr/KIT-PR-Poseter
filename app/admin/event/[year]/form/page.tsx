@@ -164,7 +164,9 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
     () => buildFixedFields(availabilityChoiceKeys),
     [availabilityChoiceKeys],
   );
-  const previewValues = useMemo(() => buildPreviewValues(fixedFields), [fixedFields]);
+  const [previewValues, setPreviewValues] = useState<Record<string, string | string[]>>(() =>
+    buildPreviewValues(fixedFields),
+  );
   const visiblePreviewFields = useMemo(
     () =>
       fixedFields.filter(
@@ -225,6 +227,10 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
       hasLoadedFormRef.current = true;
     }
   }, [currentForm]);
+
+  useEffect(() => {
+    setPreviewValues(buildPreviewValues(fixedFields));
+  }, [fixedFields]);
 
   useEffect(() => {
     draftSnapshotRef.current = JSON.stringify({
@@ -932,7 +938,16 @@ export default function FormDashboardPage({ params }: { params: Promise<{ year: 
                       key={field.fieldId}
                       className="rounded-2xl border border-gray-200 bg-gray-50 p-5"
                     >
-                      <SurveyFieldBlock field={field} value={previewValues[field.fieldId]} />
+                      <SurveyFieldBlock
+                        field={field}
+                        value={previewValues[field.fieldId]}
+                        onValueChange={(value) => {
+                          setPreviewValues((current) => ({
+                            ...current,
+                            [field.fieldId]: value,
+                          }));
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
